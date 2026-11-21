@@ -531,3 +531,80 @@ describe("TC-TST-SEED-006-009 the re-check runs under the migration lock (INF-SE
     expect(disallowedStatements(statements)).toEqual([]);
   });
 });
+
+describe("TC-TST-SEED-006-010 uncommitted after the retry budget is spent (DB-SEED-002 (3), REL-DB-001, SPEC-150 section 11)", () => {
+  it("TC-TST-SEED-006-010 the COMMIT wait alone outlasts the 5 second budget: the re-check finds it uncommitted, FAILED without a retry", async () => {
+    const statements: string[] = [];
+    // The deadline (5.2 s) is longer than the 55P03 retry budget (5 s): by the time the re-check
+    // decides "uncommitted", the budget measured from the first attempt is already spent.
+    const { run, logs, fired } = await seedThroughProxy("rollback_for_commit", {
+      statements,
+      transactionDeadlineMs: 5200,
+      delayMs: 8000,
+    });
+    const outcome = shape(run.outcome);
+    expect(fired).toBe(1);
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      failureClass: "TEMPORARY_FAILURE",
+      errorCode: "DATABASE_TEMPORARY_FAILURE",
+    });
+    expect(outcomeExitCode(run.outcome as never)).toBe(2);
+    expect(await counts()).toEqual({ events: 0, offerings: 0, audits: 0 });
+    expect(named(logs, OPENED)).toHaveLength(1);
+    expect(named(logs, RESOLVED)[0]).toMatchObject({
+      result: "FAILED",
+      failure_class: "TEMPORARY_FAILURE",
+    });
+    // No second seed transaction: one Event INSERT in total, and no retry record.
+    expect(named(logs, RETRY_ATTEMPTED)).toHaveLength(0);
+    expect(insertedTables(statements).filter((table) => table === "app.events")).toHaveLength(1);
+    expect(disallowedStatements(statements)).toEqual([]);
+  }, 120_000);
+});
+
+describe("TC-TST-SEED-006-011 the re-check transaction runs within the transaction deadline (DB-SEED-002 (4), SPEC-150 section 9, INF-SEED-004)", () => {
+  it("TC-TST-SEED-006-011 a re-check read that waits past the deadline (but within the lock timeout) ends in UNKNOWN_RESULT, not a late verdict", async () => {
+    const holder = new Client({ connectionString: url });
+    await holder.connect();
+    const statements: string[] = [];
+    let held = false;
+    let release: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const { run, logs, fired } = await seedThroughProxy("drop_request", {
+        statements,
+        // 600 ms per transaction; the re-check's Audit Event read waits up to 900 ms, shorter than the
+        // 1 s lock timeout and the 5 s statement timeout, so only the deadline can stop it.
+        transactionDeadlineMs: 600,
+        connect: async (wrap) => {
+          if (!held) {
+            held = true;
+            await holder.query("BEGIN");
+            await holder.query("LOCK TABLE app.audit_events IN ACCESS EXCLUSIVE MODE");
+            release = setTimeout(() => {
+              void holder.query("ROLLBACK").catch(() => {});
+            }, 900);
+          }
+          return wrap(await connectAs("app_migrator"));
+        },
+      });
+      const outcome = shape(run.outcome);
+      expect(fired).toBe(1);
+      expect(outcome.outcome).toBe("UNKNOWN_RESULT");
+      expect(outcome.errorCode).toBe("COMMIT_RESULT_UNKNOWN");
+      expect(outcomeExitCode(run.outcome as never)).toBe(3);
+      // The re-check did start its read, and decided nothing from it.
+      expect(statements.some((text) => AUDIT_RECHECK.test(text))).toBe(true);
+      expect(named(logs, OPENED)).toHaveLength(1);
+      expect(named(logs, RESOLVED)).toHaveLength(0);
+      expect(named(logs, RETRY_ATTEMPTED)).toHaveLength(0);
+      expect(insertedTables(statements).filter((table) => table === "app.events")).toHaveLength(1);
+      expect(disallowedStatements(statements)).toEqual([]);
+    } finally {
+      if (release) clearTimeout(release);
+      await holder.query("ROLLBACK").catch(() => {});
+      await endQuietly(holder);
+    }
+    expect(await counts()).toEqual({ events: 0, offerings: 0, audits: 0 });
+  });
+});
