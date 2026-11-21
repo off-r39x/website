@@ -39,6 +39,10 @@ export type PublicEntryOfferingRecord = {
   saleControlState: "ENABLED" | "SUSPENDED";
   purchaseLimit: number;
   hasRemainingCapacity: boolean;
+  /** `statement_timestamp() < sales_starts_at`, judged by the database. */
+  salesNotStarted: boolean;
+  /** `statement_timestamp() >= sales_ends_at`, judged by the database. */
+  salesClosed: boolean;
 };
 export type PublicSponsorLogoRecord = {
   publicRef: string;
@@ -75,7 +79,7 @@ export interface PublicContentStore {
     | { status: "unavailable" }
   >;
   listEntryOfferings(): Promise<
-    | { status: "ok"; now: string; items: PublicEntryOfferingRecord[] }
+    | { status: "ok"; items: PublicEntryOfferingRecord[] }
     | { status: "multiple_events" }
     | { status: "unavailable" }
   >;
@@ -96,7 +100,9 @@ export type PublicReadResult<T> =
   | { kind: "inconsistent" }
   | { kind: "database_unavailable" }
   /** A row the public contract cannot represent (API-PUB-READ-006): never guessed, skipped or sent. */
-  | { kind: "invalid_row" };
+  | { kind: "invalid_row" }
+  /** The Sponsor Logo image origin allowlist is not configured validly (SPEC-180 §13.2): nothing was read. */
+  | { kind: "misconfigured" };
 
 export type AnnouncementSummaryRecord = {
   publicRef: string;
@@ -183,22 +189,18 @@ export async function listEntryOfferings(
   const result = await store.listEntryOfferings();
   if (result.status === "multiple_events") return { kind: "inconsistent" };
   if (result.status === "unavailable") return { kind: "database_unavailable" };
-  // An instant the sales state cannot be judged from ('infinity', for example) makes the row invalid
-  // (API-PUB-READ-006, a 503), not a 500 from the domain rule and never a guessed state.
+  // An instant the response cannot carry ('infinity', for example) makes the row invalid
+  // (API-PUB-READ-006, a 503), never a guessed state. The period itself was judged by the database.
   const readable = (value: string) => Number.isFinite(Date.parse(value));
-  if (
-    !readable(result.now) ||
-    result.items.some((item) => !readable(item.salesStartsAt) || !readable(item.salesEndsAt))
-  )
+  if (result.items.some((item) => !readable(item.salesStartsAt) || !readable(item.salesEndsAt)))
     return { kind: "invalid_row" };
   return {
     kind: "ok",
     data: result.items.map((item) => ({
       ...item,
       ...evaluatePublicEntryAvailability({
-        now: result.now,
-        salesStartsAt: item.salesStartsAt,
-        salesEndsAt: item.salesEndsAt,
+        salesNotStarted: item.salesNotStarted,
+        salesClosed: item.salesClosed,
         saleControlState: item.saleControlState,
         hasRemainingCapacity: item.hasRemainingCapacity,
         purchaseRouteMounted: options.purchaseRouteMounted,
@@ -207,12 +209,27 @@ export async function listEntryOfferings(
   };
 }
 
+/**
+ * API-PUB-012 / SEC-WEB-026: every image origin must be in the environment allowlist (`imageOrigins`,
+ * normalised exact HTTPS origins; `undefined` is an absent or invalid setting). One row outside it fails
+ * the whole Operation (`invalid_row`), never a skipped row or an empty success. `link_url` is not matched.
+ */
 export async function listPublishedSponsorLogos(
   store: PublicContentStore,
+  options: { imageOrigins: readonly string[] | undefined },
 ): Promise<PublicReadResult<PublicSponsorLogoRecord[]>> {
+  const { imageOrigins } = options;
+  if (imageOrigins === undefined) return { kind: "misconfigured" };
   const result = await store.listPublishedSponsorLogos();
-  if (result.status === "ok") return { kind: "ok", data: result.items };
-  return result.status === "multiple_events"
-    ? { kind: "inconsistent" }
-    : { kind: "database_unavailable" };
+  if (result.status === "multiple_events") return { kind: "inconsistent" };
+  if (result.status === "unavailable") return { kind: "database_unavailable" };
+  const allowed = (imageUrl: string) => {
+    try {
+      return imageOrigins.includes(new URL(imageUrl).origin);
+    } catch {
+      return false;
+    }
+  };
+  if (result.items.some((item) => !allowed(item.imageUrl))) return { kind: "invalid_row" };
+  return { kind: "ok", data: result.items };
 }

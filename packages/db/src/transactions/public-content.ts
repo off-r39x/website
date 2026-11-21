@@ -1,8 +1,9 @@
 // SPEC-100 §55: read-only modules for the public content (API-PUB-001..005, API-PUB-012; SPEC-110 §26.1).
 // One use case per function, database work only. Every function is exactly one plain statement on the
 // pool (an autocommit statement is one snapshot; DEV-DB-008): no transaction, no write, no row lock.
-// The rows, the Event count and, for the Entry read, the judgement time all come out of that one
-// statement, so they are mutually consistent.
+// The rows, the Event count and, for the Entry read, the sales period judgement (statement_timestamp()
+// compared with the timestamptz columns, microseconds kept) all come out of that one statement, so they
+// are mutually consistent.
 //
 // The "current Event" is the only Event there is (SPEC-100 DB-SEED-001, DB-SEED-007): the statements read
 // at most two Events to learn whether there are 0, 1 or 2 or more, and select content rows only when
@@ -60,6 +61,10 @@ export type PublicEntryOfferingRow = {
   purchaseLimit: number;
   /** `sales_capacity - held_quantity - committed_quantity > 0`. The counters themselves never leave here. */
   hasRemainingCapacity: boolean;
+  /** `statement_timestamp() < sales_starts_at`, judged in SQL on timestamptz (API-PUB-005). */
+  salesNotStarted: boolean;
+  /** `statement_timestamp() >= sales_ends_at`, judged in SQL on timestamptz (API-PUB-005). */
+  salesClosed: boolean;
 };
 export type PublicSponsorLogoRow = {
   publicRef: string;
@@ -84,12 +89,7 @@ export type PublicAnnouncementRead =
   | { status: "multiple_events" }
   | { status: "unavailable" };
 export type PublicEntryOfferingsRead =
-  | {
-      status: "ok";
-      /** The database clock of the same statement. */
-      now: IsoUtc;
-      items: PublicEntryOfferingRow[];
-    }
+  | { status: "ok"; items: PublicEntryOfferingRow[] }
   | { status: "multiple_events" }
   | { status: "unavailable" };
 
@@ -301,11 +301,11 @@ export function createPublicContentRepository(pool: Pool) {
 
     /**
      * API-PUB-005. Order: `created_at ASC, public_ref ASC`. The judgement time is the statement's own
-     * `statement_timestamp()`, so the capacity flag and the time are one snapshot (API-PUB-005 販売状態).
+     * `statement_timestamp()`, compared with the timestamptz columns in the same statement (not rounded to
+     * milliseconds), so the capacity flag and the period flags are one snapshot (API-PUB-005 販売状態).
      */
     async listEntryOfferings(): Promise<PublicEntryOfferingsRead> {
       type Row = EventCount & {
-        statement_time: string;
         public_ref: string | null;
         name: string | null;
         description: string | null;
@@ -316,6 +316,8 @@ export function createPublicContentRepository(pool: Pool) {
         sale_control_state: "ENABLED" | "SUSPENDED" | null;
         purchase_limit: number | null;
         has_remaining_capacity: boolean | null;
+        sales_not_started: boolean | null;
+        sales_closed: boolean | null;
       };
       const rows = await run<Row>(sql`
         WITH ${EVENT_SCOPE},
@@ -326,23 +328,23 @@ export function createPublicContentRepository(pool: Pool) {
             e.sale_control_state AS sale_control_state, e.purchase_limit AS purchase_limit,
             (e.sales_capacity::bigint - e.held_quantity - e.committed_quantity) > 0
               AS has_remaining_capacity,
+            statement_timestamp() < e.sales_starts_at AS sales_not_started,
+            statement_timestamp() >= e.sales_ends_at AS sales_closed,
             e.created_at AS created_at
           FROM app.entry_ticket_offerings e
           WHERE ${IN_EVENT}
         )
-        SELECT cnt.event_count AS event_count, statement_timestamp()::text AS statement_time,
+        SELECT cnt.event_count AS event_count,
           pub.public_ref::text AS public_ref, pub.name AS name, pub.description AS description,
           pub.unit_amount::text AS unit_amount, pub.currency AS currency,
           pub.sales_starts_at::text AS sales_starts_at, pub.sales_ends_at::text AS sales_ends_at,
           pub.sale_control_state AS sale_control_state, pub.purchase_limit AS purchase_limit,
-          pub.has_remaining_capacity AS has_remaining_capacity
+          pub.has_remaining_capacity AS has_remaining_capacity,
+          pub.sales_not_started AS sales_not_started, pub.sales_closed AS sales_closed
         FROM cnt LEFT JOIN pub ON true
         ORDER BY pub.created_at ASC, pub.public_ref ASC`);
       if (!rows) return { status: "unavailable" };
       if (rows.some((row) => row.event_count > 1)) return { status: "multiple_events" };
-      // `cnt` is always one row, so there is always a statement time (also with 0 Events or 0 Offerings).
-      const first = rows[0];
-      if (!first) throw new Error("The Entry Offering statement answered no row");
       const items: PublicEntryOfferingRow[] = [];
       for (const row of rows)
         if (row.public_ref !== null)
@@ -357,8 +359,10 @@ export function createPublicContentRepository(pool: Pool) {
             saleControlState: present(row.sale_control_state),
             purchaseLimit: present(row.purchase_limit),
             hasRemainingCapacity: present(row.has_remaining_capacity),
+            salesNotStarted: present(row.sales_not_started),
+            salesClosed: present(row.sales_closed),
           });
-      return { status: "ok", now: iso(first.statement_time), items };
+      return { status: "ok", items };
     },
 
     /** API-PUB-012. Order: `sort_order ASC, public_ref ASC`. */

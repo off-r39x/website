@@ -44,6 +44,8 @@ import {
 export interface PublicRouteDependencies {
   readonly app: {
     readonly publicContent?: PublicContentStore | undefined;
+    /** SEC-WEB-026: the normalised Sponsor Logo image origin allowlist; absent or undefined fails API-PUB-012 closed. */
+    readonly sponsorImageOrigins?: readonly string[] | undefined;
   };
 }
 
@@ -66,7 +68,8 @@ function unwrap<T>(result: PublicReadResult<T>): T {
   if (result.kind === "ok") return result.data;
   if (result.kind === "not_found") throw new ApiFailure("RESOURCE_NOT_FOUND");
   if (result.kind === "inconsistent") throw new ApiFailure("INTERNAL_ERROR");
-  if (result.kind === "invalid_row") throw new ApiFailure("TEMPORARY_UNAVAILABLE");
+  if (result.kind === "invalid_row" || result.kind === "misconfigured")
+    throw new ApiFailure("TEMPORARY_UNAVAILABLE");
   throw new ApiFailure("DATABASE_TEMPORARY_FAILURE");
 }
 
@@ -80,7 +83,7 @@ function checked<S extends z.ZodType>(schema: S, dto: unknown): z.output<S> {
 }
 
 export function createPublicRoutes(dependencies: PublicRouteDependencies) {
-  const { publicContent } = dependencies.app;
+  const { publicContent, sponsorImageOrigins } = dependencies.app;
   const purchaseRouteMounted = isEntryPurchaseMounted(ROUTES);
   // Fail closed when the store is missing; runs before the Query is validated.
   const guard: MiddlewareHandler<ApiEnvironment> = async (_c, next) => {
@@ -173,7 +176,9 @@ export function createPublicRoutes(dependencies: PublicRouteDependencies) {
     },
     sponsorLogos: {
       load: async (): Promise<PublicSponsorLogoList> => {
-        const logos = unwrap(await listPublishedSponsorLogos(store()));
+        const logos = unwrap(
+          await listPublishedSponsorLogos(store(), { imageOrigins: sponsorImageOrigins }),
+        );
         return checked(publicSponsorLogoListSchema, {
           items: logos.map((logo) => ({
             logo_ref: logo.publicRef,

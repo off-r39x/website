@@ -2901,9 +2901,16 @@
         "scripts/generate-web-headers.mts",
         "apps/web/src/presentation/layout/sponsor-logos.tsx",
         "apps/web/src/presentation/layout/sponsor-area-model.ts",
-        "apps/web/src/features/shell/site-footer.tsx"
+        "apps/web/src/features/shell/site-footer.tsx",
+        "packages/config/src/index.ts",
+        "apps/api/src/api/app.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/bootstrap/index.ts"
       ],
       "test_case_ids": [
+        "TC-API-006-104",
+        "TC-API-006-105",
         "TC-PG-PUB-001-213",
         "TC-STACK-008-203",
         "TC-STACK-008-204",
@@ -2911,7 +2918,7 @@
         "TC-PG-PUB-001-406",
         "TC-PG-PUB-001-232"
       ],
-      "notes": "implementation mapping only: Sponsor image origin validation for img-src, no-referrer images and the name fallback for a CSP-blocked image, and https-only images outside the UI mock (a same-origin path only from the mock build flag); the Sponsor image and link URL shape (absolute https, no userinfo, non-standard port, query, fragment, IP literal, localhost or .local host, or control character) is re-checked in the UI as defence in depth because the external link is not covered by the CSP; the image origin allowlist stays with the CSP img-src; not API URL validation (SPEC-140)"
+      "notes": "implementation mapping only: Sponsor image origin validation for img-src, no-referrer images and the name fallback for a CSP-blocked image, and https-only images outside the UI mock (a same-origin path only from the mock build flag); the Sponsor image and link URL shape (absolute https, no userinfo, non-standard port, query, fragment, IP literal, localhost or .local host, or control character) is re-checked in the UI as defence in depth because the external link is not covered by the CSP; the image origin allowlist (SPONSOR_IMAGE_ALLOWED_ORIGINS) is normalised by one rule for the CSP img-src and for the API, which refuses API-PUB-012 with a 503 when a PUBLISHED Logo image origin is outside it or the setting is invalid"
     },
     {
       "rule_id": "DB-ARC-001",
@@ -5714,6 +5721,9 @@
         "apps/api/src/api/routes/public.ts",
         "apps/api/src/api/services/public-content.ts",
         "apps/api/src/api/routes.ts",
+        "apps/api/src/api/app.ts",
+        "apps/api/src/bootstrap/index.ts",
+        "packages/config/src/index.ts",
         "packages/db/src/transactions/public-content.ts"
       ],
       "test_case_ids": [
@@ -5721,6 +5731,8 @@
         "TC-API-006-101",
         "TC-API-006-102",
         "TC-API-006-103",
+        "TC-API-006-104",
+        "TC-API-006-105",
         "TC-API-009-004",
         "TC-API-009-005",
         "TC-API-009-008"

@@ -51,6 +51,8 @@ export interface AppDependencies {
   profiles?: CurrentProfileStore;
   /** API-PUB-001..005, 012. Absent => all six fail closed (503). */
   publicContent?: PublicContentStore;
+  /** SEC-WEB-026 / SPEC-180 §13.2. Absent or undefined (an invalid setting) => API-PUB-012 fails closed (503). */
+  sponsorImageOrigins?: readonly string[] | undefined;
 }
 const EXPOSED_HEADERS = "X-Request-Id, Retry-After";
 export function createApp(dependencies: AppDependencies) {

@@ -87,6 +87,7 @@ export function bootstrap(
     auth: { verifier, store: principals },
     profiles: createCurrentProfileRepository(database.pool),
     publicContent: createPublicContentRepository(database.pool),
+    sponsorImageOrigins: config.sponsorImageOrigins,
     ...(authProxy ? { authProxy } : {}),
     rateLimit: {
       limiter,

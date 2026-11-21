@@ -49,7 +49,8 @@ const HTTPS_AUTHORITY_PREFIX = /^https:\/\//i;
  * parser normalises 443 away), no query or fragment, no IP literal, no `localhost` / `*.localhost` /
  * `*.local` host, no control character. The host is the parser's normalised ASCII form (lower case,
  * punycode, IPv4 in dotted decimal, so `0x7f.1` and `2130706433` are caught as IP literals). The same
- * rule as the Web's sponsor area model; the image origin allowlist is the CSP's (`img-src`).
+ * rule as the Web's sponsor area model; the image origin is checked against the
+ * environment allowlist (`SPONSOR_IMAGE_ALLOWED_ORIGINS`, the CSP's `img-src`) by the API service, not by this schema.
  */
 function isSponsorLogoUrl(value: string): boolean {
   if (UNSAFE_URL_CHARACTERS.test(value) || !HTTPS_AUTHORITY_PREFIX.test(value)) return false;
