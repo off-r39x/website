@@ -65,9 +65,9 @@ pnpm secret-scan --build-dir dist --require-build
 
 Worker の停止は、新規処理を止めて協調終了を待ち、15秒を超えれば接続破棄・最大2秒の後処理を経て process を非0終了する。未完了の外部結果を成功や確定失敗へ書き換えない。
 
-## 一覧 cursor の署名鍵（UCR-180-002）
+## 一覧 cursor の署名鍵（UCR-180-002、UCR-180-004）
 
-- 変数は API service だけに置く。`LIST_CURSOR_HMAC_KEY`（Secret、Railway Sealed Variable。32 byte の乱数を padding 付き標準 base64 にした 44 文字）と `LIST_CURSOR_HMAC_KEY_VERSION`（1〜2147483647 の 10 進数。先頭の 0 は不可）。`api` の service variable にし、shared variable にしない。
+- 変数は API service だけに置く。`LIST_CURSOR_HMAC_KEY`（Secret、Railway Sealed Variable。32 byte の乱数を padding 付き標準 base64 にした 44 文字）と `LIST_CURSOR_HMAC_KEY_VERSION`（1〜2147483647 の 10 進数の正規形。先頭の 0、符号、空白、小数点、指数表記は不可。日時を埋め込んだ `202611211530` のような値は上限を超えるので使えない。SPEC-180 v2.7.0 §28.3、`UCR-180-004`）。`api` の service variable にし、shared variable にしない。
 - 欠落・形式不正では API の起動に失敗し、Ready にならない（`INF-SEC-007`）。署名しない cursor、固定値・既定値、他の鍵の流用・導出への fallback はない。他の Secret との値の一致は検査しないので、環境ごと・用途ごとに新しく発行し、他の鍵をコピーしない（環境ごと: `SEC-KEY-004`、用途・他の Secret との非共有: `INF-SEC-007` / `SEC-KEY-003`）。
 - Email Worker / Reconciliation Worker に `LIST_CURSOR_HMAC_KEY` を置くと、その worker の起動を拒否する（`INF-SEC-003`）。`LIST_CURSOR_HMAC_KEY_VERSION` は Secret ではないので拒否しない（`RATE_LIMIT_HMAC_KEY_VERSION` と同じ）。
 - rotation では鍵と version を同時に替える。grace はなく、旧 cursor は `400` になる。

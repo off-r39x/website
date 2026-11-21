@@ -60,7 +60,7 @@ describe("list cursor key startup validation (INF-SEC-007, API-QRY-005)", () => 
       );
   });
 
-  it("TC-INF-SEC-007-003 a missing or non-positive-integer LIST_CURSOR_HMAC_KEY_VERSION is a startup failure", () => {
+  it("TC-INF-SEC-007-003 a missing, non-canonical or out-of-range (over 2147483647) LIST_CURSOR_HMAC_KEY_VERSION is a startup failure", () => {
     const bad = [
       undefined,
       "",
@@ -77,6 +77,7 @@ describe("list cursor key startup validation (INF-SEC-007, API-QRY-005)", () => 
       "0x1",
       "one",
       "2147483648",
+      "202611211530",
       "99999999999999999999",
     ];
     for (const value of bad)
