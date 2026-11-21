@@ -27727,7 +27727,7 @@
         "API-PUB-005"
       ],
       "db_constraint_names": [],
-      "preconditions": "createApp with a recording PublicContentStore (AppDependencies.publicContent) with DI fault injection (FP.DB.INSIDE_STATEMENT; PUBLIC.STORE_THROWS and PUBLIC.MULTIPLE_EVENTS are this harness's own injection points, not SPEC-170 Fault Points) and the in-memory rate limit; a stub token verifier and Principal store that must never be called; no database; the Entry judgement time is the store's now (a fixed 2030 instant); no Entry purchase Operation is registered in this release",
+      "preconditions": "createApp with a recording PublicContentStore (AppDependencies.publicContent) with DI fault injection (FP.DB.INSIDE_STATEMENT; PUBLIC.STORE_THROWS and PUBLIC.MULTIPLE_EVENTS are this harness's own injection points, not SPEC-170 Fault Points) and the in-memory rate limit; a stub token verifier and Principal store that must never be called; no database; the store's rows carry the database's salesNotStarted / salesClosed judgement (no `now`); SPONSOR_IMAGE_ALLOWED_ORIGINS reaches createApp as sponsorImageOrigins; no Entry purchase Operation is registered in this release",
       "fixture_ids": [],
       "clock_instant": "2030-06-15T00:00:00.000Z",
       "concurrency_seed": null,
@@ -27740,7 +27740,7 @@
         "API-PUB-001: every nullable column null is answered as null (key present); participant_notices is the stored text, not split. API-PUB-002: faq_ref, question, answer, sort_order only (a negative sort_order is allowed)",
         "API-PUB-003: an item has announcement_ref, title, published_at, excerpt and excerpt_truncated and no body; excerpt: White_Space runs (newlines, tabs, U+3000, U+0085, U+00A0, VT, FF, U+2028, U+2029) become one U+0020, U+FEFF is kept, the ends are trimmed, then at most 100 code points (99, 100, 101; astral characters counted as one; no lone surrogate; trailing white space is not a cut; the cut text is not trimmed again), no ellipsis, excerpt_truncated true only when cut",
         "API-PUB-004: the body is returned as stored; an upper-case UUID is lower-cased before the store is asked; a value that is not a UUID is 400 VALIDATION_FAILED (details null) with no store call and, without the dependency, 503 first; a not_found store result is 404 RESOURCE_NOT_FOUND whose body is identical for a non-public and an unknown ref (apart from request_id) and does not echo the ref",
-        "API-PUB-005: the sales state is derived from the store's now ([start, end): a row ending at now is SALES_CLOSED, one starting at now is in period); without an Entry purchase route an in-period Offering is SALES_STOPPED whether ENABLED, SUSPENDED or without remaining capacity, an earlier or later period keeps SALES_NOT_STARTED / SALES_CLOSED; unit_price.amount keeps 9007199254740993 as a string; no capacity, held, committed, remaining, control state or check-in value is sent",
+        "API-PUB-005: the sales state follows the store's salesNotStarted / salesClosed flags (the database's statement_timestamp() judgement in timestamptz; the period strings and the API clock are not compared), and the flags decide even when both period strings are the same millisecond; without an Entry purchase route an in-period Offering is SALES_STOPPED whether ENABLED, SUSPENDED or without remaining capacity, an earlier or later period keeps SALES_NOT_STARTED / SALES_CLOSED; unit_price.amount keeps 9007199254740993 as a string; no capacity, held, committed, remaining, control state or check-in value is sent",
         "A store row carrying Internal IDs, a state, counters or admin timestamps never reaches the response (the DTO is built field by field)",
         "A row the response schema refuses (published_at NULL or without milliseconds, an upper-case ref, a non-integer or int32-overflowing sort_order, a business_timezone other than Asia/Tokyo, an offset timestamp, a leading-zero or negative amount, a lower-case currency) makes the whole Operation 503 TEMPORARY_UNAVAILABLE (retryable, details null) with no row sent (API-PUB-READ-006)",
         "No token is verified, no Principal is read and no stage 2 evaluation happens whatever Authorization / Cookie says; one rate limit store evaluation (admit: per-IP 20 / 10 s and 120 / 60 s, public_read.global 10000 / 60 s); the 21st request in 10 s is 429 RATE_LIMIT_EXCEEDED with an integer Retry-After and 20 store calls; a rate limit store failure is 503 TEMPORARY_UNAVAILABLE with no public store call",
@@ -27885,6 +27885,70 @@
       "critical": false
     },
     {
+      "test_case_id": "TC-API-006-104",
+      "level": "API",
+      "suite": "api",
+      "upstream_rule_ids": [
+        "TST-API-006",
+        "API-PUB-012",
+        "API-PUB-READ-006",
+        "SEC-WEB-026",
+        "SPEC-110-26",
+        "SPEC-180-13.2"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUB-012"],
+      "db_constraint_names": [],
+      "preconditions": "createApp with a recording PublicContentStore and the sponsorImageOrigins dependency (SPONSOR_IMAGE_ALLOWED_ORIGINS, normalized exact HTTPS origins); synthetic example.test hosts; no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": ["FP.DB.INSIDE_STATEMENT"],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A PUBLISHED Logo whose image_url origin is in the allowlist is 200 (an upper-case host matches the normalized origin); an origin outside it (other host, subdomain, a longer host that starts with the allowed one, a prefix of the host) makes API-PUB-012 as a whole 503 TEMPORARY_UNAVAILABLE with neither the URL nor its host in the body or the log, and one such row among allowed rows is not skipped",
+        "An empty allowlist with no Logo is 200 items: []; with one or more Logos it is 503; with no allowlist dependency (not configured or invalid) it is 503 TEMPORARY_UNAVAILABLE and the store is not read",
+        "link_url is not matched against the allowlist; API-PUB-001..005 are 200 whatever the allowlist is; a database failure is DATABASE_TEMPORARY_FAILURE and two Events are 500 before the allowlist is considered"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": ["no image URL or host in any log line of a refused Logo read"],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-006-105",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "TST-API-006",
+        "API-PUB-012",
+        "SEC-WEB-026",
+        "SPEC-180-13.2",
+        "SPEC-140-22.1"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUB-012"],
+      "db_constraint_names": [],
+      "preconditions": "parseSponsorImageOrigins and parseServerConfig('api') of @off-r39x/config with a synthetic environment; scripts/generate-web-headers.mts run as a child process on a synthetic dist for the equivalence cases; no network, no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "An unset or empty value and [] give an empty array; valid values are normalized (lower case, punycode, :443 removed), de-duplicated in input order and frozen",
+        "A non-JSON value, a non-array, a non-string element, an http, wildcard, IP literal, IPv6, localhost, .local, non-443 port, path, query, fragment or userinfo element makes the whole value undefined without throwing",
+        "For the same raw value the API reading and generate-web-headers accept or refuse the same way and produce the same origins (one setting builds the API check and the Pages img-src)",
+        "parseServerConfig('api') carries sponsorImageOrigins (empty array when unset, the origins when valid) and does not throw on an invalid value, which gives undefined"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
       "test_case_id": "TC-API-009-003",
       "level": "Unit",
       "suite": "unit",
@@ -27901,14 +27965,14 @@
       "system_invariant_ids": [],
       "api_operation_ids": ["API-PUB-005"],
       "db_constraint_names": [],
-      "preconditions": "Pure functions evaluatePublicEntryAvailability (@off-r39x/domain) and isEntryPurchaseMounted (apps/api routes/public.ts); the judgement time is an input (no clock), synthetic 2030 instants; no database",
+      "preconditions": "Pure functions evaluatePublicEntryAvailability (@off-r39x/domain) and isEntryPurchaseMounted (apps/api routes/public.ts); the inputs are the booleans salesNotStarted / salesClosed (judged by the database in microseconds), no timestamp, no clock; no database",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "The sales period is [start, end): now = start - 1 ms is SALES_NOT_STARTED, now = start and end - 1 ms are AVAILABLE, now = end and later are SALES_CLOSED; instants are compared, not strings",
+        "The input has no timestamp (salesNotStarted, salesClosed, saleControlState, hasRemainingCapacity, purchaseRouteMounted only): salesNotStarted is SALES_NOT_STARTED, salesClosed is SALES_CLOSED, neither is inside the period, and salesNotStarted wins over salesClosed; no input combination throws",
         "Reasons in the order SALES_NOT_STARTED, SALES_CLOSED, SALES_STOPPED (SUSPENDED, or no Entry purchase route registered), SOLD_OUT (no remaining capacity): the first that applies is returned whatever the others are; AVAILABLE has a null reason and only AVAILABLE has a null reason; the function is pure",
         "isEntryPurchaseMounted(ROUTES) is false in this release, true when API-PUR-ENTRY-001 or API-PUR-CART-001 is in the registry, false for Goods, Karaoke, eligibility and routes without an Operation ID"
       ],
@@ -28013,7 +28077,7 @@
         "readPublicEvent: no Event is none, one is found with every public column, nullable columns null and timestamps as UTC ISO with milliseconds, two are multiple with neither row",
         "listPublishedFaqs / listPublishedAnnouncements / listPublishedSponsorLogos return PUBLISHED rows only (DRAFT / ARCHIVED rows, which would sort first, never appear), by sort_order ASC, public_ref ASC (negative first, equal values by ref and not by insertion order), published_at DESC, public_ref DESC and sort_order ASC, public_ref ASC; link_url NULL is kept; no PUBLISHED row or no Event is ok with no items; two Events are multiple_events with no row",
         "readPublishedAnnouncement: a PUBLISHED ref is found; a DRAFT, an ARCHIVED and an unknown ref are the same not_found; a hostile string is a value and deletes nothing; a PUBLISHED row with a NULL published_at is returned with publishedAt null (the API refuses it); no Event is not_found; two Events are multiple_events",
-        "listEntryOfferings returns every Offering (SUSPENDED and out-of-period too) by created_at ASC, public_ref ASC with hasRemainingCapacity from capacity - held - committed > 0 (held > 0, held + committed = capacity and capacity 0 give false), unit_amount 9007199254740993 as a string, no counter key or value, and now from the database clock within two database clock readings taken around the call",
+        "listEntryOfferings returns every Offering (SUSPENDED and out-of-period too) by created_at ASC, public_ref ASC with hasRemainingCapacity from capacity - held - committed > 0 (held > 0, held + committed = capacity and capacity 0 give false), unit_amount 9007199254740993 as a string, no counter key or value, and salesNotStarted / salesClosed from statement_timestamp() < sales_starts_at and >= sales_ends_at compared in timestamptz (a start or end differing by microseconds is judged correctly); the result has no now",
         "An unreachable database is returned as unavailable by all six reads (not thrown, not an empty result)"
       ],
       "expected_db_postconditions": [
@@ -28243,7 +28307,7 @@
       "expected_domain_postconditions": [
         "The public RPC types have client.api.v1.public.event, faqs, announcements, announcements[\":announcement_ref\"], \"entry-offerings\" and \"sponsor-logos\" as GET functions whose 200 response is the success envelope around the route schema; announcement_ref is a required string path parameter; there is no POST or PATCH; the self routes keep their types (see TC-API-007-009)",
         "Each repository call sends exactly one statement (select / with) on the pool: no BEGIN, no write, no row lock, no SELECT *, only app tables of the five public content and sales tables; FAQ, Announcement list, Announcement detail and Logo statements carry the state = PUBLISHED condition (literal or bound parameter) and never name DRAFT or ARCHIVED; the ORDER BY is in the SQL (sort_order, public_ref; published_at DESC, public_ref DESC; created_at, public_ref)",
-        "The Announcement ref is a bound parameter and never part of the SQL text; the Entry statement reads statement_timestamp() and no other clock, and no other statement reads a clock",
+        "The Announcement ref is a bound parameter and never part of the SQL text; the Entry statement reads statement_timestamp() and no other clock, compares it with sales_starts_at (<) and sales_ends_at (>=) in timestamptz without casting to text, returns sales_not_started / sales_closed, and no other statement reads a clock; through createApp, start .000900 with judgement .000100 is SALES_NOT_STARTED and end .000900 with judgement .000100 is SALES_STOPPED (inside the period)",
         "A driver rejection without a SQLSTATE and 08006 / 53300 / 57P01 give { status: \"unavailable\" } for all six calls; 42P01, 23514 and 57014 are rethrown"
       ],
       "expected_db_postconditions": [],

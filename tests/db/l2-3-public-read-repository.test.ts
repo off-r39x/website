@@ -428,6 +428,8 @@ describe("TC-API-009-005 listEntryOfferings (API-PUB-005, SPEC-100 §15.1, SPEC-
       saleControlState: "ENABLED",
       purchaseLimit: 4,
       hasRemainingCapacity: true,
+      salesNotStarted: true,
+      salesClosed: false,
     });
     expect(result.items.find((row) => row.publicRef === ref(0xc2))?.description).toBeNull();
     expect(result.items.find((row) => row.publicRef === ref(0xc2))?.unitAmount).toBe("0");
@@ -441,25 +443,57 @@ describe("TC-API-009-005 listEntryOfferings (API-PUB-005, SPEC-100 §15.1, SPEC-
     for (const value of ["7771", "7770", "8881"]) expect(text).not.toContain(value);
   });
 
-  it("now is the database clock: it lies between two database clock readings taken around the call, not the API process clock", async () => {
+  it("salesNotStarted is statement_timestamp() < sales_starts_at and salesClosed is statement_timestamp() >= sales_ends_at, decided by the database (PR #85 review 2)", async () => {
     await seed((await dbNow(admin)).getTime());
-    const before = await dbNow(admin);
     const result = await repo.listEntryOfferings();
-    const after = await dbNow(admin);
     if (result.status !== "ok") throw new Error(`unexpected ${result.status}`);
-    expect(result.now).toMatch(ISO_MS);
-    expect(Date.parse(result.now)).toBeGreaterThanOrEqual(before.getTime() - 1);
-    expect(Date.parse(result.now)).toBeLessThanOrEqual(after.getTime() + 1);
+    expect(
+      result.items.map((row) => [row.publicRef, row.salesNotStarted, row.salesClosed]),
+    ).toEqual([
+      [ref(0xc2), false, false], // in the period
+      [ref(0xc3), true, false], // future start
+      [ref(0xc4), false, false],
+      [ref(0xc5), false, false],
+      [ref(0xc6), false, false],
+      [ref(0xc1), false, true], // past end
+    ]);
+    // The API-side clock and the database clock are not compared: the result carries no `now`.
+    expect(result).not.toHaveProperty("now");
   });
 
-  it("no Offering is ok with no items and a database now; two Events are multiple_events", async () => {
+  it("the period is compared in timestamptz: a start one microsecond ahead of the statement is not started, an end already passed by a microsecond is closed", async () => {
+    const eventId = await oneEvent();
+    // Far enough in the future / past that no clock reading makes the answer ambiguous, with microsecond digits
+    // that a millisecond rounding would drop.
+    await insertOffering(admin, eventId, {
+      ref: ref(0xc7),
+      name: "Synthetic ticket microsecond future",
+      startsAt: "2999-01-01T00:00:00.000001Z",
+      endsAt: "2999-01-02T00:00:00.000900Z",
+      capacity: 10,
+    });
+    await insertOffering(admin, eventId, {
+      createdAt: "2030-01-02T00:00:00.000Z",
+      ref: ref(0xc8),
+      name: "Synthetic ticket microsecond past",
+      startsAt: "2000-01-01T00:00:00.000900Z",
+      endsAt: "2000-01-02T00:00:00.000100Z",
+      capacity: 10,
+    });
+    const result = await repo.listEntryOfferings();
+    if (result.status !== "ok") throw new Error(`unexpected ${result.status}`);
+    expect(
+      result.items.map((row) => [row.publicRef, row.salesNotStarted, row.salesClosed]),
+    ).toEqual([
+      [ref(0xc7), true, false],
+      [ref(0xc8), false, true],
+    ]);
+  });
+
+  it("no Offering is ok with no items; two Events are multiple_events", async () => {
     await oneEvent();
     const empty = await repo.listEntryOfferings();
-    expect(empty.status).toBe("ok");
-    if (empty.status === "ok") {
-      expect(empty.items).toEqual([]);
-      expect(empty.now).toMatch(ISO_MS);
-    }
+    expect(empty).toEqual({ status: "ok", items: [] });
     await insertEvent(admin, { ref: EVENT_REF_2 });
     expect(await repo.listEntryOfferings()).toEqual({ status: "multiple_events" });
   });

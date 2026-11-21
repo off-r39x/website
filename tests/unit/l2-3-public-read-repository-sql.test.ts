@@ -8,6 +8,7 @@
 import type { Pool } from "pg";
 import { describe, expect, it } from "vitest";
 import { createPublicContentRepository } from "../../packages/db/src/index.ts";
+import { OFFERING_REFS, PUBLIC_OPERATIONS, publicReadRig } from "../harness/api/public-read.ts";
 
 const REF = "00000000-0000-4000-8000-0000000000a1";
 const CONTROL = /^(BEGIN|SET LOCAL|COMMIT|ROLLBACK)\b/;
@@ -309,5 +310,75 @@ describe("TC-API-009-008 an unparseable timestamptz is passed on, never thrown (
       announcement: { publishedAt: unknown };
     };
     expect(result.announcement.publishedAt).toBe("2030-05-03T10:20:30.456Z");
+  });
+});
+
+// PR #85 second review, finding 2 (Medium): SPEC-110 section 26.1 API-PUB-005 "the judgement time is the
+// statement_timestamp() of the same SQL statement that reads the rows". PostgreSQL timestamptz has microseconds;
+// rounding both sides to milliseconds in JavaScript misjudges a period boundary inside one millisecond. The
+// statement itself compares in timestamptz and returns the two booleans.
+describe("TC-API-009-008 the sales period is judged in SQL, in timestamptz (SPEC-110 section 26.1 API-PUB-005)", () => {
+  it("compares statement_timestamp() with sales_starts_at (<) and sales_ends_at (>=) without casting either side to text", async () => {
+    const text = await textOf("listEntryOfferings");
+    expect(text).toMatch(/statement_timestamp\(\) < [a-z_]+\.sales_starts_at as sales_not_started/);
+    expect(text).toMatch(/statement_timestamp\(\) >= [a-z_]+\.sales_ends_at as sales_closed/);
+    expect(text).not.toMatch(/statement_timestamp\(\)::text/);
+    expect(text).not.toContain("statement_time");
+  });
+
+  const periodRow = (salesNotStarted: boolean, salesClosed: boolean) => ({
+    event_count: 1,
+    public_ref: OFFERING_REFS[2],
+    name: "Synthetic ticket",
+    description: null,
+    unit_amount: "1000",
+    currency: "JPY",
+    // Both second values are the same millisecond: only the SQL's microsecond comparison tells them apart.
+    sales_starts_at: "2030-06-15 00:00:00+00",
+    sales_ends_at: "2030-06-15 00:00:00+00",
+    sale_control_state: "ENABLED",
+    purchase_limit: 1,
+    has_remaining_capacity: true,
+    sales_not_started: salesNotStarted,
+    sales_closed: salesClosed,
+  });
+  const answering = (row: Record<string, unknown>) => {
+    const answer = async () => ({ rows: [row], rowCount: 1 });
+    const client = {
+      query: answer,
+      on: () => client,
+      once: () => client,
+      removeListener: () => client,
+      release: () => undefined,
+    };
+    return { query: answer, connect: async () => client } as unknown as Pool;
+  };
+  const reasonVia = async (row: Record<string, unknown>) => {
+    const rig = publicReadRig({ publicContent: createPublicContentRepository(answering(row)) });
+    const res = await rig.get((PUBLIC_OPERATIONS[4] as { path: string }).path);
+    expect(res.status).toBe(200);
+    return ((await res.json()).data.items as { unavailable_reason: string | null }[])[0]
+      ?.unavailable_reason;
+  };
+
+  it("start .000900 and judgement .000100: the database says not started, the answer is SALES_NOT_STARTED", async () => {
+    expect(await reasonVia(periodRow(true, false))).toBe("SALES_NOT_STARTED");
+  });
+  it("end .000900 and judgement .000100: the database says not closed, the answer is SALES_STOPPED (inside the period)", async () => {
+    expect(await reasonVia(periodRow(false, false))).toBe("SALES_STOPPED");
+  });
+  it("the database's closed flag gives SALES_CLOSED", async () => {
+    expect(await reasonVia(periodRow(false, true))).toBe("SALES_CLOSED");
+  });
+  it("the repository result carries salesNotStarted / salesClosed and no `now`", async () => {
+    const repo = createPublicContentRepository(answering(periodRow(true, false)));
+    const result = (await repo.listEntryOfferings()) as {
+      status: string;
+      now?: unknown;
+      items: { salesNotStarted: boolean; salesClosed: boolean }[];
+    };
+    expect(result.status).toBe("ok");
+    expect(result).not.toHaveProperty("now");
+    expect(result.items[0]).toMatchObject({ salesNotStarted: true, salesClosed: false });
   });
 });

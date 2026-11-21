@@ -280,7 +280,6 @@ function commonCases(ops: readonly Op[]): void {
         },
         offerings: {
           status: "ok",
-          now: "2030-06-15T00:00:00.000Z",
           items: offeringRows().map((row) => ({ ...row, ...extra })),
         },
         logos: { status: "ok", items: logoRows().map((row) => ({ ...row, ...extra })) },
@@ -324,7 +323,6 @@ function invalidRowCases(include: (key: PublicOperationKey) => boolean): void {
   const REF_UPPER = "00000000-0000-4000-8000-0000000000A1";
   const offering = (patch: Partial<EntryOfferingRowFixture>) => ({
     status: "ok" as const,
-    now: "2030-06-15T00:00:00.000Z",
     items: [{ ...(offeringRows()[2] as EntryOfferingRowFixture), ...patch }],
   });
   const cases: [
@@ -613,7 +611,7 @@ describe("TC-API-009-001 API-PUB-001..005 contract (SPEC-110 §26.1, API-PUB-REA
           faqs: { faqs: { status: "ok" as const, items: [] } },
           announcements: { announcements: { status: "ok" as const, items: [] } },
           entryOfferings: {
-            offerings: { status: "ok" as const, now: "2030-06-15T00:00:00.000Z", items: [] },
+            offerings: { status: "ok" as const, items: [] },
           },
         }[key as "faqs" | "announcements" | "entryOfferings"];
         const r = publicReadRig({ store: createRecordingPublicContentStore(data) });
@@ -883,15 +881,39 @@ describe("TC-API-009-001 API-PUB-001..005 contract (SPEC-110 §26.1, API-PUB-REA
       expect(text).toContain('"amount":"9007199254740993"');
     });
 
-    it("the judgement time is the store's now, not the API clock", async () => {
-      const farFuture = createRecordingPublicContentStore({
-        offerings: { status: "ok", now: "2999-01-01T00:00:00.000Z", items: offeringRows() },
-      });
-      const items = (
-        await (await publicReadRig({ store: farFuture }).get(pathOf("entryOfferings"))).json()
-      ).data.items as { unavailable_reason: string | null }[];
-      // At 2999 every period is over.
-      expect(items.map((item) => item.unavailable_reason)).toEqual(Array(5).fill("SALES_CLOSED"));
+    it("the sales state follows the store's salesNotStarted / salesClosed (the database's judgement), not the period strings or the API clock (PR #85 review 2)", async () => {
+      // The strings say "in period" (the second values are the same millisecond); only the flags, which the
+      // SQL statement computed in microseconds, decide.
+      const row = offeringRows()[2] as EntryOfferingRowFixture;
+      const withFlags = (salesNotStarted: boolean, salesClosed: boolean) =>
+        createRecordingPublicContentStore({
+          offerings: {
+            status: "ok",
+            items: [
+              {
+                ...row,
+                salesStartsAt: "2030-06-15T00:00:00.000Z",
+                salesEndsAt: "2030-06-15T00:00:00.000Z",
+                salesNotStarted,
+                salesClosed,
+              },
+            ],
+          },
+        });
+      const reasonOf = async (salesNotStarted: boolean, salesClosed: boolean) =>
+        (
+          (
+            await (
+              await publicReadRig({ store: withFlags(salesNotStarted, salesClosed) }).get(
+                pathOf("entryOfferings"),
+              )
+            ).json()
+          ).data.items as { unavailable_reason: string | null }[]
+        )[0]?.unavailable_reason;
+      expect(await reasonOf(true, false)).toBe("SALES_NOT_STARTED");
+      expect(await reasonOf(false, true)).toBe("SALES_CLOSED");
+      expect(await reasonOf(false, false)).toBe("SALES_STOPPED");
+      expect(await reasonOf(true, true)).toBe("SALES_NOT_STARTED");
     });
   });
 });
@@ -997,4 +1019,140 @@ describe("TC-API-006-001 API-PUB-012 Sponsor Logo contract (SPEC-110 §26 API-PU
 
 describe("TC-API-006-001 API-PUB-012 invalid rows (API-PUB-READ-006: the validation failure is 503 TEMPORARY_UNAVAILABLE)", () => {
   invalidRowCases((key) => key === "sponsorLogos");
+});
+
+// PR #85 second review, finding 1 (High): SEC-WEB-026 "画像originは環境allowlistに必須一致" and SPEC-180 §13.2
+// SPONSOR_IMAGE_ALLOWED_ORIGINS. A PUBLISHED Logo whose image_url origin is not in the environment's allowlist
+// makes API-PUB-012 as a whole 503 TEMPORARY_UNAVAILABLE (no skipping, no 200 with a part, the URL is not in
+// the body); a missing or invalid allowlist (createApp gets no sponsorImageOrigins) is 503 without reading the
+// store; the other five Operations never depend on it (SPEC-110 §26 API-PUB-012).
+describe("TC-API-006-104 API-PUB-012 image origin allowlist (SEC-WEB-026, SPEC-180 §13.2, SPEC-110 §26 API-PUB-012)", () => {
+  const logosWith = (...imageUrls: string[]) =>
+    createRecordingPublicContentStore({
+      logos: {
+        status: "ok",
+        items: imageUrls.map((imageUrl, index) => ({
+          ...(logoRows()[0] as PublicLogoRowFixture),
+          publicRef: LOGO_REFS[index % 2] as string,
+          imageUrl,
+          sortOrder: index,
+        })),
+      },
+    });
+  const path = pathOf("sponsorLogos");
+  const ORIGIN = "https://logos.example.test";
+
+  it("an image_url whose origin is in the allowlist is 200 (exact origin, any path)", async () => {
+    const r = publicReadRig({
+      store: logosWith(`${ORIGIN}/a/b.png`),
+      sponsorImageOrigins: [ORIGIN],
+    });
+    const res = await r.get(path);
+    expect(res.status).toBe(200);
+    expect(
+      ((await res.json()).data.items as { image_url: string }[]).map((i) => i.image_url),
+    ).toEqual([`${ORIGIN}/a/b.png`]);
+  });
+
+  it("a host written in upper case matches the normalized (ASCII lower case) origin", async () => {
+    const r = publicReadRig({
+      store: logosWith("https://LOGOS.example.test/x.png"),
+      sponsorImageOrigins: [ORIGIN],
+    });
+    expect((await r.get(path)).status).toBe(200);
+  });
+
+  it.each([
+    "https://other.example.test/a.png",
+    "https://cdn.logos.example.test/a.png",
+    "https://logos.example.test.evil.example/a.png",
+    "https://xlogos.example.test/a.png",
+  ])(
+    "an origin outside the allowlist (%s) is 503 TEMPORARY_UNAVAILABLE and the URL is not in the body",
+    async (imageUrl) => {
+      const r = publicReadRig({ store: logosWith(imageUrl), sponsorImageOrigins: [ORIGIN] });
+      const res = await r.get(path);
+      expect(res.status).toBe(503);
+      const text = await res.text();
+      expect(JSON.parse(text).error.code).toBe("TEMPORARY_UNAVAILABLE");
+      expect(text).not.toContain(new URL(imageUrl).host);
+      expect(r.lines.join("\n")).not.toContain(new URL(imageUrl).host);
+    },
+  );
+
+  it("one row outside the allowlist among allowed rows makes the whole Operation 503 (no row is skipped, no 200 with a part)", async () => {
+    const r = publicReadRig({
+      store: logosWith(`${ORIGIN}/ok.png`, "https://other.example.test/bad.png"),
+      sponsorImageOrigins: [ORIGIN],
+    });
+    const res = await r.get(path);
+    expect(res.status).toBe(503);
+    expect(await res.text()).not.toContain("ok.png");
+  });
+
+  it("an empty allowlist with no Logo is 200 items: [], and with one or more Logos is 503", async () => {
+    const none = publicReadRig({
+      store: createRecordingPublicContentStore({ logos: { status: "ok", items: [] } }),
+      sponsorImageOrigins: [],
+    });
+    const ok = await none.get(path);
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).data).toEqual({ items: [] });
+    const some = publicReadRig({ store: logosWith(`${ORIGIN}/a.png`), sponsorImageOrigins: [] });
+    expect((await some.get(path)).status).toBe(503);
+  });
+
+  it("with no allowlist dependency (not configured or invalid) the answer is 503 TEMPORARY_UNAVAILABLE and the store is not read", async () => {
+    const r = publicReadRig({ sponsorImageOrigins: undefined });
+    const res = await r.get(path);
+    expect(res.status).toBe(503);
+    expect((await errorOf(res)).code).toBe("TEMPORARY_UNAVAILABLE");
+    expect(r.store.count("listPublishedSponsorLogos")).toBe(0);
+  });
+
+  it("link_url is not matched against the allowlist (SEC-WEB-026: an external HTTPS link)", async () => {
+    const r = publicReadRig({ sponsorImageOrigins: [ORIGIN] });
+    const res = await r.get(path);
+    expect(res.status).toBe(200);
+    expect(((await res.json()).data.items as { link_url: string | null }[])[0]?.link_url).toBe(
+      "https://sponsor.example.test/one",
+    );
+  });
+
+  it("the other five Operations are 200 whatever the allowlist is (missing, empty, or without the Logo's origin)", async () => {
+    for (const sponsorImageOrigins of [undefined, [], ["https://unrelated.example.test"]]) {
+      const r = publicReadRig({ sponsorImageOrigins });
+      for (const key of [
+        "event",
+        "faqs",
+        "announcements",
+        "announcement",
+        "entryOfferings",
+      ] as const) {
+        const res = await r.get(pathOf(key));
+        expect(res.status, `${key} ${JSON.stringify(sponsorImageOrigins)}`).toBe(200);
+        expect((await res.json()).data, key).toEqual(EXPECTED_DATA[key]());
+      }
+    }
+  });
+
+  it("a Logo failure from the allowlist does not undo the other Operations in the same rig", async () => {
+    const r = publicReadRig({
+      store: logosWith("https://other.example.test/a.png"),
+      sponsorImageOrigins: [ORIGIN],
+    });
+    expect((await r.get(path)).status).toBe(503);
+    expect((await r.get(pathOf("faqs"))).status).toBe(200);
+  });
+
+  it("the database failure (503 DATABASE_TEMPORARY_FAILURE) and two Events (500) are decided before the allowlist", async () => {
+    const down = publicReadRig({ sponsorImageOrigins: [ORIGIN] });
+    down.store.inject("FP.DB.INSIDE_STATEMENT", "listPublishedSponsorLogos");
+    expect((await errorOf(await down.get(path))).code).toBe("DATABASE_TEMPORARY_FAILURE");
+    const many = publicReadRig({
+      store: createRecordingPublicContentStore({ logos: { status: "multiple_events" } }),
+      sponsorImageOrigins: [ORIGIN],
+    });
+    expect((await many.get(path)).status).toBe(500);
+  });
 });

@@ -208,7 +208,7 @@ describe("TC-API-009-007 security of API-PUB-001..005 (SPEC-110 §6, §55, SEC-A
       faqs: { status: "ok", items: [] },
       announcements: { status: "ok", items: [] },
       announcement: { status: "not_found" },
-      offerings: { status: "ok", now: "2030-06-15T00:00:00.000Z", items: [] },
+      offerings: { status: "ok", items: [] },
       logos: { status: "ok", items: [] },
     });
     const r = publicReadRig({ store: empty });

@@ -1,62 +1,65 @@
 // PR-L2-3 C1. TC-API-009-003 (G1): the public sales state of an Entry Offering (SPEC-110 §26.1 API-PUB-005
 // "販売状態", SPEC-030 §7.6 / §10.4, BR-SAL-003, BR-SAL-004, SPEC-100 §8.4) and whether an Entry purchase
 // Operation is registered (UCR-110-004: no purchase route => SALES_STOPPED). Pure functions: no clock, no
-// database. The judgement time is an input; the sales period is [start, end).
-//
-// Assumption recorded for the coder (the plan names the arguments but not their types): the three
-// timestamps are `YYYY-MM-DDTHH:mm:ss.sssZ` strings as the repository row carries them; `at()` below is the
-// only place that builds one.
+// database, no timestamp parsing. PR #85 second review: the judgement time is the SQL statement's
+// statement_timestamp(), compared with the period in timestamptz by the same statement, so the domain
+// function takes the two booleans `salesNotStarted` (statement time < start) and `salesClosed`
+// (statement time >= end) instead of three timestamps rounded to milliseconds.
 import { evaluatePublicEntryAvailability } from "@off-r39x/domain";
 import type { RouteRegistration } from "@off-r39x/security";
 import { describe, expect, it } from "vitest";
 import { isEntryPurchaseMounted } from "../../apps/api/src/api/routes/public.ts";
 import { ROUTES } from "../../apps/api/src/api/routes.ts";
 
-const START_MS = Date.UTC(2030, 5, 1, 0, 0, 0, 0);
-const END_MS = Date.UTC(2030, 5, 30, 0, 0, 0, 0);
-const at = (ms: number): string => new Date(ms).toISOString();
-
 type Input = Parameters<typeof evaluatePublicEntryAvailability>[0];
-const base = (patch: Partial<Input> & { nowMs?: number } = {}): Input => {
-  const { nowMs = START_MS + 1000, ...rest } = patch;
-  return {
-    now: at(nowMs),
-    salesStartsAt: at(START_MS),
-    salesEndsAt: at(END_MS),
-    saleControlState: "ENABLED",
-    hasRemainingCapacity: true,
-    purchaseRouteMounted: true,
-    ...rest,
-  } as Input;
-};
+const base = (patch: Partial<Input> = {}): Input => ({
+  salesNotStarted: false,
+  salesClosed: false,
+  saleControlState: "ENABLED",
+  hasRemainingCapacity: true,
+  purchaseRouteMounted: true,
+  ...patch,
+});
 const AVAILABLE = { availability: "AVAILABLE", reason: null };
 const unavailable = (reason: string) => ({ availability: "UNAVAILABLE", reason });
 
-describe("TC-API-009-003 evaluatePublicEntryAvailability: the sales period is [start, end) (BR-SAL-003, SPEC-100 §8.4)", () => {
+describe("TC-API-009-003 evaluatePublicEntryAvailability: the period flags decide, [start, end) is judged by the database (BR-SAL-003, SPEC-100 §8.4)", () => {
   it.each([
-    ["start - 1 ms", START_MS - 1, unavailable("SALES_NOT_STARTED")],
-    ["start (included)", START_MS, AVAILABLE],
-    ["start + 1 ms", START_MS + 1, AVAILABLE],
-    ["end - 1 ms", END_MS - 1, AVAILABLE],
-    ["end (not included)", END_MS, unavailable("SALES_CLOSED")],
-    ["end + 1 ms", END_MS + 1, unavailable("SALES_CLOSED")],
-  ])("now = %s", (_label, nowMs, expected) => {
-    expect(evaluatePublicEntryAvailability(base({ nowMs }))).toEqual(expected);
+    [
+      "before the start (salesNotStarted)",
+      { salesNotStarted: true },
+      unavailable("SALES_NOT_STARTED"),
+    ],
+    ["inside the period (both false)", {}, AVAILABLE],
+    ["at or after the end (salesClosed)", { salesClosed: true }, unavailable("SALES_CLOSED")],
+  ] as const)("%s", (_label, patch, expected) => {
+    expect(evaluatePublicEntryAvailability(base(patch))).toEqual(expected);
   });
 
-  it("compares instants down to the millisecond: a period of 100 ms is judged correctly at 99, 150 and 200 ms", () => {
-    const wide = base({
-      salesStartsAt: "2030-06-01T00:00:00.100Z",
-      salesEndsAt: "2030-06-01T00:00:00.200Z",
-      nowMs: Date.UTC(2030, 5, 1, 0, 0, 0, 150),
-    });
-    expect(evaluatePublicEntryAvailability(wide)).toEqual(AVAILABLE);
-    expect(evaluatePublicEntryAvailability({ ...wide, now: "2030-06-01T00:00:00.099Z" })).toEqual(
+  it("does not parse or compare any time: a sub-millisecond period (start .000900, end .000900) is whatever the flags say", () => {
+    // The function has no timestamp input at all (the old one took now / salesStartsAt / salesEndsAt).
+    const input = base() as Record<string, unknown>;
+    expect(Object.keys(input).sort()).toEqual(
+      [
+        "hasRemainingCapacity",
+        "purchaseRouteMounted",
+        "saleControlState",
+        "salesClosed",
+        "salesNotStarted",
+      ].sort(),
+    );
+    expect(evaluatePublicEntryAvailability(base({ salesNotStarted: true }))).toEqual(
       unavailable("SALES_NOT_STARTED"),
     );
-    expect(evaluatePublicEntryAvailability({ ...wide, now: "2030-06-01T00:00:00.200Z" })).toEqual(
-      unavailable("SALES_CLOSED"),
-    );
+    expect(evaluatePublicEntryAvailability(base({ salesClosed: false }))).toEqual(AVAILABLE);
+  });
+
+  it("does not throw on any combination of flags (the RangeError of the timestamp parsing is gone)", () => {
+    for (const salesNotStarted of [true, false])
+      for (const salesClosed of [true, false])
+        expect(() =>
+          evaluatePublicEntryAvailability(base({ salesNotStarted, salesClosed })),
+        ).not.toThrow();
   });
 });
 
@@ -108,7 +111,7 @@ describe("TC-API-009-003 evaluatePublicEntryAvailability: reasons in the order S
   it.each(everyOther)(
     "before the start the reason is SALES_NOT_STARTED whatever the rest is (%j)",
     (rest) => {
-      expect(evaluatePublicEntryAvailability(base({ nowMs: START_MS - 1, ...rest }))).toEqual(
+      expect(evaluatePublicEntryAvailability(base({ salesNotStarted: true, ...rest }))).toEqual(
         unavailable("SALES_NOT_STARTED"),
       );
     },
@@ -116,10 +119,9 @@ describe("TC-API-009-003 evaluatePublicEntryAvailability: reasons in the order S
   it.each(everyOther)(
     "at and after the end the reason is SALES_CLOSED whatever the rest is (%j)",
     (rest) => {
-      for (const nowMs of [END_MS, END_MS + 86_400_000])
-        expect(evaluatePublicEntryAvailability(base({ nowMs, ...rest }))).toEqual(
-          unavailable("SALES_CLOSED"),
-        );
+      expect(evaluatePublicEntryAvailability(base({ salesClosed: true, ...rest }))).toEqual(
+        unavailable("SALES_CLOSED"),
+      );
     },
   );
 
@@ -147,12 +149,22 @@ describe("TC-API-009-003 evaluatePublicEntryAvailability: reasons in the order S
 
   it("only the four reasons exist, and a reason is null exactly when AVAILABLE", () => {
     const seen = new Set<string | null>();
-    for (const nowMs of [START_MS - 1, START_MS, END_MS])
+    for (const [salesNotStarted, salesClosed] of [
+      [true, false],
+      [false, false],
+      [false, true],
+    ] as const)
       for (const saleControlState of ["ENABLED", "SUSPENDED"] as const)
         for (const hasRemainingCapacity of [true, false])
           for (const purchaseRouteMounted of [true, false]) {
             const result = evaluatePublicEntryAvailability(
-              base({ nowMs, saleControlState, hasRemainingCapacity, purchaseRouteMounted }),
+              base({
+                salesNotStarted,
+                salesClosed,
+                saleControlState,
+                hasRemainingCapacity,
+                purchaseRouteMounted,
+              }),
             );
             seen.add(result.reason);
             expect(result.availability === "AVAILABLE", JSON.stringify(result)).toBe(
@@ -162,6 +174,12 @@ describe("TC-API-009-003 evaluatePublicEntryAvailability: reasons in the order S
     expect([...seen].sort()).toEqual(
       [null, "SALES_CLOSED", "SALES_NOT_STARTED", "SALES_STOPPED", "SOLD_OUT"].sort(),
     );
+  });
+
+  it("the sales-not-started flag wins over salesClosed (the order is NOT_STARTED, CLOSED, STOPPED, SOLD_OUT)", () => {
+    expect(
+      evaluatePublicEntryAvailability(base({ salesNotStarted: true, salesClosed: true })),
+    ).toEqual(unavailable("SALES_NOT_STARTED"));
   });
 
   it("is a pure function of its input: the same input gives equal results and the input is not changed", () => {

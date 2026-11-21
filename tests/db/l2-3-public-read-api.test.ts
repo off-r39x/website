@@ -80,13 +80,18 @@ afterAll(async () => {
   await admin?.end();
 });
 
-function makeApp(pool: Pool = runtime.pool) {
+function makeApp(
+  pool: Pool = runtime.pool,
+  sponsorImageOrigins: readonly string[] | undefined = ["https://logos.example.test"],
+) {
   const trs = createTestRateLimit();
   const app = createApp({
     webOrigin: WEB,
     ready: async () => true,
     rateLimit: trs.rateLimit,
     publicContent: createPublicContentRepository(pool),
+    // SPONSOR_IMAGE_ALLOWED_ORIGINS (SPEC-180 section 13.2); the seeded Logos use https://logos.example.test.
+    ...(sponsorImageOrigins === undefined ? {} : { sponsorImageOrigins }),
   });
   return {
     get: (path: string, headers: Record<string, string> = {}) =>
@@ -616,6 +621,31 @@ describe("TC-API-006-101 API-PUB-012 from HTTP to PostgreSQL (SPEC-110 §26 API-
     const text = await res.text();
     expect(JSON.parse(text).error.code).toBe("TEMPORARY_UNAVAILABLE");
     expect(text).not.toContain("localhost");
+  });
+
+  it("a stored PUBLISHED Logo whose image_url origin is not in SPONSOR_IMAGE_ALLOWED_ORIGINS is 503 TEMPORARY_UNAVAILABLE, the URL is not sent, and the other Operations still answer (PR #85 review 2, SEC-WEB-026)", async () => {
+    await seedAll(Date.now());
+    const eventId = (await admin.query("SELECT id FROM app.events LIMIT 1")).rows[0].id as string;
+    await insertLogo(admin, eventId, {
+      ref: ref(0xd7),
+      state: "PUBLISHED",
+      sortOrder: 9,
+      imageUrl: "https://not-allowed.example.test/d7.png",
+    });
+    const res = await makeApp().get(PATHS.sponsorLogos);
+    expect(res.status).toBe(503);
+    const text = await res.text();
+    expect(JSON.parse(text).error.code).toBe("TEMPORARY_UNAVAILABLE");
+    expect(text).not.toContain("not-allowed");
+    expect((await makeApp().get(PATHS.faqs)).status).toBe(200);
+    expect((await makeApp().get(PATHS.entryOfferings)).status).toBe(200);
+  });
+
+  it("with no allowlist dependency the Logo read is 503 TEMPORARY_UNAVAILABLE and the PUBLISHED Logos are not sent", async () => {
+    await seedAll(Date.now());
+    const res = await makeApp(runtime.pool, undefined).get(PATHS.sponsorLogos);
+    expect(res.status).toBe(503);
+    expect(await res.text()).not.toContain("logos.example.test");
   });
 
   it("two Events are 500 INTERNAL_ERROR (API-PUB-READ-002) and no Logo of either is sent", async () => {

@@ -88,6 +88,10 @@ export type EntryOfferingRowFixture = {
   currency: string;
   salesStartsAt: string;
   salesEndsAt: string;
+  /** `statement_timestamp() < sales_starts_at`, compared in timestamptz (microseconds) by the same SQL statement. */
+  salesNotStarted: boolean;
+  /** `statement_timestamp() >= sales_ends_at`, compared in timestamptz (microseconds) by the same SQL statement. */
+  salesClosed: boolean;
   saleControlState: "ENABLED" | "SUSPENDED";
   purchaseLimit: number;
   hasRemainingCapacity: boolean;
@@ -110,7 +114,7 @@ export type ListResult<Row> =
   | { status: "multiple_events" }
   | { status: "unavailable" };
 export type OfferingsResult =
-  | { status: "ok"; now: string; items: EntryOfferingRowFixture[] }
+  | { status: "ok"; items: EntryOfferingRowFixture[] }
   | { status: "multiple_events" }
   | { status: "unavailable" };
 export type AnnouncementResult =
@@ -161,6 +165,7 @@ export interface StoreData {
   logos: ListResult<PublicLogoRowFixture>;
 }
 
+export const DEFAULT_SPONSOR_IMAGE_ORIGINS: readonly string[] = ["https://logos.example.test"];
 export const FIXED_NOW = "2030-06-15T00:00:00.000Z";
 
 export const eventRow = (): PublicEventRowFixture => ({
@@ -279,6 +284,8 @@ export const offeringRows = (): EntryOfferingRowFixture[] => [
     currency: "JPY",
     salesStartsAt: "2030-06-16T00:00:00.000Z",
     salesEndsAt: "2030-06-20T00:00:00.000Z",
+    salesNotStarted: true,
+    salesClosed: false,
     saleControlState: "ENABLED",
     purchaseLimit: 4,
     hasRemainingCapacity: true,
@@ -291,6 +298,8 @@ export const offeringRows = (): EntryOfferingRowFixture[] => [
     currency: "JPY",
     salesStartsAt: "2030-06-01T00:00:00.000Z",
     salesEndsAt: "2030-06-15T00:00:00.000Z",
+    salesNotStarted: false,
+    salesClosed: true,
     saleControlState: "ENABLED",
     purchaseLimit: 2,
     hasRemainingCapacity: true,
@@ -303,6 +312,8 @@ export const offeringRows = (): EntryOfferingRowFixture[] => [
     currency: "JPY",
     salesStartsAt: "2030-06-15T00:00:00.000Z",
     salesEndsAt: "2030-06-15T00:00:00.001Z",
+    salesNotStarted: false,
+    salesClosed: false,
     saleControlState: "ENABLED",
     purchaseLimit: 1,
     hasRemainingCapacity: true,
@@ -315,6 +326,8 @@ export const offeringRows = (): EntryOfferingRowFixture[] => [
     currency: "JPY",
     salesStartsAt: "2030-06-01T00:00:00.000Z",
     salesEndsAt: "2030-06-30T00:00:00.000Z",
+    salesNotStarted: false,
+    salesClosed: false,
     saleControlState: "SUSPENDED",
     purchaseLimit: 3,
     hasRemainingCapacity: true,
@@ -327,6 +340,8 @@ export const offeringRows = (): EntryOfferingRowFixture[] => [
     currency: "JPY",
     salesStartsAt: "2030-06-01T00:00:00.000Z",
     salesEndsAt: "2030-06-30T00:00:00.000Z",
+    salesNotStarted: false,
+    salesClosed: false,
     saleControlState: "ENABLED",
     purchaseLimit: 3,
     hasRemainingCapacity: false,
@@ -438,7 +453,7 @@ export const defaultStoreData = (): StoreData => ({
     status: "found",
     announcement: announcementRows()[0] as PublicAnnouncementRowFixture,
   },
-  offerings: { status: "ok", now: FIXED_NOW, items: offeringRows() },
+  offerings: { status: "ok", items: offeringRows() },
   logos: { status: "ok", items: logoRows() },
 });
 
@@ -505,6 +520,12 @@ export interface PublicReadRigOptions {
   /** Mount this store instead of the recording one (for example the real repository on a fake pool). */
   readonly publicContent?: PublicContentStoreFixture;
   readonly overrides?: Record<string, unknown>;
+  /**
+   * SPONSOR_IMAGE_ALLOWED_ORIGINS as the API sees it (SPEC-180 section 13.2): the normalized exact HTTPS origins.
+   * Default `["https://logos.example.test"]` (the origin of the fixture image_url). `undefined` means the
+   * dependency is absent or the setting is invalid: createApp gets no `sponsorImageOrigins`.
+   */
+  readonly sponsorImageOrigins?: readonly string[] | undefined;
 }
 export interface PublicReadRig {
   readonly app: ReturnType<typeof createApp>;
@@ -570,6 +591,12 @@ export function publicReadRig(options: PublicReadRigOptions = {}): PublicReadRig
     rateLimit: trs.rateLimit,
     // Spread, so that the file compiles before AppDependencies has `publicContent` (C4-6).
     ...(options.omitPublicContent ? {} : { publicContent: options.publicContent ?? store }),
+    // Spread, so that the file compiles before AppDependencies has `sponsorImageOrigins`.
+    ...("sponsorImageOrigins" in options
+      ? options.sponsorImageOrigins === undefined
+        ? {}
+        : { sponsorImageOrigins: options.sponsorImageOrigins }
+      : { sponsorImageOrigins: DEFAULT_SPONSOR_IMAGE_ORIGINS }),
   });
   const send = async (path: string, init?: RequestInit): Promise<Response> =>
     app.request(path.startsWith("http") ? path : `${API}${path}`, init, peer());
