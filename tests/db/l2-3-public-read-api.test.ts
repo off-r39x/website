@@ -80,9 +80,10 @@ afterAll(async () => {
   await admin?.end();
 });
 
+// "omit" passes no allowlist dependency. (An explicit `undefined` would take the default parameter.)
 function makeApp(
   pool: Pool = runtime.pool,
-  sponsorImageOrigins: readonly string[] | undefined = ["https://logos.example.test"],
+  sponsorImageOrigins: readonly string[] | "omit" = ["https://logos.example.test"],
 ) {
   const trs = createTestRateLimit();
   const app = createApp({
@@ -91,7 +92,7 @@ function makeApp(
     rateLimit: trs.rateLimit,
     publicContent: createPublicContentRepository(pool),
     // SPONSOR_IMAGE_ALLOWED_ORIGINS (SPEC-180 section 13.2); the seeded Logos use https://logos.example.test.
-    ...(sponsorImageOrigins === undefined ? {} : { sponsorImageOrigins }),
+    ...(sponsorImageOrigins === "omit" ? {} : { sponsorImageOrigins }),
   });
   return {
     get: (path: string, headers: Record<string, string> = {}) =>
@@ -643,7 +644,7 @@ describe("TC-API-006-101 API-PUB-012 from HTTP to PostgreSQL (SPEC-110 §26 API-
 
   it("with no allowlist dependency the Logo read is 503 TEMPORARY_UNAVAILABLE and the PUBLISHED Logos are not sent", async () => {
     await seedAll(Date.now());
-    const res = await makeApp(runtime.pool, undefined).get(PATHS.sponsorLogos);
+    const res = await makeApp(runtime.pool, "omit").get(PATHS.sponsorLogos);
     expect(res.status).toBe(503);
     expect(await res.text()).not.toContain("logos.example.test");
   });
