@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-100
 title: Database Design
-version: 2.4.1
+version: 2.5.1
 status: provisional
 depends_on:
   - SPEC-000
@@ -509,7 +509,9 @@ Business DB側の1:1は `UNIQUE(auth_subject)` で最終防御する。
 
 **DB-AUTH-001:** Profile provisioningは `INSERT ... ON CONFLICT (auth_subject) DO NOTHING` 後に同じAuth Subjectでselectし、parallel requestを1 Profileへ収束させる。
 
-Trace: `FR-AUTH-009〜013`, `BR-USR-001〜002`, `AR-ID-001〜006`.
+**DB-AUTH-003:** `DB-AUTH-001` のselectは、`INSERT ... ON CONFLICT` と**別の文**で行う。`READ COMMITTED` はstatementごとにsnapshotを取るため、INSERTとselectを1つの文（CTE等）にすると、並行transactionのcommitを待ってDO NOTHINGになった場合でも、外側のselectが待つ前のsnapshotを使い、正常な並行実行で0件になりうる。別の文のselectが0件の場合は、Business APIがBusiness Profileを削除せず（§12、`DB-FK-004`）`auth_subject` を更新しないことから、out-of-bandな削除・変更か実装の不具合による不整合として扱い、0件を観測したtransactionではProfileを作らず `SPEC-150` `REL-AUTH-009` に従う。DBの一時失敗によるtransaction全体のretryは `SPEC-150` `REL-AUTH-009` に従って再評価する。
+
+Trace: `FR-AUTH-009〜013`, `BR-USR-001〜002`, `AR-ID-001〜006`, `REL-AUTH-005`, `REL-AUTH-009`.
 
 ### 14.2 `app.role_assignments`
 
@@ -1646,12 +1648,15 @@ Columns:
 - `entry_ticket_id bigint NULL FK`
 - `karaoke_ticket_id bigint NULL FK`
 - `goods_order_item_id bigint NULL FK`
+- `auth_subject uuid NULL`（FKなし。`neon_auth` は別System of Recordであり、§14.1と同じ理由でDB FKを張らない）
 - `details jsonb NOT NULL DEFAULT '{}'::jsonb`
 - `opened_at timestamptz NOT NULL DEFAULT transaction_timestamp()`
 - `resolved_at timestamptz NULL`
 - `resolution_note text NULL`
 
-CHECK: 対象FKの少なくとも1つがnon-null。
+CHECK: 対象FKまたは `auth_subject` の少なくとも1つがnon-null。
+
+CHECK: `auth_subject IS NOT NULL` は `reason_code = 'AUTH_PROFILE_RELATION_INCONSISTENT'` のときだけ許し、そのreasonでは必須とする（すなわち `auth_subject IS NOT NULL` ⇔ 当該reason）。CHECK名はmigrationで明示する（`DB-ARC-007`）。
 
 本書はCaseの業務State enumを追加しない。`resolved_at IS NULL` がphysical unresolved predicateである。
 
@@ -1667,7 +1672,9 @@ WHERE resolved_at IS NULL;
 
 **DB-XFN-003:** Review解消時も原因となったPayment / Ticket / Check-in / Reservation historyを削除しない。
 
-Trace: `BR-ORD-010`, `PAY-REC-*`, `TQR-REC-*`, `KRK-REC-*`.
+**DB-XFN-004:** `auth_subject` 列は、Business Profile relationが壊れた `AUTH_PROFILE_RELATION_INCONSISTENT` のCaseの対象を示すためだけに使い、§43のCHECK、`SPEC-150` `REL-REC-016` の `dedupe_key` の生成とepochの計算、`REL-REC-010` / `REL-REC-017` の再取得（`app.business_profiles.auth_subject`、§5.1の `auth_read.identity_directory`）にだけ使う。API応答、`details`、log、metric、alert、Audit Event（target refを含む）、dashboard、trace attributeへ出さない（`SEC-PII-002`、`SPEC-160` §49 / `OBS-SEC-007`）。この列のためのindexを追加しない（§45）。
+
+Trace: `BR-ORD-010`, `PAY-REC-*`, `TQR-REC-*`, `KRK-REC-*`, `REL-AUTH-005`, `REL-AUTH-009`, `REL-REC-016〜017`.
 
 ## 43.1 `app.idempotency_records`
 
@@ -1693,7 +1700,9 @@ ck_idempotency_records_expiry CHECK (expires_at = created_at + interval '24 hour
 ck_idempotency_records_result_ref CHECK ((result_ref_type IS NULL) = (cardinality(result_refs) = 0))
 ```
 
-lookupはこのUNIQUE indexが担い、追加のindexを作らない。`expires_at` はgenerated columnにせず、既定値とCHECKで固定する（`created_at` と同じ `transaction_timestamp()` から求め、Clientが任意の `expires_at` をINSERT / UPDATEできない）。`result_ref_type` / `result_refs` は、INSERTの時点では結果の行がまだないため未設定（NULLと空配列）でよく、同じtransactionの中で結果の行を作った後に `UPDATE` で設定してよい。
+lookupはこのUNIQUE indexが担い、追加のindexを作らない。`expires_at` はgenerated columnにせず、既定値とCHECKで決める。`created_at` は `transaction_timestamp()`、`expires_at` はその24時間後とし、`ck_idempotency_records_expiry` が両者の関係を固定する（両者の関係を満たさないINSERT / UPDATEはCHECKで拒否される）。時刻を決めるのはDBの `transaction_timestamp()` であり、Clientは時刻を指定できない。ここでのClientは、HTTPのClientと、Business API（Hono repository）の中で記録を書くコードの呼出し側を指す。記録を書くコードは時刻を入力に取らず、INSERTでも期限切れの行の再利用（`DB-IDM-003`）でも、`created_at` を `transaction_timestamp()`、`expires_at` をその24時間後とする（`DB-TIM-002`）。時刻の列の保護は `app_api_runtime` のDB権限に求めない（保証しない）。`DB-IDM-003` の再利用は `created_at` と `expires_at` のUPDATEを要するため、runtimeの権限で2列を一緒に動かすことはDBでは防げない。INSERTの権限は、時刻の列を除いた列単位にしてよい（必須ではない）。時刻をDB triggerで決めることはしない（§58、`DB-TIM-003` の方針。時刻は既定値とHono repositoryの文で決める）。期限が本来の値からずれると、ずれた範囲で `SPEC-110` `API-IDM-006` の判定が変わる。早まった場合は、本来の24時間以内の同じkeyの要求が初回として処理され、replay（同じ内容）と `409 IDEMPOTENCY_KEY_REUSED`（別の内容）の保証が失われる。遅れた場合は、24時間を過ぎた同じkeyの要求がreplayまたは `409` になる。早まった場合、Domain側に同一Business Causeの一意性があるOperationでは、Domain Business Cause / DB uniqueが二重の業務効果を防ぐ（`SPEC-110` `API-IDM-001`、`API-IDM-010`、`SPEC-170` `TST-IDM-008`）。その一意性がないOperation（`SPEC-110` §52で「transport key + normalized request」を主とするもの）では、早まった範囲の同じkeyの再送が別の要求として処理されうる。早まる場合の影響は記録の喪失・未作成（`API-IDM-010`）と同じ種類であり、遅れる場合の影響は二重の業務効果を生まない。
+
+`result_ref_type` / `result_refs` は、INSERTの時点では結果の行がまだないため未設定（NULLと空配列）でよく、同じtransactionの中で結果の行を作った後に `UPDATE` で設定してよい。
 
 **DB-IDM-001:** raw `Idempotency-Key`、応答body、Checkout URL、Stripe Session ID、Email等の個人情報、QR tokenをこの表に保存しない。保存するのはPrincipal（Business Profile）、Operation ID、digest、結果の参照、時刻だけである（`SPEC-110` `API-IDM-005`、`API-IDM-007`）。
 
@@ -1853,7 +1862,7 @@ Entry／Goodsの全購入開始経路（単品互換APIを含む）は、Profile
 
 | Transaction | Locks / primitive | Isolation | Constraint fallback / retry behavior |
 |---|---|---|---|
-| Business Profile provisioning | `UNIQUE(auth_subject)`, `INSERT ON CONFLICT` | READ COMMITTED | parallel insertは同Profileを再select |
+| Business Profile provisioning | `UNIQUE(auth_subject)`, `INSERT ON CONFLICT` | READ COMMITTED | parallel insertは同Profileを再select。再selectは別の文（`DB-AUTH-003`）。0件を観測したtransactionではProfileを作らず同じtransactionでCaseを起票（`REL-AUTH-009`） |
 | Role Assignment update | target assignment `FOR UPDATE`; Administrator set変更時advisory lock | READ COMMITTED | active partial unique; deadlock retryable |
 | Entry allocation + Order create | Profile `FOR UPDATE` → Offering `FOR UPDATE` | READ COMMITTED | capacity CHECK; allocation unique; rollbackでcounter/order残さない |
 | Karaoke Hold + Slot HELD + Order PREPARED | Profile `FOR UPDATE` → Slot `FOR UPDATE` | READ COMMITTED | partial active Hold unique; slot conditional update; Exclusion constraint |
@@ -2162,6 +2171,7 @@ Karaoke exclusionやactive Hold unique等を、既存違反を無視してapplic
 | DB-ID-001〜003 | Internal ID / Public Ref分離、Owner-safe lookup | `AR-OWN-*`, `INV-010-08` |
 | DB-AUTH-001 | Auth Subject → Business Profile最大1 | `AR-ID-*`, `BR-USR-001` |
 | DB-AUTH-002 | RoleはBusiness DB authority | `AR-ROLE-*` |
+| DB-AUTH-003 | 再select 0件を正常扱いしない | `AR-ID-*`, `REL-AUTH-005`, `REL-AUTH-009` |
 | DB-MNY-001〜002 | integer money / Stripe exact comparison | `BR-SAL-*`, `PAY-ORD-*`, `INV-010-09` |
 | DB-ORD-001〜003 | Order purpose / source / snapshot integrity | `BR-ORD-*`, `DI-030-001〜003` |
 | DB-ENT-001〜003 | Entry capacity / ticket source idempotency | `BR-TKT-*`, `DI-030-004` |
@@ -2169,7 +2179,7 @@ Karaoke exclusionやactive Hold unique等を、既存違反を無視してapplic
 | DB-TQR-001〜006 | Ticket source unique、QR active cardinality、Check-in max1 | `TQR-*`, `DI-030-007` |
 | DB-KRK-001〜020 | Slot overlap、Hold max1、45m/5m/30m、Reservation/Ticket cardinality、no resale | `KRK-*`, `DI-030-005` |
 | DB-GDS-001〜005 | Inventory non-negative、allocation / handoff exactly-once | `BR-GDS-*`, `DI-030-006` |
-| DB-XFN-001〜003 | Notification independence / Review retention | `BR-NTF-*`, `PAY-REC-*`, `TQR-REC-*`, `KRK-REC-*` |
+| DB-XFN-001〜004 | Notification independence / Review retention / Review対象のauth_subject限定 | `BR-NTF-*`, `PAY-REC-*`, `TQR-REC-*`, `KRK-REC-*` |
 | DB-TXN-001〜004 | partial commit防止 / response loss retry | `DI-030-009`, `DI-030-012`, `INV-010-07`, `INV-010-10` |
 | DB-IDM-001〜003 | Transport Idempotency replay記録（digestのみ、同一transaction、24時間） | `INV-010-10`, `SPEC-110` `API-IDM-001〜010` |
 
@@ -2289,6 +2299,7 @@ Karaoke exclusionやactive Hold unique等を、既存違反を無視してapplic
 37. Consistency ReviewがPayment / Hold / Reservation / Ticket / Goodsを相関して追跡できる。
 38. SPEC-110がowner-safe detail、purchase start、status、availability、webhook、QR lookup、atomic check-in、admin search、recovery lookupを推測なしで実装できる。
 39. Transport Idempotency replay記録は `app.idempotency_records` に、`(principal_profile_id, operation_id, key_digest)` のUNIQUEで保存され、raw key・応答body・Checkout URL・個人情報を保存しない。記録のINSERTは業務更新と同じtransactionで、INSERT失敗時は全体をrollbackする。保持期間は24時間で、Business APIは行をDELETEしない。
+40. Profile relation不整合のConsistency Review Caseは `auth_subject` を対象として保存でき、`auth_subject` はreasonと組み合わせたCHECKで守られ、Business DBの外へ出ない。
 
 ---
 
@@ -2376,5 +2387,29 @@ Retry count、backoff、reconciliation、Review Case解消Runbookを定義する
 | UCR-100-003 | INCORPORATED | §§16〜19,24,39,47〜49の複合Purpose／source FK／原子Transaction |
 | UCR-110-003 | INCORPORATED | §43.1 `app.idempotency_records`、§45.6、§47、§48、`DB-IDM-001〜003`、SPEC-110 §18.1 `API-IDM-003〜010` |
 | UCR-180-001 | INCORPORATED | §13.5 初期データ（`DB-SEED-001〜007`）、`SPEC-180 §45.3` `INF-SEED-001〜006` |
+| UCR-100-004 | INCORPORATED | §14.1 `DB-AUTH-003`、§43 `auth_subject` / CHECK / `DB-XFN-004`、§48、§62、§67、SPEC-110 §61 Acceptance 49、SPEC-150 §66 Acceptance 53、SPEC-150 `REL-AUTH-009` / `REL-REC-016〜017`、SPEC-110 `API-AUTH-003` / `API-ADM-REC-007` / §49 |
+| UCR-100-005 | INCORPORATED | §43.1 `app.idempotency_records` の `created_at` / `expires_at`（時刻を決める主体、Clientの範囲、時刻の列の保護を `app_api_runtime` の権限に求めないこと）、SPEC-170 §28.1 `TST-IDM-004` (1)、SPEC-170 §78 |
 
 既存の `UCR-130-005` は引き続き `DEFERRED_NONBLOCKING` であり、運用Indexの先取り追加は行わない。
+
+### UCR-100-004
+
+- **Status:** `INCORPORATED`。本改訂（SPEC-100 v2.5.0、SPEC-150 v2.3.0、SPEC-110 v2.12.0）で本文へ反映した（プロジェクト所有者の決定、2026-11-20。`SPEC-000` §8）。新しいerror code・state・Capability・Operation・indexは追加していない。現在の契約は本文を正とし、以下の要求はその経緯の記録である。
+- 対象: SPEC-100 §14.1・§43・§48・§62・§67。SPEC-150 §18・§44・§55・§66 Acceptance 53、SPEC-110 §25・§48.5・§49・§61 Acceptance 49に関連する。
+- 現在の仕様（改訂前）: `REL-AUTH-005` はBusiness Profile relationが壊れている場合にConsistency Reviewを求めるが、§43のCase表はProfileを指す列を持たず、CHECKは10個の対象FKのいずれかを要求するため、Profileが存在しない不整合のCaseを保存できなかった。`REL-REC-007` の `primary_public_ref` と `cause_discriminator` に当たる値がなく、`API-AUTH-003` には再selectが0件のときの応答がなく、`API-ADM-REC-007` にはこのreasonの収束条件がなかった。`DB-AUTH-001` は再selectを別の文で行うことを明記していなかった。
+- 要求する変更: (1) Case表に `auth_subject uuid NULL`（FKなし）を追加し、CHECKを「対象FKまたは `auth_subject` の少なくとも1つ」とし、`auth_subject` はreason `AUTH_PROFILE_RELATION_INCONSISTENT` のときだけ、かつ必須とする（`DB-XFN-004`）。(2) 再selectを別の文とし、0件を観測したtransactionではProfileを作らない（`DB-AUTH-003`）。(3) Caseを同じtransactionでcommitしてから `409 CONSISTENCY_REVIEW_REQUIRED` を返す（`REL-AUTH-009`、`API-AUTH-003`）。(4) dedupe_keyを `r150:AUTH_PROFILE_RELATION_INCONSISTENT:auth_subject:<auth_subject>:epoch-<n>` とする（`REL-REC-016`）。(5) 収束条件を「Profileがちょうど1行、またはIdentity不存在」とする（`REL-REC-017`）。(6) detailsは `{}` とする。
+- 理由: 再selectの0件は、Business APIがBusiness Profileを削除せず（§12、`DB-FK-004`）`auth_subject` を更新しないため、out-of-bandな操作か不具合でしか起きない。`REL-AUTH-005` の追跡を可能にするには、Profileが消えても残る対象が要る。HMAC指紋（`SPEC-160` §11）はIdempotency判定・Business Cause生成に使えず（`OBS-COR-005`）、key rotation後に再計算できず（`OBS-COR-006`）、不可逆のため `REL-REC-010` の再取得ができないので採らない。全FK nullを許す案は、dedupeと再取得の手がかりがないので採らない。raw Auth Subjectは既に `business_profiles` に保存されている値で、Business DBの外へ出さない。
+- 変更しない場合の影響: `API-AUTH-003` の実装が0件を500にする（`REL-AUTH-005` に反する）か、仕様にないCaseの形を推測で作る。
+- 影響を受ける可能性がある仕様書: SPEC-150、SPEC-110（本改訂で反映）。SPEC-060（§16.3で既にFail Closedと追跡を要求。変更不要）、SPEC-130（§61で既にAuth Subjectを表示しない。変更不要）、SPEC-140（`SEC-PII-002` と整合。変更不要）、SPEC-160（Profile未解決時の相関は既存の§11指紋、reason codeは既存の `BUSINESS_PROFILE_INCONSISTENT`。変更不要）、SPEC-170（Test Case IDとmanifestは実装のWork Planが `SPEC-170` §5 に従って割り当てる。本文の変更は不要）、SPEC-180（§22.2の権限で足りる。変更不要）、SPEC-200（`ACC-GEN-004`。変更不要）
+- 範囲外として残す事項: Profileが消えたIdentityが再度provisionすると新しいProfile（新しい `public_ref`、`display_name` はnull）になる。Profileが削除された場合、そのProfileを参照する業務履歴はRESTRICT FKにより存在しえない（制約を無効化した操作を除く）。一方、`auth_subject` がout-of-bandに変更（UPDATE）された場合、旧Profileは別のAuth Subjectに結び付いたまま残り、元のAuth Subjectの再provisionで `REL-REC-017` (i) が成立してCaseをresolveできるが、旧Profileの誤った結び付きは本Caseでは検出・追跡されない。その検出と追跡は本UCRの範囲外とする。Identityが存在し再provisionされないCaseは `REL-REC-017` の収束条件を満たさず、resolveできないままunresolvedで残り、`SPEC-160` `OBS-ALT-023` / `OBS-ALT-024` のaging alertの対象のままとなる（alertは本改訂で変更しない）。0件を観測した後のtransaction retryで同じrequestが201になりうる点は `REL-AUTH-009` に注記した。実装（Case表、`review-case.ts`、`API-AUTH-003`、`API-ADM-REC-007`）は後続のPRで行う。
+
+### UCR-100-005
+
+- **Status:** `INCORPORATED`。本改訂（SPEC-100 v2.5.1、SPEC-170 v2.9.1）で本文へ反映した（プロジェクト所有者の決定、2026-11-21。`SPEC-000` §8）。§43.1 の文言の明確化であり、表の列・型・既定値・CHECK・index、`DB-IDM-001`〜`DB-IDM-003`、`SPEC-180` §22.2 の権限は変えていない。新しいerror code・state・Capability・Operation・index・trigger・DB関数・roleは追加していない。現在の契約は本文を正とし、以下の要求はその経緯の記録である。
+- 対象: SPEC-100 §43.1（`app.idempotency_records` の `created_at` / `expires_at`）。`DB-IDM-003`、SPEC-170 §28.1 `TST-IDM-004` (1) に関連する。
+- 現在の仕様（改訂前）: §43.1 は「`expires_at` はgenerated columnにせず、既定値とCHECKで固定する（`created_at` と同じ `transaction_timestamp()` から求め、Clientが任意の `expires_at` をINSERT / UPDATEできない）」としていた。一方 `DB-IDM-003` は、期限切れの行の再利用で `created_at` と `expires_at` を条件付きの `UPDATE` で更新することを求めるため、`app_api_runtime`（`SPEC-180` §22.2）はこの2列をUPDATEできる。「Client」にDB roleを含めて読むと、runtimeは `ck_idempotency_records_expiry` を満たしたまま2列を一緒に動かせるので、この保証はDBの権限では実装できなかった。§58 はBusiness triggerと `updated_at` triggerを採らず（`DB-TIM-003`）、§43.1 は時刻を既定値とCHECKで決めていた。SPEC-170 `TST-IDM-004` (1) の「CHECKで固定され、任意の値をINSERT / UPDATEできない」にも同じ読み方の余地があった。
+- 要求する変更: (1) 「Client」を、HTTPのClientと、Business API（Hono repository）の中で記録を書くコードの呼出し側と明記する。記録を書くコードは時刻を入力に取らず、`created_at` を `transaction_timestamp()`、`expires_at` をその24時間後とする。CHECKは両者の関係を固定する。(2) 時刻の列の保護を `app_api_runtime` のDB権限に求めない（保証しない）ことを明記する。INSERTの権限は時刻の列を除いた列単位にしてよい（必須ではない）。(3) SPEC-170 `TST-IDM-004` (1) の括弧を、CHECKが関係を固定すること、DB権限で時刻の列が守られることを期待値にしないことに合わせる。(4) 期限がずれた場合に失われる保証（replayと `409 IDEMPOTENCY_KEY_REUSED`）と、二重の業務効果をDomain側が防ぐ範囲（同一Business Causeの一意性があるOperation）を明記する。
+- 理由: `DB-IDM-003` と両立するDB権限の手段がない（UPDATEの権限を列単位にしても、時刻の2列を含む）。DB側で時刻を決めるtriggerは §58 と `DB-TIM-003` の方針（Business logicをtriggerへ隠さず、invariantはCHECK等で守る）に反し、SECURITY DEFINERのDB関数や新しいroleは仕様にないobjectを増やす。期限が早まると、その範囲でreplayと `409 IDEMPOTENCY_KEY_REUSED` の保証が失われ、遅れると24時間を過ぎた同じkeyの要求がreplayまたは `409` になる（SPEC-110 `API-IDM-006`）。早まる場合の影響は記録の喪失・未作成と同じ種類で、Domain側に同一Business Causeの一意性があるOperationでは、Domain Business Cause / DB uniqueが二重の業務効果を防ぐ（SPEC-110 `API-IDM-001`、`API-IDM-010`、SPEC-170 `TST-IDM-008`）。その一意性がないOperationでは、早まった範囲の同じkeyの再送が別の要求として処理されうる。記録は補助であり、この影響は記録が失われた場合について仕様が既に認めている範囲を超えない。`app_api_runtime` は業務表そのものもUPDATEできる（`SPEC-180` §22.2）ので、この表の時刻の列だけを権限で守っても防御は強くならない。
+- 変更しない場合の影響: 現在の文言は実装できない保証を求めるため、実装は文言に反したままになるか、仕様にないtrigger・DB関数・roleを推測で足すことになる。レビューで同じ指摘が繰り返される（PR #84 への外部レビュー）。
+- 影響を受ける可能性がある仕様書: SPEC-170（本改訂で §28.1 `TST-IDM-004` (1) と §78 へ反映。`TST-IDM-008` はDomain側の保護の範囲を本節と同じに定めるので変更不要）。SPEC-110（§18.1 `API-IDM-008` は「作成時刻から24時間」、`API-IDM-006` 1 は再利用で作成時刻を更新するとだけ定め、時刻を決める主体と手段を定めないので変更不要。`API-IDM-010` は本節が期限のずれの影響の根拠として引く範囲を既に定めるので変更不要）、SPEC-180（§22.2 の「Business APIに必要なSELECT / INSERT / UPDATE」は列単位のINSERTも含むので変更不要）、SPEC-140（§39 のexplicit table / sequence privilegeと整合し変更不要）、SPEC-150（この表の時刻に触れないので変更不要）、SPEC-190（変更不要）、SPEC-200（`ACC-GEN-004`。変更不要）
+- 範囲外として残す事項: 実装（`app.idempotency_records` のmigration、記録を書くHono repositoryのコード、INSERTの列単位の権限を採るかどうか、関係するTest）は後続のPRで行う。

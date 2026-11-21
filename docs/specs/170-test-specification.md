@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-170
 title: Test Specification
-version: 2.8.0
+version: 2.9.1
 status: provisional
 depends_on:
   - SPEC-000
@@ -829,6 +829,10 @@ Release Manifestの `mounted_operation_ids`（`SPEC-180 §44`）に含まれるO
 
 `TC-API-008-001`: `API-ORD-003`, `EML-NTF-003`, `SEC-API-029`。Purpose別対象通知、FAILED／PENDING／SENT／全CANCELED／要求欠落／複数時の優先順、SENT≠配送保証、サマリー部分取得失敗時のnull＋Order200、Order本体／認可失敗時の通常404／503、宛先・本文・Provider詳細非開示を検証する。G1/G3/G4/G5/G8 → `ACC-BIZ-032`。
 
+**TST-API-009:** 公開読取（`SPEC-110` §26.1）は `PUBLISHED` の行だけをserver-sideの条件で返し、未設定値・件数・障害を推測や空成功に置き換えない。
+
+`TC-API-009-001`: `API-PUB-001〜005`, `API-PUB-012`, `API-PUB-READ-001〜006`, `DB-SAL-001`, `BR-EVT-001〜002`, `FR-PUB-001〜007`。FAQ／Announcementの `DRAFT`・`ARCHIVED` が一覧・詳細に出ないこと、0件の空配列、順序と同値時の安定順、Eventの0件（`API-PUB-001`・`004` は404、一覧は空）と2件以上（行を選ばず500）、nullable列の `null` がそのまま返ること、Announcementの非公開と不存在が同じ404、UUIDでないrefと未知queryの400、`excerpt` の空白正規化・100 code point境界と `excerpt_truncated`、Entryの販売状態の判定順と境界（開始時刻を含み終了時刻を含まない、`SUSPENDED`、購入Operation未登録時の `SALES_STOPPED`、容量0）、counter・残数・Internal IDを返さないこと、DB障害の `503 DATABASE_TEMPORARY_FAILURE` とschemaを満たさない行の `503 TEMPORARY_UNAVAILABLE`、Rate Limit class `public_read` をreal PostgreSQLで検証する。`API-PUB-012` についても、新たに適用する共通規則（Eventの0件で `items: []`、2件以上で500、未知queryの400、DB障害とschemaを満たさない行のcodeの区別）を同じ条件で検証する（Logo固有のcaseは `TC-API-006-001`）。G1/G3/G4/G5/G8 → `ACC-BIZ-010`、`ACC-BIZ-028`。
+
 ## 28. Transport Idempotency
 
 最低限次を共通contractとする。
@@ -845,7 +849,7 @@ Release Manifestの `mounted_operation_ids`（`SPEC-180 §44`）に含まれるO
 
 replay記録（`app.idempotency_records`）のTestは、実PostgreSQLで行う。fake storeやmockのDBで、一意制約・同一transaction・期限・並行を代替しない。Test Case IDとmanifestへの登録は、実装のWork Planが `SPEC-190` に従って行う。
 
-**TST-IDM-004:** 記録の構造とdigestをTestする（(1)〜(3) はG2 / G3、(4) は純粋な関数のTestとしてG1でも実行できる）。(1) `(principal_profile_id, operation_id, key_digest)` のUNIQUE、`key_digest` / `request_digest` が32 byte、`result_ref_type` の未設定と `result_refs` の空配列が対応する（CHECK）、`expires_at` が `created_at` + 24時間であること（CHECKで固定され、任意の値をINSERT / UPDATEできない）。(2) 表にraw `Idempotency-Key`、応答body、Checkout URL、Stripe Session ID、個人情報の列がなく、保存された行にもそれらが含まれないこと（`DB-IDM-001`）。(3) 同じkeyでもPrincipal・Operation IDが違えば別の記録になり、互いに `409` を起こさないこと。(4) request digestがJSONのkey順序・書式上の空白・既定値の有無に依らず、同じ内容なら同じ値になること。`Authorization`・Cookie・`Idempotency-Key`・`X-Request-Id` を含まないこと（`API-IDM-005`）。
+**TST-IDM-004:** 記録の構造とdigestをTestする（(1)〜(3) はG2 / G3、(4) は純粋な関数のTestとしてG1でも実行できる）。(1) `(principal_profile_id, operation_id, key_digest)` のUNIQUE、`key_digest` / `request_digest` が32 byte、`result_ref_type` の未設定と `result_refs` の空配列が対応する（CHECK）、`expires_at` が `created_at` + 24時間であること（`ck_idempotency_records_expiry` が両者の関係を固定し、関係を満たさない値をINSERT / UPDATEできない。`app_api_runtime` のDB権限で時刻の列が守られることは期待値にしない。`SPEC-100 §43.1`）。(2) 表にraw `Idempotency-Key`、応答body、Checkout URL、Stripe Session ID、個人情報の列がなく、保存された行にもそれらが含まれないこと（`DB-IDM-001`）。(3) 同じkeyでもPrincipal・Operation IDが違えば別の記録になり、互いに `409` を起こさないこと。(4) request digestがJSONのkey順序・書式上の空白・既定値の有無に依らず、同じ内容なら同じ値になること。`Authorization`・Cookie・`Idempotency-Key`・`X-Request-Id` を含まないこと（`API-IDM-005`）。
 
 **TST-IDM-005:** 判定と応答をTestする（G4）。同じPrincipal + Operation + request + keyの再送が、既存の結果へ収束し新しい業務effectを作らないこと。同じkeyで別内容が、Domain stateを変更せず `409 IDEMPOTENCY_KEY_REUSED` になること。replayのHTTP statusが各Operationの定義どおりであること（例: 新規 `201`、replay `200`）。応答が現在の状態から作り直され、保存されたbody・Checkout URLを返さないこと。replay時の結果が各Operationの既存のreplay規則（SPEC-110 §§29,30,46,48,48.5など。終端状態でのreplayを `200` の既存結果とするOperationを含む）に従い、記録の存在によって上書きされないこと。複数transactionにまたがるOperationで、同じkeyの再送が同じBusiness Causeの既存の回復手順を続け、新しいBusiness Causeを作らないこと。Check-inがHeaderを受けても記録を作らないこと。業務更新を伴わず成功したNOOP（既存の有効Checkoutの返却、既に `CANCELED` のOrderの `200` など）の後に、同じkeyを別の対象に使うと `409 IDEMPOTENCY_KEY_REUSED` になり、別のCheckoutを開始しないこと。Refund requestの記録から、元のRefund Record（`business_cause_key`）を一意に再特定でき、別Business Causeの返金状態を返さないこと。既存のexact-match Slotを再利用するSlot generationで、元の候補を後から時間・Scope編集で移した後も、同じkeyの再送が再利用分を含む元の結果集合を返し、新しいSlotを作らないこと（`API-IDM-003`、`API-IDM-006`、`API-IDM-007`）。
 
@@ -2084,6 +2088,7 @@ SPEC-170に準拠したTest implementationは、少なくとも次をすべて�
 - `UCR-110-004`: `INCORPORATED`（`SPEC-110` `API-PUR-ELG-001`・§27。`UCR-RELSCOPE-001` の一部）
 - `UCR-RELSCOPE-001`: `INCORPORATED`（`SPEC-200 §7.5`、`SPEC-180 §44`、本書 §27・§74・§79.1）
 - `UCR-110-003`: `INCORPORATED`（`SPEC-110 §18.1` `API-IDM-003〜010`、`SPEC-100 §43.1` `DB-IDM-001〜003`、本書 §28.1 `TST-IDM-004〜008`のTest）
+- `UCR-100-005`: `INCORPORATED`（`SPEC-100 §43.1` の `created_at` / `expires_at` の保証の主体と手段、本書 §28.1 `TST-IDM-004` (1) のTest）
 - `UCR-130-001〜004/006`: `INCORPORATED`（`SPEC-060` / `SPEC-110` / `SPEC-120` / `SPEC-130`）
 - `UCR-130-005`: `DEFERRED_NONBLOCKING`（`SPEC-100`、speculative indexなし）
 - `UCR-150-001`: `INCORPORATED`（`SPEC-110 §48.5` `API-ADM-REC-003〜007`）
