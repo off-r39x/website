@@ -60,6 +60,11 @@ const poolOf = (role: RuntimeRole): Pool => {
 beforeAll(async () => {
   admin = new Client({ connectionString: url });
   await admin.connect();
+  // TST-DB-002: the session that runs most cases is UTC and READ COMMITTED, checked before setup.
+  expect((await admin.query("SHOW TimeZone")).rows[0].TimeZone).toBe("UTC");
+  expect((await admin.query("SHOW transaction_isolation")).rows[0].transaction_isolation).toBe(
+    "read committed",
+  );
   await prepareFoundationDatabase(admin);
   await installSyntheticDirectory(admin);
   const ca = await readFile(caPath as string, "utf8");
@@ -1054,11 +1059,22 @@ describe("TC-CON-001-001 two connections cannot both place an overlapping slot, 
   const OVERLAP_COUNT = `SELECT count(*)::int AS count FROM app.${SLOT}
     WHERE exclusive_scope_id = $1 AND tstzrange(usage_start, cycle_end, '[)') && tstzrange($2::timestamptz, $3::timestamptz, '[)')`;
 
-  async function waitUntilBlockedOnLock(pid: number) {
+  // The lock-wait deadline stays well inside each race case's own timeout, so a failing barrier
+  // ends (and the case cleans up) before Vitest gives up on the case.
+  const LOCK_WAIT_DEADLINE_MS = 5_000;
+  const RACE_CASE_TIMEOUT_MS = 20_000;
+
+  async function waitUntilBlockedOnLock(pid: number, insertOfB: Promise<unknown>) {
     // Barrier: Y's INSERT is inside the exclusion check and waits for X's transaction (a Lock wait).
-    // Polling a database condition, never a fixed sleep (TST-CON-001).
-    const deadline = Date.now() + 10_000;
+    // Polling a database condition, never a fixed sleep (TST-CON-001). If Y's INSERT finishes
+    // first (no exclusion wait, e.g. a regression of the constraint), fail at once.
+    let settled = false;
+    void insertOfB.finally(() => {
+      settled = true;
+    });
+    const deadline = Date.now() + LOCK_WAIT_DEADLINE_MS;
     for (;;) {
+      if (settled) throw new Error("connection Y's INSERT finished without waiting on X's lock");
       const waiting = (
         await admin.query(
           "SELECT wait_event_type FROM pg_stat_activity WHERE pid = $1 AND wait_event_type = 'Lock'",
@@ -1107,7 +1123,7 @@ describe("TC-CON-001-001 two connections cannot both place an overlapping slot, 
         () => undefined,
         (error: PgError) => error,
       );
-      await waitUntilBlockedOnLock(yPid);
+      await waitUntilBlockedOnLock(yPid, insertOfB);
       await x.query(outcomeOfX);
       const failure = await insertOfB;
       await y.query("ROLLBACK");
@@ -1118,52 +1134,60 @@ describe("TC-CON-001-001 two connections cannot both place an overlapping slot, 
     }
   }
 
-  it("TC-CON-001-001 X holds A uncommitted, Y's overlapping B waits and is refused with 23P01 once X commits; only A remains", async () => {
-    const eventId = await insertRow("events", eventRow());
-    const configId = await insertRow("karaoke_sales_configurations", configRow(eventId));
-    const scopeId = await insertRow(SCOPE, scopeRow(eventId, { name: "合成スコープ S9" }));
-    try {
-      expectViolation(
-        await race("COMMIT", scopeId, configId),
-        "23P01",
-        EXCLUSION,
-        "Y after X COMMIT",
-      );
-      expect(await scopeCount(scopeId), "only A is stored").toBe(1);
-      expect(
-        (
-          await admin.query(
-            `SELECT to_char(usage_start AT TIME ZONE 'UTC', 'HH24:MI') AS t FROM app.${SLOT} WHERE exclusive_scope_id = $1`,
-            [scopeId],
-          )
-        ).rows,
-      ).toEqual([{ t: "01:00" }]);
-    } finally {
-      await admin.query(`DELETE FROM app.${SLOT} WHERE exclusive_scope_id = $1`, [scopeId]);
-      await admin.query(`DELETE FROM app.${SCOPE} WHERE id = $1`, [scopeId]);
-      await admin.query("DELETE FROM app.karaoke_sales_configurations WHERE id = $1", [configId]);
-      await admin.query("DELETE FROM app.events WHERE id = $1", [eventId]);
-    }
-    await expectNothingCommitted();
-  });
+  it(
+    "TC-CON-001-001 X holds A uncommitted, Y's overlapping B waits and is refused with 23P01 once X commits; only A remains",
+    async () => {
+      const eventId = await insertRow("events", eventRow());
+      const configId = await insertRow("karaoke_sales_configurations", configRow(eventId));
+      const scopeId = await insertRow(SCOPE, scopeRow(eventId, { name: "合成スコープ S9" }));
+      try {
+        expectViolation(
+          await race("COMMIT", scopeId, configId),
+          "23P01",
+          EXCLUSION,
+          "Y after X COMMIT",
+        );
+        expect(await scopeCount(scopeId), "only A is stored").toBe(1);
+        expect(
+          (
+            await admin.query(
+              `SELECT to_char(usage_start AT TIME ZONE 'UTC', 'HH24:MI') AS t FROM app.${SLOT} WHERE exclusive_scope_id = $1`,
+              [scopeId],
+            )
+          ).rows,
+        ).toEqual([{ t: "01:00" }]);
+      } finally {
+        await admin.query(`DELETE FROM app.${SLOT} WHERE exclusive_scope_id = $1`, [scopeId]);
+        await admin.query(`DELETE FROM app.${SCOPE} WHERE id = $1`, [scopeId]);
+        await admin.query("DELETE FROM app.karaoke_sales_configurations WHERE id = $1", [configId]);
+        await admin.query("DELETE FROM app.events WHERE id = $1", [eventId]);
+      }
+      await expectNothingCommitted();
+    },
+    RACE_CASE_TIMEOUT_MS,
+  );
 
-  it("TC-CON-001-001 when X rolls back instead, Y waits for X's outcome and its B is accepted (the DB does not refuse on an uncommitted row)", async () => {
-    const eventId = await insertRow("events", eventRow());
-    const configId = await insertRow("karaoke_sales_configurations", configRow(eventId));
-    const scopeId = await insertRow(SCOPE, scopeRow(eventId, { name: "合成スコープ S9" }));
-    try {
-      const failure = await race("ROLLBACK", scopeId, configId);
-      expect(failure, "Y's INSERT after X ROLLBACK").toBeUndefined();
-      // Y rolled back itself, so nothing is stored either.
-      expect(await scopeCount(scopeId)).toBe(0);
-    } finally {
-      await admin.query(`DELETE FROM app.${SLOT} WHERE exclusive_scope_id = $1`, [scopeId]);
-      await admin.query(`DELETE FROM app.${SCOPE} WHERE id = $1`, [scopeId]);
-      await admin.query("DELETE FROM app.karaoke_sales_configurations WHERE id = $1", [configId]);
-      await admin.query("DELETE FROM app.events WHERE id = $1", [eventId]);
-    }
-    await expectNothingCommitted();
-  });
+  it(
+    "TC-CON-001-001 when X rolls back instead, Y waits for X's outcome and its B is accepted (the DB does not refuse on an uncommitted row)",
+    async () => {
+      const eventId = await insertRow("events", eventRow());
+      const configId = await insertRow("karaoke_sales_configurations", configRow(eventId));
+      const scopeId = await insertRow(SCOPE, scopeRow(eventId, { name: "合成スコープ S9" }));
+      try {
+        const failure = await race("ROLLBACK", scopeId, configId);
+        expect(failure, "Y's INSERT after X ROLLBACK").toBeUndefined();
+        // Y rolled back itself, so nothing is stored either.
+        expect(await scopeCount(scopeId)).toBe(0);
+      } finally {
+        await admin.query(`DELETE FROM app.${SLOT} WHERE exclusive_scope_id = $1`, [scopeId]);
+        await admin.query(`DELETE FROM app.${SCOPE} WHERE id = $1`, [scopeId]);
+        await admin.query("DELETE FROM app.karaoke_sales_configurations WHERE id = $1", [configId]);
+        await admin.query("DELETE FROM app.events WHERE id = $1", [eventId]);
+      }
+      await expectNothingCommitted();
+    },
+    RACE_CASE_TIMEOUT_MS,
+  );
 });
 
 // ---- TC-KRK-001-003 -----------------------------------------------------------------------------
