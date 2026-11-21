@@ -27,7 +27,10 @@ import {
 import { createAuthProxy } from "../../apps/api/src/api/auth-proxy.ts";
 import { AuthFailure } from "../../packages/auth/src/index.ts";
 import { createLogger } from "../../packages/observability/src/index.ts";
-import { createRecordingPublicContentStore } from "../harness/api/public-read.ts";
+import {
+  createRecordingPublicContentStore,
+  DEFAULT_SPONSOR_IMAGE_ORIGINS,
+} from "../harness/api/public-read.ts";
 import { createRecordingProfileStore } from "../harness/api/self-profile.ts";
 import { createTestRateLimit, peer, type TestRateLimit } from "../harness/rate-limit/api.ts";
 
@@ -130,6 +133,7 @@ function rig(options: RigOptions = {}): Rig {
       },
     }),
     publicContent: createRecordingPublicContentStore(),
+    sponsorImageOrigins: DEFAULT_SPONSOR_IMAGE_ORIGINS,
     ...(trs ? { rateLimit: trs.rateLimit } : {}),
     ...(options.authProxy ? { authProxy: proxy } : {}),
     ...(options.drain ? { draining: () => state.draining } : {}),

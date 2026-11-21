@@ -323,7 +323,8 @@ describe("TC-API-009-008 the sales period is judged in SQL, in timestamptz (SPEC
     expect(text).toMatch(/statement_timestamp\(\) < [a-z_]+\.sales_starts_at as sales_not_started/);
     expect(text).toMatch(/statement_timestamp\(\) >= [a-z_]+\.sales_ends_at as sales_closed/);
     expect(text).not.toMatch(/statement_timestamp\(\)::text/);
-    expect(text).not.toContain("statement_time");
+    // No separate judgement-time column (`statement_timestamp` itself contains "statement_time").
+    expect(text).not.toMatch(/\bstatement_time\b/);
   });
 
   const periodRow = (salesNotStarted: boolean, salesClosed: boolean) => ({
