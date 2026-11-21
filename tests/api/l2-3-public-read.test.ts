@@ -785,6 +785,12 @@ describe("TC-API-009-001 API-PUB-001..005 contract (SPEC-110 §26.1, API-PUB-REA
       "00000000000040008000000000000a1",
       "%20",
       "00000000-0000-4000-8000-0000000000g1",
+      // SPEC-110 section 9 (UCR-110-014): not a canonical UUID, so 400 rather than a 404 lookup.
+      "00000000-0000-0000-0000-000000000000",
+      "ffffffff-ffff-ffff-ffff-ffffffffffff",
+      "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF",
+      "00000000-0000-0000-8000-0000000000a1",
+      "00000000-0000-4000-c000-0000000000a1",
     ];
     it.each(notUuid)(
       "%j is 400 VALIDATION_FAILED (details null) and no store call",

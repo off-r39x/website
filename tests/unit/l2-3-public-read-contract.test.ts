@@ -74,6 +74,13 @@ describe("TC-API-006-103 query and path schemas of the public read Operations (S
     ["37 characters", "00000000-0000-4000-8000-0000000000a1x"],
     ["no hyphens", "00000000000040008000000000000a1"],
     ["a non-hex digit", "00000000-0000-4000-8000-0000000000g1"],
+    // SPEC-110 section 9 (UCR-110-014): the section 17 canonical UUID, which excludes nil and max,
+    // checked after lower-casing, so the upper-case max UUID is refused as well.
+    ["the nil UUID", "00000000-0000-0000-0000-000000000000"],
+    ["the max UUID", "ffffffff-ffff-ffff-ffff-ffffffffffff"],
+    ["the upper-case max UUID", "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"],
+    ["version digit 0", "00000000-0000-0000-8000-0000000000a1"],
+    ["variant digit c", "00000000-0000-4000-c000-0000000000a1"],
     ["empty", ""],
     ["a space", " "],
     ["with surrounding spaces", ` ${ANNOUNCEMENT_REFS[0]} `],

@@ -27710,6 +27710,7 @@
         "FR-PUB-007",
         "FR-PUB-013",
         "SPEC-110-6",
+        "SPEC-110-9",
         "SPEC-110-19",
         "SPEC-110-21",
         "SPEC-110-24.1",
@@ -27739,7 +27740,7 @@
         "The store's order is kept; a list with nothing is 200 with items: []; the Event none is 404 RESOURCE_NOT_FOUND (details null) for API-PUB-001 and API-PUB-004; the Event multiple / multiple_events is 500 INTERNAL_ERROR with no row; an unclassified store failure is 500; unavailable is 503 DATABASE_TEMPORARY_FAILURE (retryable) and never an empty list or a 404",
         "API-PUB-001: every nullable column null is answered as null (key present); participant_notices is the stored text, not split. API-PUB-002: faq_ref, question, answer, sort_order only (a negative sort_order is allowed)",
         "API-PUB-003: an item has announcement_ref, title, published_at, excerpt and excerpt_truncated and no body; excerpt: White_Space runs (newlines, tabs, U+3000, U+0085, U+00A0, VT, FF, U+2028, U+2029) become one U+0020, U+FEFF is kept, the ends are trimmed, then at most 100 code points (99, 100, 101; astral characters counted as one; no lone surrogate; trailing white space is not a cut; the cut text is not trimmed again), no ellipsis, excerpt_truncated true only when cut",
-        "API-PUB-004: the body is returned as stored; an upper-case UUID is lower-cased before the store is asked; a value that is not a UUID is 400 VALIDATION_FAILED (details null) with no store call and, without the dependency, 503 first; a not_found store result is 404 RESOURCE_NOT_FOUND whose body is identical for a non-public and an unknown ref (apart from request_id) and does not echo the ref",
+        "API-PUB-004: the body is returned as stored; an upper-case UUID is lower-cased before the store is asked; a value that is not a UUID, or not a SPEC-110 section 9 canonical UUID after lower-casing (the nil UUID, the max UUID in either case, version digit 0, variant digit c), is 400 VALIDATION_FAILED (details null) with no store call and, without the dependency, 503 first; a not_found store result is 404 RESOURCE_NOT_FOUND whose body is identical for a non-public and an unknown ref (apart from request_id) and does not echo the ref",
         "API-PUB-005: the sales state follows the store's salesNotStarted / salesClosed flags (the database's statement_timestamp() judgement in timestamptz; the period strings and the API clock are not compared), and the flags decide even when both period strings are the same millisecond; without an Entry purchase route an in-period Offering is SALES_STOPPED whether ENABLED, SUSPENDED or without remaining capacity, an earlier or later period keeps SALES_NOT_STARTED / SALES_CLOSED; unit_price.amount keeps 9007199254740993 as a string; no capacity, held, committed, remaining, control state or check-in value is sent",
         "A store row carrying Internal IDs, a state, counters or admin timestamps never reaches the response (the DTO is built field by field)",
         "A row the response schema refuses (published_at NULL or without milliseconds, an upper-case ref, a non-integer or int32-overflowing sort_order, a business_timezone other than Asia/Tokyo, an offset timestamp, a leading-zero or negative amount, a lower-case currency) makes the whole Operation 503 TEMPORARY_UNAVAILABLE (retryable, details null) with no row sent (API-PUB-READ-006)",
@@ -27876,7 +27877,7 @@
       "expected_domain_postconditions": [
         "emptyPublicQuerySchema accepts {} only (limit, cursor, state, sort and profile_ref are refused)",
         "publicSponsorLogoListSchema accepts the documented shape, an empty list and link_url null; it is strict (id, event_id, state, published_at, created_at, updated_at refused); every key must be present (nullable is not optional); an http, relative, protocol-relative, empty, javascript: or data: URL is refused for image_url and link_url; display_name is non-empty; sort_order is a non-negative integer; logo_ref is a lower-case canonical UUID",
-        "announcementRefParamSchema keeps a lower-case UUID, lower-cases an upper- or mixed-case one and refuses a value that is not a UUID (35 / 37 characters, no hyphens, a non-hex digit, empty, a space, surrounding spaces, a number, null, undefined)"
+        "announcementRefParamSchema keeps a lower-case UUID, lower-cases an upper- or mixed-case one and refuses a value that is not a UUID (35 / 37 characters, no hyphens, a non-hex digit, empty, a space, surrounding spaces, a number, null, undefined) or not a SPEC-110 section 9 canonical UUID after lower-casing (the nil UUID, the max UUID in either case, version digit 0, variant digit c)"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
