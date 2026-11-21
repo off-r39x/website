@@ -1970,7 +1970,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 - **変更しない場合の影響:** 仕様上は有効に読める値（`202611211530`、`01` 等）でAPIが起動しない、または実装によって起動する。レビューで仕様と実装の食い違いとして扱われ、`INF-SEC-007` の形式不正の判定が実装ごとに分かれる。
 - **影響を受ける可能性がある仕様書:** SPEC-110、SPEC-140、SPEC-190。いずれも読んだうえで変更不要と判断した（`SPEC-110` `API-QRY-005` は現在のversionと異なるcursorを `400` とする既存の規則で範囲外のversionを含む。`SPEC-140` §85 と `SPEC-190` §24 は `INF-SEC-007` と変数名を参照するだけである）。SPEC-170とSPEC-200は変更しない。versionの形式不正でAPIがReadyにならないことは、本書 §80 項目57（鍵またはversionの形式不正でreadinessがfalse）と、Currentのreadiness契約を参照する `SPEC-200` `ACC-INF-008` が受入の基準として含む。
 - **反映先:** 本書 §28.3（表、rotation、`INF-SEC-007`）。新しいState・Operation・Capability・error code・DB role・変数は追加していない。`RATE_LIMIT_HMAC_KEY_VERSION`（§28.1・§28.2）と `OBS_CORRELATION_HMAC_KEY_VERSION`（§28）には本件を及ぼしていない。
-- **決定（利用者、2026-11-21）:** 上限を仕様に明記し、実装の上限を広げる案は採らない。許容範囲は1〜2147483647、表記は10進数の正規形（`^[1-9][0-9]*$` かつ2147483647以下）とし、先頭の0・符号・空白・小数点・指数表記は形式不正とする。対象は `LIST_CURSOR_HMAC_KEY_VERSION` だけとする。Pull Request #82 のレビュー（versionの上限が仕様にない）への対応として決めた。
+- **決定（利用者、2026-11-21）:** 上限を仕様に明記し、実装の上限を広げる案は採らない。許容範囲は1〜2147483647、表記は10進数の正規形（`^[1-9][0-9]*$` かつ2147483647以下）とし、先頭の0・符号・空白・小数点・指数表記は形式不正とする。対象は `LIST_CURSOR_HMAC_KEY_VERSION` だけとする。Pull Request #82 のレビュー（versionの上限が仕様にない）への対応として決めた。本改訂の版はMINOR（v2.7.0）とした。受け付ける値を狭めるが、既存実装と他の仕様書に再解釈を要求しない（`SPEC-000 §7.1`）ためであり、受け付ける値を狭めた `UCR-030-001`（`SPEC-030` v2.2.0）の前例と揃える（利用者、2026-11-22。Pull Request #88 のレビューへの対応）。
 
 本仕様は、Infrastructure Ownerとして明示的に委譲されたEnvironment、DB principal、Secret placement、scheduler、health、deployment、Audit access/purge、observability backend、backup / restore、Test gateの具体化だけを行っている。
 
