@@ -16,13 +16,18 @@ import { createConnection, createServer, type Socket } from "node:net";
  * - `rollback_for_commit`: the COMMIT frame is replaced by ROLLBACK, so the transaction is NOT committed
  *   and its transaction locks go, but the backend session (and its session-level advisory locks) stays
  *   alive. The ROLLBACK acknowledgement reaches the caller only after `delayMs` (or `releaseAck()`).
+ * - `stall_statement` (FP.DB.INSIDE_STATEMENT): the first statement whose text matches `stallOn` is
+ *   never sent upstream, and from then on nothing is forwarded in either direction, while both sockets
+ *   stay open: the network stops answering. The upstream backend stays inside its transaction until
+ *   the caller's socket closes (then the proxy closes the upstream one too).
  */
 export type CommitProxyMode =
   | "drop_ack"
   | "drop_request"
   | "hold_request"
   | "delay_ack"
-  | "rollback_for_commit";
+  | "rollback_for_commit"
+  | "stall_statement";
 
 const ROLLBACK_FRAME = Buffer.concat([
   Buffer.from([81]),
@@ -36,9 +41,11 @@ const isCommitComplete = (frame: Buffer) =>
 /** Plain local fixture transport only (it cannot carry TLS). */
 export async function startCommitAcknowledgementDropProxy(
   target: URL,
-  options: { mode?: CommitProxyMode; delayMs?: number } = {},
+  options: { mode?: CommitProxyMode; delayMs?: number; stallOn?: RegExp } = {},
 ) {
   const mode = options.mode ?? "drop_ack";
+  if (mode === "stall_statement" && options.stallOn === undefined)
+    throw new Error("stall_statement requires stallOn");
   const delayMs = options.delayMs ?? 3000;
   const flushers = new Set<() => void>();
   const sockets = new Set<Socket>();
@@ -57,6 +64,8 @@ export async function startCommitAcknowledgementDropProxy(
     // delay_ack / rollback_for_commit: server frames withheld from the caller.
     let holding = false;
     let rollbackSent = false;
+    // stall_statement: once set, no frame is forwarded in either direction.
+    let stalled = false;
     const held: Buffer[] = [];
     let flushTimer: ReturnType<typeof setTimeout> | undefined;
     const flush = () => {
@@ -66,7 +75,7 @@ export async function startCommitAcknowledgementDropProxy(
       for (const frame of held.splice(0)) if (!downstream.destroyed) downstream.write(frame);
     };
     downstream.on("data", (chunk) => {
-      if (detached) return;
+      if (detached || stalled) return;
       incoming = Buffer.concat([incoming, chunk]);
       while (incoming.length >= (startup ? 4 : 5)) {
         const size = startup ? incoming.readInt32BE(0) : 1 + incoming.readInt32BE(1);
@@ -75,6 +84,17 @@ export async function startCommitAcknowledgementDropProxy(
         incoming = incoming.subarray(size);
         const isCommit =
           !startup && frame[0] === 81 && /^COMMIT\s*;?\s*\0$/i.test(frame.subarray(5).toString());
+        // Simple Query ('Q') or Parse ('P') carrying a statement text that matches `stallOn`.
+        if (
+          mode === "stall_statement" &&
+          !startup &&
+          (frame[0] === 81 || frame[0] === 80) &&
+          options.stallOn?.test(frame.subarray(5).toString())
+        ) {
+          fired += 1;
+          stalled = true;
+          return;
+        }
         if (isCommit && mode === "drop_request") {
           fired += 1;
           downstream.destroy();
@@ -108,6 +128,7 @@ export async function startCommitAcknowledgementDropProxy(
       }
     });
     upstream.on("data", (chunk) => {
+      if (stalled) return;
       outgoing = Buffer.concat([outgoing, chunk]);
       while (outgoing.length >= 5) {
         const size = 1 + outgoing.readInt32BE(1);

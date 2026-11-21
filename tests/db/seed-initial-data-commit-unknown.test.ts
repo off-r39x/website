@@ -608,3 +608,112 @@ describe("TC-TST-SEED-006-011 the re-check transaction runs within the transacti
     expect(await counts()).toEqual({ events: 0, offerings: 0, audits: 0 });
   });
 });
+
+// A session of this database that holds the migration lock (granted), other than this one.
+const MIGRATION_LOCK_HELD_SQL = `SELECT count(*)::int AS n FROM pg_locks l
+  JOIN pg_stat_activity a ON a.pid = l.pid
+  WHERE l.locktype = 'advisory' AND l.granted AND a.datname = current_database()
+    AND a.pid <> pg_backend_pid()`;
+const EVENT_COUNT_READ = /FROM app\.events ORDER BY id/i;
+// The command must settle on its own well before this; a hang is reported, not waited out.
+const SETTLE_LIMIT_MS = 10_000;
+
+async function settlesWithin<T>(work: Promise<T>, ms: number): Promise<T | "hung"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<"hung">((resolve) => {
+        timer = setTimeout(() => resolve("hung"), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+describe("TC-TST-SEED-003-009 the network stops answering inside the seed transaction (FP.DB.INSIDE_STATEMENT, SPEC-150 section 9, REL-DB-005)", () => {
+  it("TC-TST-SEED-003-009 the deadline is kept by the command itself: the connection is abandoned, FAILED(TEMPORARY), the migration lock goes, nothing is created", async () => {
+    const proxy = await startCommitAcknowledgementDropProxy(new URL(url as string), {
+      mode: "stall_statement",
+      stallOn: EVENT_COUNT_READ,
+    });
+    const statements: string[] = [];
+    const logs: RecordedLog[] = [];
+    const startedAt = Date.now();
+    try {
+      const seeding = runSeed({
+        input: buildInitialDataInput(),
+        openMain: () => connectAs("app_migrator", proxy.url),
+        statements,
+        logs,
+        transactionDeadlineMs: 800,
+      });
+      const settled = await settlesWithin(seeding, SETTLE_LIMIT_MS);
+      expect(settled, "the command settles by itself after the deadline").not.toBe("hung");
+      if (settled === "hung") return;
+      expect(Date.now() - startedAt).toBeLessThan(SETTLE_LIMIT_MS);
+      expect(proxy.fired()).toBe(1);
+      expect(shape(settled.outcome)).toMatchObject({
+        outcome: "FAILED",
+        failureClass: "TEMPORARY_FAILURE",
+        errorCode: "DATABASE_TEMPORARY_FAILURE",
+      });
+      expect(outcomeExitCode(settled.outcome as never)).toBe(2);
+      // Not a COMMIT result: nothing was sent after the stalled read, and nothing is retried.
+      expect(named(logs, OPENED)).toHaveLength(0);
+      expect(named(logs, RETRY_ATTEMPTED)).toHaveLength(0);
+      expect(insertedTables(statements)).toEqual([]);
+      expect(statements.some((text) => /^\s*COMMIT/i.test(text))).toBe(false);
+      expect(settled.reads()).toBe(0);
+    } finally {
+      await proxy.close();
+    }
+    // The abandoned session ends, and with it the migration lock it held.
+    await waitUntil(async () => (await admin.query(MIGRATION_LOCK_HELD_SQL)).rows[0].n === 0, {
+      label: "the abandoned session releasing the migration lock",
+    });
+    expect(await counts()).toEqual({ events: 0, offerings: 0, audits: 0 });
+  });
+});
+
+describe("TC-TST-SEED-006-012 the network stops answering inside the re-check (FP.DB.INSIDE_STATEMENT, DB-SEED-002 (4), SPEC-150 section 9)", () => {
+  it("TC-TST-SEED-006-012 the re-check connection is abandoned at the deadline: UNKNOWN_RESULT, no verdict, no retry", async () => {
+    const recheckProxy = await startCommitAcknowledgementDropProxy(new URL(url as string), {
+      mode: "stall_statement",
+      stallOn: AUDIT_RECHECK,
+    });
+    const statements: string[] = [];
+    const logs: RecordedLog[] = [];
+    const startedAt = Date.now();
+    try {
+      const seeding = seedThroughProxy("drop_request", {
+        statements,
+        logs,
+        transactionDeadlineMs: 800,
+        connect: async (wrap) => wrap(await connectAs("app_migrator", recheckProxy.url)),
+      });
+      const settled = await settlesWithin(seeding, SETTLE_LIMIT_MS);
+      expect(settled, "the command settles by itself after the deadline").not.toBe("hung");
+      if (settled === "hung") return;
+      expect(Date.now() - startedAt).toBeLessThan(SETTLE_LIMIT_MS);
+      expect(settled.fired).toBe(1);
+      expect(recheckProxy.fired()).toBe(1);
+      const outcome = shape(settled.run.outcome);
+      expect(outcome.outcome).toBe("UNKNOWN_RESULT");
+      expect(outcome.errorCode).toBe("COMMIT_RESULT_UNKNOWN");
+      expect(outcomeExitCode(settled.run.outcome as never)).toBe(3);
+      expect(named(logs, OPENED)).toHaveLength(1);
+      expect(named(logs, RESOLVED)).toHaveLength(0);
+      expect(named(logs, RETRY_ATTEMPTED)).toHaveLength(0);
+      expect(insertedTables(statements).filter((table) => table === "app.events")).toHaveLength(1);
+      expect(disallowedStatements(statements)).toEqual([]);
+    } finally {
+      await recheckProxy.close();
+    }
+    await waitUntil(async () => (await admin.query(MIGRATION_LOCK_HELD_SQL)).rows[0].n === 0, {
+      label: "the abandoned re-check session releasing the migration lock",
+    });
+    expect(await counts()).toEqual({ events: 0, offerings: 0, audits: 0 });
+  });
+});
