@@ -2933,7 +2933,13 @@
         "packages/db/src/schema/goods.ts",
         "packages/db/src/idempotency-records.ts"
       ],
-      "test_case_ids": ["TC-DB-TIM-001-001", "TC-DB-ARC-007-004", "TC-API-IDM-008-002"],
+      "test_case_ids": [
+        "TC-DB-TIM-001-001",
+        "TC-DB-ARC-007-004",
+        "TC-API-IDM-008-001",
+        "TC-API-IDM-008-002",
+        "TC-DB-IDM-003-001"
+      ],
       "notes": "implementation mapping only: created_at and updated_at default to transaction_timestamp(); no trigger maintains them; the idempotency record's created_at and expires_at come from transaction_timestamp() and app_api_runtime cannot INSERT them"
     },
     {

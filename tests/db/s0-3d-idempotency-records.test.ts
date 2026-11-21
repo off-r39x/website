@@ -623,7 +623,9 @@ describe("TC-DB-IDM-003-001 runtime privileges on app.idempotency_records (real 
     "app_runtime",
   ] as const;
   // SPEC-100 section 43.1 (UCR-100-005): SELECT and UPDATE are table-level (DB-IDM-003 reuse UPDATEs the
-  // time columns); INSERT is column-level and leaves out created_at, expires_at and the identity id.
+  // time columns); INSERT is column-level and leaves out created_at, expires_at and the identity id. These
+  // cases check that the migration grants exactly what it adopted (SEC-DB-001); they do not claim that the
+  // DB role protects the time columns, which SPEC-170 TST-IDM-004 (1) keeps out of the expectations.
   const API_TABLE_GRANTS = ["SELECT", "UPDATE"];
   const API_GRANTS = ["SELECT", "INSERT", "UPDATE"];
   const apiColumnGrants = (column: string): string[] =>

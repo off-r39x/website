@@ -27772,7 +27772,9 @@
         "SEC-DB-001",
         "API-IDM-008",
         "TST-IDM-006",
-        "SPEC-180-22.2"
+        "SPEC-180-22.2",
+        "SPEC-100-43.1",
+        "DB-TIM-002"
       ],
       "system_invariant_ids": ["INV-010-10"],
       "api_operation_ids": [],
