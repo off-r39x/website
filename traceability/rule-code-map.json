@@ -3149,6 +3149,22 @@
       "notes": "Missing deployment mapping/schema/extension/hash/grant not ready"
     },
     {
+      "rule_id": "INF-HLT-006",
+      "code_paths": ["packages/db/src/readiness.ts"],
+      "test_case_ids": [
+        "TC-INF-HLT-006-001",
+        "TC-INF-HLT-006-002",
+        "TC-INF-HLT-006-003",
+        "TC-INF-HLT-006-004",
+        "TC-INF-HLT-006-005",
+        "TC-INF-HLT-006-006",
+        "TC-INF-HLT-006-007",
+        "TC-INF-HLT-006-008",
+        "TC-INF-HLT-006-009"
+      ],
+      "notes": "Backward-compatible readiness: journal, catalog, journal read outside a transaction within the SPEC-150 55P03 budget; bundled migration set (byte order) is a prefix of the journal; required catalog contained in the live catalog only when the journal is ahead, exact otherwise; a required constraint validated after NOT VALID is accepted (UCR-180-003)"
+    },
+    {
       "rule_id": "REL-DB-012",
       "code_paths": [
         "packages/db/src/readiness.ts",
@@ -3195,12 +3211,25 @@
       "rule_id": "INF-DEP-001",
       "code_paths": [
         "scripts/build-backend.mts",
+        "scripts/build-git-identity.mts",
+        "scripts/build-backend-image.mts",
         "infra/backend.Dockerfile",
+        ".dockerignore",
         ".github/workflows/backend-foundation.yml",
         "packages/config/src/build.ts"
       ],
-      "test_case_ids": ["TC-INF-DEP-001-001"],
-      "notes": "Configuration check plus separately recorded actual build; no production deployment performed"
+      "test_case_ids": [
+        "TC-INF-DEP-001-001",
+        "TC-INF-DEP-001-002",
+        "TC-INF-DEP-001-003",
+        "TC-INF-DEP-001-004",
+        "TC-INF-DEP-001-005",
+        "TC-INF-DEP-001-006",
+        "TC-INF-DEP-001-007",
+        "TC-INF-DEP-001-008",
+        "TC-INF-DEP-001-009"
+      ],
+      "notes": "Configuration check plus separately recorded actual build; backend-build.json records the source git_sha (SPEC-180 §44 value, DEV-AI-003 build-tooling decision; the release manifest itself is not generated); no production deployment performed"
     },
     {
       "rule_id": "DEV-REP-001",
@@ -3216,9 +3245,12 @@
     },
     {
       "rule_id": "OBS-COR-005",
-      "code_paths": ["packages/security/src/index.ts"],
-      "test_case_ids": ["TC-COMMON-001"],
-      "notes": "Canonical correlation fingerprint only; not authorization or idempotency authority"
+      "code_paths": [
+        "packages/security/src/index.ts",
+        "apps/api/src/api/middleware/idempotency.ts"
+      ],
+      "test_case_ids": ["TC-COMMON-001", "TC-API-IDM-011-001"],
+      "notes": "Canonical correlation fingerprint only; not authorization or idempotency authority. The idempotency middleware's digests are unkeyed SHA-256 and never use the HMAC fingerprint"
     },
     {
       "rule_id": "DEV-OBS-003",
@@ -3251,7 +3283,8 @@
         "packages/db/src/transaction.ts",
         "apps/api/src/api/app.ts",
         "apps/api/src/api/respond.ts",
-        "packages/db/src/errors.ts"
+        "packages/db/src/errors.ts",
+        "packages/db/src/readiness.ts"
       ],
       "test_case_ids": [
         "TC-DB-RETRY-001",
@@ -3264,7 +3297,10 @@
         "TC-DB-FOUNDATION-012",
         "TC-DB-FOUNDATION-013",
         "TC-DB-FOUNDATION-014",
-        "TC-HTTP-AUDIT-004"
+        "TC-HTTP-AUDIT-004",
+        "TC-INF-HLT-006-006",
+        "TC-INF-HLT-006-008",
+        "TC-INF-HLT-006-009"
       ],
       "notes": "55P03 retry, explicit ROLLBACK, 4 attempts / 5s, exhausted -> 503"
     },
@@ -3625,7 +3661,8 @@
         "packages/api-contract/src/rpc.ts",
         "apps/api/src/api/app.ts",
         "apps/api/src/bootstrap/index.ts",
-        "apps/api/src/api/respond.ts"
+        "apps/api/src/api/respond.ts",
+        "packages/api-contract/src/schemas/list.ts"
       ],
       "test_case_ids": [
         "TC-DEV-API-003-050",
@@ -3634,7 +3671,9 @@
         "TC-API-007-003",
         "TC-DEV-API-003-002",
         "TC-DEV-API-003-003",
-        "TC-DEV-API-003-004"
+        "TC-DEV-API-003-004",
+        "TC-DEV-API-003-005",
+        "TC-DEV-API-002-001"
       ],
       "notes": "Backend foundation only; does not assert completion of business flows or live Provider contracts"
     },
@@ -5295,7 +5334,8 @@
         "TC-API-007-004",
         "TC-API-007-005",
         "TC-API-007-006",
-        "TC-API-007-008"
+        "TC-API-007-008",
+        "TC-API-007-010"
       ],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
     },
@@ -5320,7 +5360,8 @@
         "TC-API-007-006",
         "TC-API-007-007",
         "TC-API-007-008",
-        "TC-API-007-009"
+        "TC-API-007-009",
+        "TC-API-007-010"
       ],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
     },
@@ -5331,7 +5372,13 @@
         "apps/api/src/api/services/self-profile.ts",
         "packages/db/src/transactions/profile.ts"
       ],
-      "test_case_ids": ["TC-API-007-001", "TC-API-007-005", "TC-API-007-006", "TC-API-007-007"],
+      "test_case_ids": [
+        "TC-API-007-001",
+        "TC-API-007-005",
+        "TC-API-007-006",
+        "TC-API-007-007",
+        "TC-API-007-010"
+      ],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
     },
     {
@@ -5357,7 +5404,7 @@
     {
       "rule_id": "DB-TIM-003",
       "code_paths": ["packages/db/src/transactions/profile.ts"],
-      "test_case_ids": ["TC-API-007-005"],
+      "test_case_ids": ["TC-API-007-005", "TC-API-007-010"],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
     },
     {
@@ -5371,6 +5418,12 @@
       "code_paths": ["packages/db/src/transactions/profile.ts"],
       "test_case_ids": ["TC-API-007-005"],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "DEV-DB-004",
+      "code_paths": ["packages/db/src/transactions/profile.ts"],
+      "test_case_ids": ["TC-API-007-010"],
+      "notes": "implementation mapping only: the self Profile SELECT and UPDATE ... RETURNING are built from the Drizzle table declaration; transaction_timestamp() stays an SQL expression in the same UPDATE"
     },
     {
       "rule_id": "DEV-API-010",
@@ -5389,15 +5442,73 @@
     },
     {
       "rule_id": "SEC-ERR-001",
-      "code_paths": ["apps/api/src/api/respond.ts", "packages/api-contract/src/schemas/errors.ts"],
-      "test_case_ids": ["TC-SEC-ERR-001-001", "TC-DEV-API-011-001"],
+      "code_paths": [
+        "apps/api/src/api/respond.ts",
+        "packages/api-contract/src/schemas/errors.ts",
+        "apps/api/src/api/middleware/idempotency.ts"
+      ],
+      "test_case_ids": [
+        "TC-SEC-ERR-001-001",
+        "TC-DEV-API-011-001",
+        "TC-SEC-ERR-001-002",
+        "TC-DEV-API-007-002"
+      ],
       "notes": "Backend foundation only; no business Operation uses this yet"
     },
     {
       "rule_id": "SEC-ERR-002",
-      "code_paths": ["packages/api-contract/src/schemas/errors.ts", "apps/api/src/api/respond.ts"],
-      "test_case_ids": ["TC-DEV-API-003-002", "TC-DEV-API-003-004"],
+      "code_paths": [
+        "packages/api-contract/src/schemas/errors.ts",
+        "apps/api/src/api/respond.ts",
+        "apps/api/src/api/middleware/query.ts",
+        "apps/api/src/api/middleware/idempotency.ts"
+      ],
+      "test_case_ids": [
+        "TC-DEV-API-003-002",
+        "TC-DEV-API-003-004",
+        "TC-API-QRY-001-002",
+        "TC-SEC-ERR-001-002"
+      ],
       "notes": "Backend foundation only; no business Operation uses this yet"
+    },
+    {
+      "rule_id": "API-QRY-001",
+      "code_paths": [
+        "packages/api-contract/src/schemas/list.ts",
+        "apps/api/src/api/middleware/query.ts"
+      ],
+      "test_case_ids": ["TC-API-QRY-001-001", "TC-API-QRY-001-002"],
+      "notes": "Strict list query (pageQuery of SPEC-110 section 48.3); unknown query is 400 VALIDATION_FAILED. No list Operation is mounted yet"
+    },
+    {
+      "rule_id": "API-QRY-002",
+      "code_paths": ["packages/api-contract/src/schemas/list.ts"],
+      "test_case_ids": ["TC-API-QRY-002-001"],
+      "notes": "Builder refuses sort/order_by/offset/page; modes are Operation enums"
+    },
+    {
+      "rule_id": "API-QRY-004",
+      "code_paths": ["apps/api/src/api/pagination.ts", "packages/api-contract/src/schemas/list.ts"],
+      "test_case_ids": [
+        "TC-API-QRY-004-001",
+        "TC-API-QRY-004-002",
+        "TC-API-QRY-004-003",
+        "TC-API-QRY-004-004",
+        "TC-API-QRY-001-002"
+      ],
+      "notes": "Signed opaque cursor bound to Operation, mode and filters; key injected by caller (secret placement pending UCR)"
+    },
+    {
+      "rule_id": "SEC-API-018",
+      "code_paths": ["packages/api-contract/src/schemas/list.ts", "apps/api/src/api/pagination.ts"],
+      "test_case_ids": ["TC-API-QRY-001-001", "TC-API-QRY-002-001", "TC-API-QRY-004-003"],
+      "notes": "Allowlisted filter/sort only"
+    },
+    {
+      "rule_id": "SEC-DEP-007",
+      "code_paths": ["apps/api/src/api/pagination.ts"],
+      "test_case_ids": ["TC-API-QRY-004-002", "TC-API-QRY-004-004"],
+      "notes": "HMAC-SHA-256 via node:crypto, timingSafeEqual"
     },
     {
       "rule_id": "SEC-ERR-003",
@@ -5424,9 +5535,45 @@
         "TC-REL-DB-009-002",
         "TC-REL-DB-009-003",
         "TC-API-007-005",
-        "TC-API-007-008"
+        "TC-API-007-008",
+        "TC-API-007-001"
       ],
-      "notes": "Backend foundation; the self profile repository (API-AUTH-002 / API-AUTH-004) is the first business use: pool acquisition timeout and codeless connection failures return unavailable"
+      "notes": "Backend foundation; the self profile repository (API-AUTH-002 / API-AUTH-004) is the first business use: pool acquisition timeout, codeless and errno connection failures (EAI_AGAIN included) return unavailable, and the repository and the HTTP boundary share isDatabaseTemporaryFailure"
+    },
+    {
+      "rule_id": "API-IDM-011",
+      "code_paths": ["apps/api/src/api/middleware/idempotency.ts"],
+      "test_case_ids": ["TC-API-IDM-011-001", "TC-API-IDM-011-002", "TC-DEV-API-007-001"],
+      "notes": "Backend foundation only; no business Operation mounts this middleware yet; replay records are PR-S0-3d"
+    },
+    {
+      "rule_id": "DEV-API-007",
+      "code_paths": ["apps/api/src/api/middleware/idempotency.ts"],
+      "test_case_ids": ["TC-DEV-API-007-001", "TC-DEV-API-007-002", "TC-API-IDM-011-002"],
+      "notes": "Backend foundation only; no business Operation mounts this middleware yet; replay records are PR-S0-3d"
+    },
+    {
+      "rule_id": "API-IDM-003",
+      "code_paths": ["apps/api/src/api/middleware/idempotency.ts"],
+      "test_case_ids": ["TC-DEV-API-007-001"],
+      "notes": "Backend foundation only; no business Operation mounts this middleware yet; replay records are PR-S0-3d"
+    },
+    {
+      "rule_id": "API-IDM-005",
+      "code_paths": ["apps/api/src/api/middleware/idempotency.ts", "apps/api/src/api/respond.ts"],
+      "test_case_ids": [
+        "TC-API-IDM-005-001",
+        "TC-API-IDM-005-002",
+        "TC-API-IDM-005-003",
+        "TC-API-IDM-011-001"
+      ],
+      "notes": "Backend foundation only; no business Operation mounts this middleware yet; replay records are PR-S0-3d"
+    },
+    {
+      "rule_id": "DEV-API-006",
+      "code_paths": ["apps/api/src/api/middleware/idempotency.ts", "apps/api/src/api/failure.ts"],
+      "test_case_ids": ["TC-API-IDM-005-003", "TC-SEC-ERR-001-002"],
+      "notes": "Backend foundation only; no business Operation mounts this middleware yet; replay records are PR-S0-3d"
     }
   ]
 }

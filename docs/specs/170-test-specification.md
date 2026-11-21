@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-170
 title: Test Specification
-version: 2.7.0
+version: 2.9.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -408,7 +408,7 @@ Isolation strategy:
 
 **TST-DB-001:** In-memory SQL implementation、SQLite、mock repositoryをPostgreSQL compatibility Testの代替にしない。
 
-**TST-DB-002:** DB sessionは上流どおりUTC timezone、`READ COMMITTED`を明示確認する。
+**TST-DB-002:** DB sessionは上流どおりUTC timezone、`READ COMMITTED`を明示確認する。例外は、§22 項目9でreadiness用の接続の `default_transaction_isolation` を `repeatable read` にするTestだけとする（その接続に限る）。
 
 ---
 
@@ -616,6 +616,7 @@ Migration Testは空DBから全migrationを順番に適用し、次をassertす�
 6. migrationを二重適用するのではなく、migration historyに従い1回だけ適用される。
 7. migration失敗時にservice schema versionを成功扱いしない。
 8. supported previous released schema fixtureからforward migrationしてhistorical rowを失わない。
+9. 前のrelease相当のmigration setとrequired catalogを同梱したartifactのreadinessを、後続のmigrationの適用後に確認する（`SPEC-180` `INF-HLT-006`）。後続のmigrationが `INF-HLT-006` 4の許容範囲にある場合（required要素を変えずにtable・列・制約・index・sequenceを足す場合と、required制約を `VALIDATE CONSTRAINT` する（検証状態がfalseからtrueになる）場合）はReadyになる。次の場合はReadyにならない。後方互換な変更（既存CHECKの緩和など）を含むrequired要素の削除・属性の変更（CHECKの定義の変更、required列への `SET NOT NULL` を含む）、required tableへのNOT NULLでdefault・identity・generatedのない追加列、journalの先頭の不一致（hashの相違、同梱済みの行の欠落・間への挿入）、journalの不足、journalが同梱setと同じ長さのときの追加のobject。readinessの読み取りの間（catalogの読み取りの前後）にmigrationがCOMMITされた場合は、古いcatalogと新しいjournal（または新しいcatalogと古いjournal）の組み合わせで判定せず、COMMITされたmigrationが許容範囲の中ならReady、外ならReadyにならない。readinessの接続のsessionの `default_transaction_isolation` を `repeatable read` にした場合も、同じ結果になる（`SPEC-180` `INF-HLT-006` の読み取りの条件）。この場合のreadiness用の接続は、`TST-DB-002` の `READ COMMITTED` の明示確認の例外とし、migrationとfixtureの接続は `READ COMMITTED` を確認する。許容範囲のmigrationがDDLの後にCOMMITを遅らせる場合、lockの保持が `INF-HLT-006` のlock待ちの上限と読み直しの範囲に収まればReadyのままであり、超えればその検査はReadyにならず、COMMITの後の検査でReadyに戻る。
 
 **TST-DB-003:** Down migrationをProduction rollback authorityとして要求しない。Deployment rollbackのschema compatibilityは`SPEC-180`が定義する。
 
@@ -827,6 +828,10 @@ Release Manifestの `mounted_operation_ids`（`SPEC-180 §44`）に含まれるO
 **TST-API-008:** Order通知サマリーは所有者向けDTOであり、通知Domain Stateを変更しない。
 
 `TC-API-008-001`: `API-ORD-003`, `EML-NTF-003`, `SEC-API-029`。Purpose別対象通知、FAILED／PENDING／SENT／全CANCELED／要求欠落／複数時の優先順、SENT≠配送保証、サマリー部分取得失敗時のnull＋Order200、Order本体／認可失敗時の通常404／503、宛先・本文・Provider詳細非開示を検証する。G1/G3/G4/G5/G8 → `ACC-BIZ-032`。
+
+**TST-API-009:** 公開読取（`SPEC-110` §26.1）は `PUBLISHED` の行だけをserver-sideの条件で返し、未設定値・件数・障害を推測や空成功に置き換えない。
+
+`TC-API-009-001`: `API-PUB-001〜005`, `API-PUB-012`, `API-PUB-READ-001〜006`, `DB-SAL-001`, `BR-EVT-001〜002`, `FR-PUB-001〜007`。FAQ／Announcementの `DRAFT`・`ARCHIVED` が一覧・詳細に出ないこと、0件の空配列、順序と同値時の安定順、Eventの0件（`API-PUB-001`・`004` は404、一覧は空）と2件以上（行を選ばず500）、nullable列の `null` がそのまま返ること、Announcementの非公開と不存在が同じ404、UUIDでないrefと未知queryの400、`excerpt` の空白正規化・100 code point境界と `excerpt_truncated`、Entryの販売状態の判定順と境界（開始時刻を含み終了時刻を含まない、`SUSPENDED`、購入Operation未登録時の `SALES_STOPPED`、容量0）、counter・残数・Internal IDを返さないこと、DB障害の `503 DATABASE_TEMPORARY_FAILURE` とschemaを満たさない行の `503 TEMPORARY_UNAVAILABLE`、Rate Limit class `public_read` をreal PostgreSQLで検証する。`API-PUB-012` についても、新たに適用する共通規則（Eventの0件で `items: []`、2件以上で500、未知queryの400、DB障害とschemaを満たさない行のcodeの区別）を同じ条件で検証する（Logo固有のcaseは `TC-API-006-001`）。G1/G3/G4/G5/G8 → `ACC-BIZ-010`、`ACC-BIZ-028`。
 
 ## 28. Transport Idempotency
 
@@ -2092,6 +2097,7 @@ SPEC-170に準拠したTest implementationは、少なくとも次をすべて�
 - `UCR-140-003`: `INCORPORATED`（`SPEC-140` Part XIII / `SEC-API-030`、`SPEC-110` §21 / §24.1 / §56.1、`SPEC-150` §58.1、`SPEC-160` §24.1 / §42 / `OBS-ALT-041〜042`、`SPEC-180` §17.1〜§17.2 / §28.1〜§28.2、§47.1のTest）
 - `UCR-170-001`: `INCORPORATED`（`SPEC-110 §41 / §46〜§48` のOperation ID completeness gap解消）
 - `UCR-180-001`: `INCORPORATED`（`SPEC-180 §45.3` `INF-SEED-001〜006`、`SPEC-100 §13.5` `DB-SEED-001〜007`、`SPEC-160 §37` `OBS-AUD-014`、本書 §22.1 `TST-SEED-001〜006`のTest）
+- `UCR-180-003`: `INCORPORATED`（`SPEC-180 §40` `INF-HLT-006`、本書 §22 項目9のTest、§16 `TST-DB-002` のreadiness用の接続に限る例外）
 
 Canonical化済みoperationは §27.1／§27.2 のoperation-family Test対象とし、上記既知UCRのうち `UCR-130-005` のみ未反映として期待値を先取りしない。反映済みoperationへTest Caseを追加し、存在しないoperationを発明しない。新たなUCRはOwner本文への反映状況を個別確認し、自動的にINCORPORATEDと推定しない。
 

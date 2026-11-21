@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-110
 title: API Specification
-version: 2.7.0
+version: 2.13.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -261,6 +261,14 @@ filterはallowlist query parameterだけを受け、任意column名、raw SQL、
 
 **API-QRY-004:** `cursor`はopaqueとして扱い、Filter変更時はcursorを破棄して先頭pageを再取得する。offset paginationは提供しない。
 
+**API-QRY-005:** cursorは `SPEC-180` §28.3 の `LIST_CURSOR_HMAC_KEY` によるHMAC-SHA-256で署名し、署名に使った鍵のversion（`LIST_CURSOR_HMAC_KEY_VERSION`）を含める。署名は、少なくともOperation ID、sort mode（§48.3でmodeを持つlist）、正規化したfilterの値に結び付け、`limit` には結び付けない。cursorはInternal IDと鍵を含まない。Serverは次のいずれかに当たるcursorを `400 VALIDATION_FAILED`（`details: null`）とし、cursorを無視して先頭pageを返すことはしない。
+
+- 形式または長さが不正（§48.3 `pageQuery` の1〜512文字を外れる場合を含む）
+- 署名が一致しない（発行時とOperation ID、sort mode、filterの値のいずれかが異なる場合を含む）
+- 鍵versionが現在の `LIST_CURSOR_HMAC_KEY_VERSION` と異なる（旧versionのcursorを受け付けない。`SPEC-180` §28.3 のrotationにgraceはない）
+
+Clientは `400` を受けたらcursorを破棄し、先頭pageから取り直す（`API-QRY-004`）。
+
 Response:
 
 ```json
@@ -374,7 +382,7 @@ Discriminated unionを次に使用する。
 mutationのうちretryで二重side effectが問題となるoperationはHeaderを受ける。
 
 ```text
-Idempotency-Key: <16..128 ASCII chars>
+Idempotency-Key: <16..128 printable ASCII chars (0x20..0x7E)>
 ```
 
 対象:
@@ -388,6 +396,7 @@ Idempotency-Key: <16..128 ASCII chars>
 - slot generation
 - slot state/edit mutation
 - goods handoff completion（Staff / Administrator「Administrative Handoff Completion」の双方）
+- reservation cancellation（`API-ADM-KRK-007`）
 - entry ticket offering / karaoke sales configuration / goods sales configuration mutation
 - goods inventory adjustment
 - public content create / update / publish / archive / restore-draft
@@ -398,6 +407,13 @@ Idempotency-Key: <16..128 ASCII chars>
 - consistency review post-verification resolve
 
 Check-inはHeaderを受けてもよいが、Ticket consume-onceがCanonical idempotencyでありHeaderを必須にしない。
+
+**API-IDM-011:** `Idempotency-Key` を必須とするOperation（`API-IDM-003` と同じ集合。§18の対象一覧のOperationと、`SPEC-120 §36.1` の `API-ADM-EML-004`、`API-ADM-EML-005`。以下「対象Operation」）は、headerを次のとおり検証する。
+
+1. 形式: 16文字以上128文字以下で、すべての文字が印字可能なASCII（0x20〜0x7E）であること。制御文字（0x00〜0x1F）、DEL（0x7F）、非ASCII（0x80以上。UTF-8の多byte文字を含む）を1文字でも含む値は形式に合わないものとする。
+2. 検証する値: HTTPの構文解析（RFC 9110 §5.5 の前後の空白の除去を含む）を経てアプリケーションへ渡されたfield valueを、trim、大文字小文字の変換、その他の正規化をせずにそのまま検証する。この値は `API-IDM-005` のkey digestの入力と同じである。HTTP層で拒否されアプリケーションに届かないrequestは本規則の対象外とする。同名のheaderが複数ある場合は、それらを連結した1つのfield value（RFC 9110 §5.3）を1つの値として検証し、いずれか1つの値を選んで使わない。連結の区切りはHTTP実装の結合に従い、本書では固定しない。
+3. 欠落・形式不正: headerが欠落している場合、または1の形式に合わない場合は `400 VALIDATION_FAILED`（`details: null`）を返す。Domain stateを変更せず、記録（§18.1）を作らない（`API-IDM-004` の「最初の業務commit前の拒否」に当たる）。新しいerror codeを追加しない。
+4. 順序: 認証・認可（§24の手順2〜7）で失敗するrequestは、その失敗（`401`、`403`、self operationの `404` など）を本検証より先に返す。本検証と、認証・認可以外の検証（§13のrequest size上限、`415 UNSUPPORTED_MEDIA_TYPE`、`400 MALFORMED_REQUEST`、bodyのZod検証）および §24.1 の段階3（resource keyのrate limit）との前後は、本規則では定めない。これらと本検証の両方に当たるrequestは、そのいずれかの失敗を返す。どの順でもDomain stateと記録（§18.1）は変更しない。
 
 Transport key replay時は、同じPrincipal + Operation ID + normalized request fingerprintに一致する場合だけ同じtransport resultを返してよい。異なるpayloadで同じkeyを再利用した場合は `409 IDEMPOTENCY_KEY_REUSED`。
 
@@ -467,7 +483,7 @@ listも同じ`data`内に`items/page`を持つ。
 | HTTP | Code | 意味 | Retryable |
 |---:|---|---|---|
 | 400 | `MALFORMED_REQUEST` | JSON / syntax（未対応content typeは415 `UNSUPPORTED_MEDIA_TYPE`） | No |
-| 400 | `VALIDATION_FAILED` | Zod / field validation | No |
+| 400 | `VALIDATION_FAILED` | Zod / field validation（`API-IDM-011` の対象Operationの `Idempotency-Key` の欠落・形式不正を含む） | No |
 | 401 | `AUTHENTICATION_REQUIRED` | credentialなし / invalid session | 条件付き |
 | 403 | `EMAIL_VERIFICATION_REQUIRED` | verified email必須 | No |
 | 403 | `AUTHORIZATION_DENIED` | Role / Capability不足 | No |
@@ -620,8 +636,10 @@ rate limit（`SPEC-140` Part XIII）は上記の番号付き手順に次の位�
 - **Body:** `{}`
 - **DB primitive:** `INSERT ... ON CONFLICT (auth_subject)` + existing row reselect, `READ COMMITTED`。
 - **Success:** `200` if existing, `201` if newly created。
+- **Response 201 / 200:** `API-AUTH-002`と同形のprofile（`{ profile_ref, display_name, updated_at }`）。新規作成時の `display_name` は `null` とし、Neon Authの氏名・Emailから補完しない（`SPEC-030` §9.2）。既存の場合は既存行を変更せずに返す（`UCR-110-010`）。
+- **Profile relation不整合:** 再select（`SPEC-100` `DB-AUTH-003`）が0件のとき、0件を観測したtransactionではProfileを作らず、`SPEC-150` `REL-AUTH-009` のCaseを同じtransactionでcommitした後に `409 CONSISTENCY_REVIEW_REQUIRED`（`retryable: false`、`details: null`）を返す。応答に `case_ref`、reason code、Auth Subjectを含めない（§49「一般Userへ内部reason codeを返さない」）。retry可能なDB失敗（`40001` / `40P01` / `55P03`）は `REL-AUTH-009` に従いtransaction全体を再評価し、再評価の結果として200 / 201になりうる。retry budgetを使い切れば `503 DATABASE_TEMPORARY_FAILURE`（§50、§51）とする。
 - **Idempotency:** Domain key=`auth_subject`。Transport key不要。
-- **Trace:** `AR-ID-004`, `DB-TXN matrix: Business Profile provisioning`.
+- **Trace:** `AR-ID-004`, `DB-TXN matrix: Business Profile provisioning`, `REL-AUTH-005`, `REL-AUTH-009`, `DB-AUTH-003`.
 
 ### API-AUTH-004 — Update current Business Profile
 
@@ -653,9 +671,69 @@ rate limit（`SPEC-140` Part XIII）は上記の番号付き手順に次の位�
 | `API-PUB-011` | `GET /public/goods/{goods_ref}` | Goods detail | `PG-GDS-002` |
 | `API-PUB-012` | `GET /public/sponsor-logos` | PUBLISHED Logo list | `FR-PUB-015`, `BR-EVT-005`, `app.sponsor_logos` |
 
-Public queryは`DRAFT` / `ARCHIVED`を返さない。availability query failureは空き0へ変換せず`503 TEMPORARY_UNAVAILABLE`。
+Public queryは`DRAFT` / `ARCHIVED`を返さない。availability query failureは空き0へ変換せず`503 TEMPORARY_UNAVAILABLE`。ただし、DBの一時障害（§51）による取得失敗は、availabilityを含め `503 DATABASE_TEMPORARY_FAILURE` とする（§26.1 `API-PUB-READ-006`）。
 
-`API-PUB-012` のfull pathは `GET /api/v1/public/sponsor-logos`。Queryは空のstrict object。Response dataは `{ items: [{ logo_ref: uuid, display_name: string, image_url: httpsUrl, link_url: httpsUrl | null, sort_order: integer }] }`。`sort_order ASC, public_ref ASC` で当該Eventの公開対象全件を返す。0件は `items: []`、DB／検証障害は503であり空成功に偽装しない。未公開Logo、内部ID、管理情報は返さず、この取得失敗で他の公開APIの成功を取り消さない。URLのCanonical検証は `SPEC-140`、画像の表示失敗時の代替は `SPEC-050` に従う。
+`API-PUB-012` のfull pathは `GET /api/v1/public/sponsor-logos`。Queryは空のstrict object。Response dataは `{ items: [{ logo_ref: uuid, display_name: string, image_url: httpsUrl, link_url: httpsUrl | null, sort_order: integer }] }`。`sort_order ASC, public_ref ASC` で当該Eventの公開対象全件を返す（「当該Event」とEventの件数の扱いは §26.1 `API-PUB-READ-002`）。0件は `items: []`、DB障害は `503 DATABASE_TEMPORARY_FAILURE`、DBから読んだ行が応答schemaを満たさない検証障害は `503 TEMPORARY_UNAVAILABLE` であり（§26.1 `API-PUB-READ-006`）、空成功に偽装しない。未公開Logo、内部ID、管理情報は返さず、この取得失敗で他の公開APIの成功を取り消さない。URLのCanonical検証は `SPEC-140`、画像の表示失敗時の代替は `SPEC-050` に従う。
+
+## 26.1 Public read contract（`API-PUB-001`〜`API-PUB-005`）
+
+`UCR-110-013`。本節は `API-PUB-001`〜`API-PUB-005` の入力・応答・失敗を定め、共通規則（`API-PUB-READ-001`〜`006`）は `API-PUB-012` にも適用する。新しいState・error code・Capability・DB列は追加しない。Karaoke（`API-PUB-006`〜`009`）とGoods（`API-PUB-010`〜`011`）の応答は本節の対象外である。
+
+**API-PUB-READ-001（入力）:** Queryは6 Operationとも空のstrict objectとし、未知または重複したquery parameterは `400 VALIDATION_FAILED`（`details: null`）とする。公開namespace（§6）では `Authorization` headerとCookieを読まず、付いていても応答を変えない。
+
+**API-PUB-READ-002（Eventの件数）:** 本書の公開readは、Eventが高々1件であること（`SPEC-100` `DB-SEED-001`・`DB-SEED-007`）を前提とし、その1件を「当該Event」とする。Eventが2件以上ある場合、`API-PUB-001`〜`005` と `API-PUB-012` はいずれの行も選ばず `500 INTERNAL_ERROR` とし、全Eventの行を混ぜて返さない。Eventが0件の場合、`API-PUB-001` は `404 RESOURCE_NOT_FOUND`、`API-PUB-004` は `404 RESOURCE_NOT_FOUND`、一覧（`API-PUB-002`、`003`、`005`、`012`）は `items: []` とする。
+
+**API-PUB-READ-003（公開条件）:** FAQ・Announcement・Sponsor Logoは `state = 'PUBLISHED'` の行だけを、server-sideのquery条件として返す（`SPEC-100` `DB-SAL-001`・`DB-SAL-002`）。`DRAFT` / `ARCHIVED` の行、`state`、`created_at` / `updated_at`、Internal IDは返さない（§9、§55）。一覧は当該Eventの公開対象全件を返し、cursorとlimitを持たない（§12のcursorはOwner / Admin listのもの）。
+
+**API-PUB-READ-004（未設定値）:** 全fieldを必須keyとし、DBでnullableな列だけを `| null` とする。未設定の値は `null` のまま返し、推測値・既定値・空文字で埋めない（`BR-EVT-001`、`FR-PUB-002`）。
+
+**API-PUB-READ-005（順序）:** 一覧の順序は次のとおりとし、Clientから順序を受けない（`API-QRY-002`）。
+
+| Operation | 順序 |
+|---|---|
+| `API-PUB-002` | `sort_order ASC, public_ref ASC` |
+| `API-PUB-003` | `published_at DESC, public_ref DESC`（§12） |
+| `API-PUB-005` | `created_at ASC, public_ref ASC` |
+| `API-PUB-012` | `sort_order ASC, public_ref ASC` |
+
+**API-PUB-READ-006（失敗）:** DBの一時障害（§51）は `503 DATABASE_TEMPORARY_FAILURE` とし、空の一覧・`404` に変換しない。DBから読んだ行が応答schemaを満たさない場合（例: `PUBLISHED` のAnnouncementの `published_at` がNULL）は、その行を推測値で補わず、黙って除外もせず、そのOperationの応答全体を `503 TEMPORARY_UNAVAILABLE` とする。1つのOperationの失敗は、他の公開Operationの成功を取り消さない。成功応答の `Cache-Control` は §19 の共通どおり `no-store` とする。
+
+### API-PUB-001 — Event public information
+
+- **Method / Path:** `GET /api/v1/public/event`
+- **Response 200:** `{ event_ref: uuid, name: string, summary: string | null, starts_at: isoUtc | null, ends_at: isoUtc | null, business_timezone: "Asia/Tokyo", venue_name: string | null, venue_details: string | null, access_information: string | null, participant_notices: string | null }`。`participant_notices` はDBの1列をそのまま返し、分割しない。
+- **Not found:** Eventが0件なら `404 RESOURCE_NOT_FOUND`（`API-PUB-READ-002`）。
+- **Trace:** `FR-PUB-001〜004`, `BR-EVT-001`, `PG-PUB-001`, `SPEC-100` §13.1.
+
+### API-PUB-002 — Published FAQ list
+
+- **Method / Path:** `GET /api/v1/public/faqs`
+- **Response 200:** `{ items: [{ faq_ref: uuid, question: string, answer: string, sort_order: integer }] }`。`published_at` は返さない。
+- **Trace:** `FR-PUB-005`, `BR-EVT-002`, `DB-SAL-001`, `PG-PUB-001`.
+
+### API-PUB-003 — Published Announcement list
+
+- **Method / Path:** `GET /api/v1/public/announcements`
+- **Response 200:** `{ items: [{ announcement_ref: uuid, title: string, published_at: isoUtc, excerpt: string, excerpt_truncated: boolean }] }`。`body` は一覧に含めない。
+- **Excerpt:** `body` のUnicode `White_Space` propertyを持つ文字（改行を含む）の連続を1つのU+0020に置き換え、先頭と末尾のU+0020を除いた文字列の先頭から、最大100 Unicode code pointsを `excerpt` とする。省略記号を付けない。正規化後の文字列が100 code pointsを超えて切った場合だけ `excerpt_truncated: true` とする。code point単位で切るため、書記素クラスタの途中で切れることがあり、表示上の扱い（省略記号等）はWeb（`SPEC-050` §11.2）が決める。
+- **Trace:** `FR-PUB-006`, `BR-EVT-002`, `DB-SAL-001`, `PG-PUB-001`, `PG-PUB-002`.
+
+### API-PUB-004 — Published Announcement detail
+
+- **Method / Path:** `GET /api/v1/public/announcements/{announcement_ref}`
+- **Path:** `announcement_ref` はUUID（§9）。大文字を含むUUIDは小文字のcanonical形式へ正規化して照会する。UUIDでない値は `400 VALIDATION_FAILED`（`details: null`）。
+- **Response 200:** `{ announcement_ref: uuid, title: string, body: string, published_at: isoUtc }`。`body` は保存された本文をそのまま返す。
+- **Not found:** 存在しない、または `PUBLISHED` でない（`DRAFT` / `ARCHIVED`）Announcementは、区別せず `404 RESOURCE_NOT_FOUND` とし、公開本文を返さない（`SPEC-050` §11.3）。
+- **Trace:** `FR-PUB-006`, `BR-EVT-002`, `DB-SAL-001`, `PG-PUB-003`.
+
+### API-PUB-005 — Entry Ticket sale information
+
+- **Method / Path:** `GET /api/v1/public/entry-offerings`
+- **範囲:** 当該EventのEntry Ticket Offeringを全件返す。Entry Ticket OfferingはPublication Stateを持たないため、`SUSPENDED` のOfferingも販売停止として返す（`FR-PUB-010`、`SPEC-050` §12.1）。
+- **Response 200:** `{ items: [{ offering_ref: uuid, name: string, description: string | null, unit_price: Money, sales_starts_at: isoUtc, sales_ends_at: isoUtc, purchase_limit: integer, availability: "AVAILABLE" | "UNAVAILABLE", unavailable_reason: "SALES_NOT_STARTED" | "SALES_CLOSED" | "SALES_STOPPED" | "SOLD_OUT" | null }] }`。`unit_price` は §11。`availability = "AVAILABLE"` のとき `unavailable_reason` は `null`、`"UNAVAILABLE"` のとき非null。`sales_capacity`、`held_quantity`、`committed_quantity`、残数、`sale_control_state`、check-in windowは返さない（残数の公開設定はない）。
+- **販売状態:** 判定時刻は、行を読む同じSQL文の `statement_timestamp()` とする。次の順で最初に当てはまるものを `unavailable_reason` とし（`API-PUR-ELG-001` のreason順。本人条件は含めない）、どれにも当てはまらなければ `AVAILABLE` とする。(1) 判定時刻 < `sales_starts_at` なら `SALES_NOT_STARTED`。(2) 判定時刻 >= `sales_ends_at` なら `SALES_CLOSED`（`BR-SAL-003`）。(3) `sale_control_state = 'SUSPENDED'`、またはEntryの購入を開始できるOperation（`API-PUR-ENTRY-001`、`API-PUR-CART-001`）が当該releaseのroute registry（`API-RLC-001`）に1つも登録されない場合は `SALES_STOPPED`（`UCR-110-004` と同じ扱い）。(4) `sales_capacity - held_quantity - committed_quantity <= 0` なら `SOLD_OUT`。
+- **Meaning:** 表示用の公開情報であり、確保・価格保証・購入の認可ではない。本人別の上限・購入可能数は `API-PUR-ELG-001` が返し、購入開始時に全条件を再検証する（`BR-SAL-005`）。
+- **Trace:** `FR-PUB-007`, `FR-PUB-010`, `FR-TKT-001〜002`, `BR-SAL-003〜004`, `PG-TKT-001`, `SPEC-100` §15.1.
 
 ## 27. Karaoke public availability schema
 
@@ -1285,6 +1363,7 @@ Allowlist fields: up-stream permitted scope/time/sales configuration relation on
 - **DB lock:** Karaoke Ticket `FOR UPDATE` → Reservation。
 - **Precondition:** Reservation `CONFIRMED`; common Ticket cancellation rule。
 - **Effects:** Reservation `CANCELED`; unused Ticket `CANCELED`; Slot remains `SOLD`; Hold remains `COMMITTED`; no resale。
+- **Idempotency-Key:** required（§18、`API-IDM-011`）。記録（§18.1）を作り、replayは下の `Idempotency` 行（existing cancellation result reuse）に従う（`API-IDM-007`）。
 - **Idempotency:** existing cancellation result reuse。
 
 本endpointをgeneric cancellation / invariant bypassとして利用してはならない。SPEC-130 / 150が具体的なUI / Runbookを定義する。
@@ -1674,7 +1753,7 @@ Capability `karaoke_sales.manage`（`SPEC-060 AR-ROLE-016〜018`）。`karaoke_s
 
 各Admin listは以下のZod schemaのallowlist queryだけを受け、strict（`.strict()`相当）で未知parameterを拒否する。`sort` / `order_by` / raw SQL / offset / arbitrary columnは定義しない。日時rangeは`from` inclusion / `to` inclusionとし、serverで`Asia/Tokyo`業務日をinstantへ正規化する。Public Reference boundはすべて`z.string().uuid()`。
 
-各schemaは単一のcomplete canonical sort tupleを持ち、その全sort keyは`SPEC-100`に実在するcolumn / `SPEC-130`が定義した意味からなる。`cursor`は選択されたsort modeのsort key + `public_ref`をserver-signedにencodeし、modeを切り替えた場合はcursorを破棄して先頭pageを再取得する。
+各schemaは単一のcomplete canonical sort tupleを持ち、その全sort keyは`SPEC-100`に実在するcolumn / `SPEC-130`が定義した意味からなる。`cursor`は選択されたsort modeのsort key + `public_ref`をserver-signedにencodeし（§12 `API-QRY-005`）、modeを切り替えた場合はcursorを破棄して先頭pageを再取得する。
 
 共通:
 
@@ -2025,13 +2104,13 @@ SPEC-150 Manual Recovery Runbookとの対応:
 - **Path:** `/api/v1/admin/recovery/consistency-reviews/{case_ref}/resolve`
 - **Auth:** active `ADMINISTRATOR`; **Capability:** `recovery.exception.execute`
 - **Body:** `{}`。target state / source state値、任意free-text noteを受け取らない。`app.consistency_review_cases.resolution_note` は本operationでは設定せず`NULL`のままとする。
-- **Precondition:** Case unresolved。source Entityを同じlock orderで再取得し、Case作成時snapshotではなくcurrent stateをpreconditionにする（`REL-REC-010`）。Caseがstaleでcurrent stateが既に正規状態へ収束済み、または対応するoperation-specific recoveryが完了し、Authority + Domain Invariantの再検証が成立する場合だけ。
+- **Precondition:** Case unresolved。source Entityを同じlock orderで再取得し、Case作成時snapshotではなくcurrent stateをpreconditionにする（`REL-REC-010`）。Caseがstaleでcurrent stateが既に正規状態へ収束済み、または対応するoperation-specific recoveryが完了し、Authority + Domain Invariantの再検証が成立する場合だけ。reason `AUTH_PROFILE_RELATION_INCONSISTENT` の収束条件は `SPEC-150` `REL-REC-017` とする。
 - **Allowed:** post-verification後に`resolved_at`を設定する。source historyを削除しない。Case reasonに対応する上流専用Recoveryを代替しない。
 - **Forbidden:** mark-fixed only、generic state write、arbitrary SQL、constraint disable、browserだけでresolvedにする操作。
 - **Idempotency:** already resolved replayは200 existing result。同じincidentのretryで新Caseを増やさない。
 - **Errors:** 再検証不成立は`409 CONSISTENCY_REVIEW_REQUIRED`。
 - **Response 200:** `case_ref`, `resolved_at`。Internal IDs / source history / free-text noteを返さない。
-- **Trace:** `REL-REC-010〜013`, `DB-XFN-002,003`, `SPEC-150 §55`.
+- **Trace:** `REL-REC-010〜013`, `REL-REC-017`, `DB-XFN-002,003`, `SPEC-150 §55`.
 
 ---
 
@@ -2053,7 +2132,7 @@ Client向け一般Order status:
 
 一般Userへ内部reason code / provider identifiersを返さない。
 
-Administrator `recovery.review` responseは`case_ref`, opened_at, allowlisted reason category, related public refsを返せるが、Internal IDsは返さない。
+Administrator `recovery.review` responseは`case_ref`, opened_at, allowlisted reason category, related public refsを返せるが、Internal IDsは返さない。Caseの `auth_subject` と `dedupe_key` はAdministratorの応答にも返さない（`SEC-PII-002`、`SPEC-100` `DB-XFN-004`）。`AUTH_PROFILE_RELATION_INCONSISTENT` のCaseはrelated public refsを持たない。
 
 Consistency Review readは §48.3 `consistencyReviewListQuery` を使用し、defaultは`resolution=UNRESOLVED`（`resolved_at IS NULL`相当）とする。Post-verification resolutionは §48.5 `API-ADM-REC-007` だけが提供し、mark-fixed only / generic state writeを提供しない。
 
@@ -2380,6 +2459,10 @@ resolveConsistencyReviewCase()
 44. `API-ADM-GDS-005` Inventory adjustmentはClientからreason code / free textを受け取らず、serverがfixed `ADMINISTRATIVE_CAPACITY_ADJUSTMENT`を導出し、same-transaction Audit Eventへsigned adjustment quantity / safe before/after counters / resultと共に永続化する（`SPEC-160 §28.1`, `OBS-GDS-002,004,005`）。
 45. 全canonical Operation IDは§56.1でexactly 1つのrate limit classを持つ。`429` は `Retry-After`付きで `RATE_LIMIT_EXCEEDED`、rate limit store判定不能は `503 TEMPORARY_UNAVAILABLE` を返し、どちらもDomain stateを変更しない。
 46. Transport Idempotencyのreplay記録は業務DBの `app.idempotency_records` だけに保存し、業務更新と同じtransactionで書く。応答body・Checkout URL・個人情報・raw keyを保存せず、保持期間は24時間とする（§18.1）。DB障害による保存の失敗は既存の `503 DATABASE_TEMPORARY_FAILURE`（一意制約の競合は `API-IDM-009`、その他の制約違反は §50）、処理中の同じkeyは新しいerror codeを作らず、`IDEMPOTENCY_KEY_REUSED` または既存結果への収束とする。
+47. `API-IDM-011` の対象Operation（§18の対象一覧と `API-ADM-EML-004/005`）で `Idempotency-Key` が欠落、または16〜128文字の印字可能ASCII（0x20〜0x7E）でない場合は、認証・認可の失敗を先に返したうえで `400 VALIDATION_FAILED`（`details: null`）とし、Domain stateと記録（§18.1）を変更しない。受信した値は正規化せずに検証し、同名headerの複数指定は連結した1つの値として扱う（`API-IDM-011`）。
+48. Owner / Admin listのcursorは §12 `API-QRY-005` のとおり署名・検証し、形式・長さ・署名・鍵version・Operation ID・sort mode・filterの不一致を `400 VALIDATION_FAILED`（`details: null`）とし、先頭pageへ黙って戻さない。
+49. `API-AUTH-003` の再select 0件は500ではなく、Caseをcommitした後の `409 CONSISTENCY_REVIEW_REQUIRED` であり、0件を観測したtransactionではProfileを作らず、内部reason・Auth Subjectを返さない（`REL-AUTH-009`）。
+50. `API-PUB-001`〜`005`・`012` は §26.1 のとおり返す。FAQ・Announcement・Sponsor Logoは `PUBLISHED` の行だけをserver-sideのquery条件で返し、Publication Stateを持たないEventとEntry Ticket Offeringは当該Eventの行を返す。未設定値は `null` のまま返す。Eventが0件のとき、一覧（`002`・`003`・`005`・`012`）は `items: []`、単一resource（`001`・`004`）は `404`。非公開と不存在のAnnouncementは区別せず `404`。Eventが2件以上なら行を選ばず `500`、未知queryは `400`、DB障害は `503 DATABASE_TEMPORARY_FAILURE`、schemaを満たさない行は `503 TEMPORARY_UNAVAILABLE` であり、空成功に偽装しない。
 
 ---
 
@@ -2533,6 +2616,72 @@ retry count / backoff / queue / operator RunbookはSPEC-150。本書§48.5はSPE
 - 変更しない場合の影響: 実装が §23 と §24 のどちらかに反する。Email未確認の利用者に返るerror codeが、Business Profileの有無で変わる。
 - 影響を受ける可能性がある仕様書: SPEC-060, SPEC-140, SPEC-170（いずれも本文の変更は不要。`SEC-ABU-017` の段階2は引き続きDB accessの前にある）
 
+### UCR-110-010 — INCORPORATED
+
+- **Status:** `INCORPORATED`。本改訂（v2.10.0）で §25 `API-AUTH-003` へ反映した（プロジェクト所有者の決定、2026-11-19。`SPEC-000` §8）。新しいerror code・state・Capability・Operationは追加していない。現在の契約は本文を正とし、以下の要求はその経緯の記録である。
+- 対象: SPEC-110 §25 `API-AUTH-003`。§9、§16、§19、§55、`SPEC-030` §9.2 に関連する。
+- 現在の仕様（改訂前）: `API-AUTH-003` は Method、Path、Auth、Body `{}`、DB primitive、Success（既存 `200`、新規 `201`）、Idempotency、Trace を定めるが、成功応答の `data` の形を定めていなかった。§19 は単一resourceの成功応答を `{ data, meta.request_id }` とし、§16 は主要success responseをZodで定義することを求める。`API-AUTH-004` は応答を「`API-AUTH-002` と同形」と明記している。
+- 要求する変更: `API-AUTH-003` に、Response 201 / 200 として `API-AUTH-002` と同形のprofile（`{ profile_ref, display_name, updated_at }`）を返すこと、新規作成時の `display_name` は `null` としNeon Authの氏名・Emailから補完しないこと（`SPEC-030` §9.2）、既存の場合は既存行を変更せずに返すことを追加する。新しいerror code・state・Capability・Operationは追加しない。
+- 理由: 応答の形がないと、実装は §16 / `SPEC-190` `DEV-API-003` のZod応答schemaを仕様なしに決めることになる。`API-AUTH-002` と同形にすれば新しいschemaを増やさず（`API-AUTH-004` と同じ扱い）、Clientはprovision直後に `profile_ref` を得られる。返すのは本人の行だけで §55 に収まり、Internal IDを含まない（§9）。
+- 変更しない場合の影響: 実装が `API-AUTH-003` の応答を推測で決めて仕様と乖離する。§16 / `DEV-API-003` のZod応答schemaが実装ごとに決まり、Clientがprovisionの応答から `profile_ref` を得られるかが実装に依存する。
+- 影響を受ける可能性がある仕様書: SPEC-170（本文の変更は不要。Test Case IDとmanifestは実装のWork Planが `SPEC-170` §5 に従って割り当てる）、SPEC-200（`ACC-API-004` は変更不要）、SPEC-040 / SPEC-050（provision後の画面遷移。読んだ結果、応答の形に依存する記述はなく変更不要）
+
+### UCR-110-011 — INCORPORATED
+
+- **Status:** `INCORPORATED`。本改訂（v2.9.0）で §18（`API-IDM-011`）、§21、Acceptance 47へ反映した（プロジェクト所有者の決定、2026-11-20。`SPEC-000` §8）。新しいerror code・state・Capability・Operationは追加していない。現在の契約は本文を正とし、以下の要求はその経緯の記録である。
+- 対象: SPEC-110 §18（Transport idempotency input）、§21、§61 Acceptance 47。`SPEC-170` §26（transport `Idempotency-Key` contract）に関連する。
+- 現在の仕様（改訂前）: §18 は `Idempotency-Key: <16..128 ASCII chars>` と対象Operationを定めていたが、対象Operationでheaderが欠落した場合、形式（長さ・文字種）に合わない場合のHTTP statusとerror codeを定めていなかった。§21 の `MALFORMED_REQUEST`（JSON / syntax）と `VALIDATION_FAILED`（Zod / field validation）のどちらに当たるかが本文から一意に決まらなかった。「ASCII chars」が制御文字・DELを含むか、同名headerの複数指定をどう扱うかも定めていなかった。
+- 要求する変更:
+  1. 対象Operationでheaderが欠落、または形式に合わない場合は `400 VALIDATION_FAILED`、`details: null` とし、Domain stateを変更しない。認証・認可（§24の手順2〜7）の失敗はそれより先に返す。新しいerror codeを追加しない。
+  2. 文字種を印字可能なASCII（0x20〜0x7E）とし、制御文字・DEL・非ASCIIを含む値を不正とする。受信した値はtrim・大文字小文字の変換をせずにそのまま検証する（`API-IDM-005` と同じ値）。
+  3. 同名headerが複数ある場合は、連結された値を1つの値として扱い、形式に合わなければ要求1と同じ `400` とする。
+- 理由: 対象Operationの全routeが共通の入力検証でheaderを扱うため、codeと文字種が本文で決まらないと、routeごと・Clientごとに解釈が分かれる。headerの値の検証はJSONの構文ではなくfield validationに当たる。制御文字とDELを除くことで、HTTP実装・proxy・log処理によって扱いが変わりうる文字を入力の段階で拒否する。正規化をしないのは、key digest（`API-IDM-005`）と同じ値を検証するためである。複数指定を連結した値のまま扱うのは、どの値を使うかを実装ごとに変えないためである。
+- 変更しない場合の影響: 欠落・不正のcodeと文字種が実装の判断で決まり、`SPEC-170` §26の「transport `Idempotency-Key` contract」の期待値を本文から導けない。Web（非mockのAPI client）がerrorの表示と再送の判断を決められない。
+- 影響を受ける可能性がある仕様書: SPEC-170（§26・§28。本文の変更は不要。期待値は本書 `API-IDM-011` から導き、Test Case IDとmanifestは実装のWork Planが割り当てる）、SPEC-140（`SEC-ERR-002`。`details: null` で整合し変更不要）、SPEC-150（`REL-RTY-007` / `REL-RTY-012` の同じkeyでの再送。変更不要）、SPEC-160（§11。変更不要）、SPEC-120（§36.1。`API-ADM-EML-004/005` は `API-IDM-003` と同じく対象Operationに含まれ、変更不要）、SPEC-190（`DEV-API-007`。対象Operationの集合が本書で一意になり、変更不要）
+
+### UCR-110-012 — INCORPORATED
+
+- **Status:** `INCORPORATED`。本改訂（v2.9.0）で §18 の対象一覧と §43 `API-ADM-KRK-007` へ反映した（プロジェクト所有者の決定、2026-11-20。`SPEC-000` §8）。`API-IDM-003` は §18 の対象一覧を参照するため、本文を変えずに記録の対象となる。§48.5 は変更していない。新しいerror code・state・Capability・Operationは追加していない。現在の契約は本文を正とし、以下の要求はその経緯の記録である。
+- 対象: SPEC-110 §18（対象一覧）、§18.1 `API-IDM-003`、§43 `API-ADM-KRK-007`、§48.5（共通条件とRunbook表）。
+- 現在の仕様（改訂前）: §48.5 は「本節に列挙したoperation-specific command」の共通条件として `Idempotency-Key` requiredを定め、Runbook表に `API-ADM-KRK-007`（`SPEC-150` §51、本書§43で定義）を含めていた。一方、§18 の対象一覧と `API-IDM-003`（記録の対象）にはReservation cancellationがなく、§43 の本文は `Idempotency: existing cancellation result reuse` だけでheaderに触れていなかった。同じ表の `API-ADM-TQR-001`、`API-ADM-GDS-005` は §18 の対象一覧にある。
+- 要求する変更: §18 の対象一覧に「reservation cancellation（`API-ADM-KRK-007`）」を追加する（`API-IDM-003` により記録の対象にもなる）。検討した別案（§48.5 の `Idempotency-Key` requiredの適用範囲を絞り、KRK-007 には §43 の契約を適用する）は採らなかった。
+- 理由: §48.5 が既にrequiredと定めており、§18 をその厳しい側へ揃えるので既存の規則を緩めない。Domain single-useなgoods handoff completionも §18 にあり、同じ扱いになる。Web AdminはAdministrator mutationと同じくkeyを常に送れ、`SPEC-150` `REL-ADM-002` と `SPEC-130` §55 の運用規則にそのまま乗る。記録の保存は `SPEC-100` §43.1 の一般規則（`DB-IDM-002`）で決まり、replayは §43 の既存の取消結果の再利用に従う（`API-IDM-007`）。
+- 変更しない場合の影響: `API-ADM-KRK-007` でheaderを必須にするか、記録を作るかが実装の判断になり、`SPEC-190` `DEV-API-007`（対象Operationだけで受理）を実装できない。
+- 範囲外として残す事項: §43 は `API-ADM-KRK-007` の初回とreplayのHTTP status・response bodyを定めていない。このため `API-IDM-007`「そのOperationが定めるreplay用のHTTP status」が本文から決まらない。本UCRでは扱わず、`API-ADM-KRK-007` のrouteを実装する前に、後続のUCRで §43 に定める必要がある。
+- 影響を受ける可能性がある仕様書: SPEC-100（§43.1・§48。`operation_id` の列挙・CHECKがなく、変更不要）、SPEC-130（§27・§55。変更不要）、SPEC-150（§45・§51・`REL-ADM-002`。変更不要）、SPEC-170（§27.1・§28.1。変更不要）
+
 ### UCR-030-001 — INCORPORATED
 
 `SPEC-030` が記録したDisplay nameのwell-formed要件（`UCR-030-001`、`SPEC-030` §28）のうち、本書が所有する部分を本改訂（v2.7.0）で `API-AUTH-004` に反映した。well-formedでない値（lone surrogateを含む値）は既存の `400 VALIDATION_FAILED` とし、U+FFFDへの置き換えや除去で補正して保存しない。新しいerror code・state・Capability・Operationは追加していない。不正なUTF-8 byte列を含むJSON bodyの扱い（§21 `MALFORMED_REQUEST` の適用範囲）は本UCRの範囲外である。
+
+### UCR-180-002 — INCORPORATED
+
+`SPEC-180` が起票した一覧cursorの署名鍵の契約（`UCR-180-002`、`SPEC-180` §81）のうち、本書が所有する部分を本改訂（v2.11.0）で反映した。現在の契約は本文を正とする。
+
+- §12: `API-QRY-005` を追加した。cursorは `SPEC-180` §28.3 の鍵によるHMAC-SHA-256で署名し、鍵versionを含め、少なくともOperation ID・sort mode・filterの値に結び付け、`limit` には結び付けない。形式・長さ・署名・鍵versionの不一致は既存の `400 VALIDATION_FAILED`（`details: null`）とし、先頭pageを返さない。旧versionのcursorは受け付けない。
+- §48.3: 共通の段落から `API-QRY-005` を参照した。
+- §61: Acceptance 48 を追加した。
+
+新しいerror code・state・Capability・Operationは追加していない。
+
+### UCR-100-004 — INCORPORATED
+
+`SPEC-100` が記録したProfile relation不整合のConsistency Review（`UCR-100-004`、`SPEC-100` §70）のうち、本書が所有する部分を本改訂（v2.12.0）で反映した。現在の契約は本文を正とする。
+
+- §25 `API-AUTH-003`: Profile再selectが0件のとき、0件を観測したtransactionではProfileを作らず、`SPEC-150` `REL-AUTH-009` のCaseを同じtransactionでcommitした後に `409 CONSISTENCY_REVIEW_REQUIRED`（`details: null`）を返す。応答に `case_ref`・reason code・Auth Subjectを含めない。retry可能なDB失敗は `SPEC-150` `REL-AUTH-009` に従って再評価し、budgetを使い切れば既存の `503 DATABASE_TEMPORARY_FAILURE` とする。
+- §48.5 `API-ADM-REC-007`: reason `AUTH_PROFILE_RELATION_INCONSISTENT` の収束条件を `SPEC-150` `REL-REC-017` とした。Body・Response・Errorsは変えていない。
+- §49: Caseの `auth_subject` と `dedupe_key` をAdministratorの応答にも返さないことを明記した。
+- §61: Acceptance 49 を追加した。
+
+新しいerror code・state・Capability・Operationは追加していない。
+
+### UCR-110-013 — INCORPORATED
+
+- **Status:** `INCORPORATED`。本改訂（v2.13.0）で §26（失敗の規定、`API-PUB-012` の「当該Event」と検証障害）、§26.1、§61 Acceptance 50へ反映した（プロジェクト所有者の決定、2026-11-21。`SPEC-000` §8）。新しいerror code・state・Capability・Operation・DB列は追加していない。現在の契約は本文を正とし、以下の要求はその経緯の記録である。
+- 対象: SPEC-110 §26、§26.1（新設）、§61。§12、§27、`API-PUR-ELG-001` の本文は変更しない。
+- 現在の仕様（改訂前）: §26 は `API-PUB-012` についてだけ、full path、Query（空のstrict object）、Response data、順序、0件、障害（503）を定めていた。`API-PUB-001`〜`005` は表の「主なResponse」に「Event公開情報」「`PUBLISHED` FAQ」「Published list」「Published detail」「Entry sale data」とあるだけで、応答field、Query、順序、Eventが0件・2件以上のときの応答、Announcement一覧の要約、Entry Ticket Offeringの公開範囲と販売状態の表し方を定めていなかった。`API-PUB-012` の「DB／検証障害は503」はerror codeを定めず、§26末尾の「availability query failureは `503 TEMPORARY_UNAVAILABLE`」は、§51のDB一時障害（`DATABASE_TEMPORARY_FAILURE`）との関係を定めていなかった。
+- 要求する変更: §26.1 に共通規則（`API-PUB-READ-001`〜`006`: 空のstrict query、Eventの件数、`PUBLISHED` のserver-side条件、未設定値の `null`、順序、失敗のcode）と、`API-PUB-001`〜`005` の入力・応答・Not foundを定める。Announcement一覧は `body` を含めず、server-sideで作る `excerpt`（空白を正規化した本文の先頭最大100 code points、省略記号なし）と `excerpt_truncated` を返す。Entry Ticket Offeringは当該Eventの全件を返し、販売状態を §27 と同じ `availability` + `unavailable_reason`（`API-PUR-ELG-001` のreason語彙と順序のうち本人条件を除く4つ）で表し、Entryの購入Operationがroute registryにないreleaseでは `UCR-110-004` と同じく `SALES_STOPPED` とする。§26末尾と `API-PUB-012` の失敗を、DB障害 `503 DATABASE_TEMPORARY_FAILURE`、schemaを満たさない行 `503 TEMPORARY_UNAVAILABLE` に揃える。
+- 検討した別案: Announcement一覧に `body` 全文を含める案、要約を返さず `SPEC-050` §11.2 を直す案（所有者は server-side の excerpt を選んだ）。Eventが0件のとき `200` で `data: null` を返す案（§19の `data` をnullableにする変更になる）、2件以上を `409 CONSISTENCY_REVIEW_REQUIRED` にする案（Caseの起票先とreasonが未定義）。schemaを満たさない行をWHEREで除外する案（`PUBLISHED` の行が黙って消える）。Entryの残数を返す案（公開設定が仕様にない）。
+- 理由: 応答の形がないと、実装は §16 / `SPEC-190` `DEV-API-003` のZod応答schemaを仕様なしに決めることになり、Web（公開Page）が接続先の形を決められない。Eventの件数と販売状態の扱いを誤ると、未公開・存在しない情報を推測で出す（`BR-EVT-001`、`FR-PUB-010`）。応答fieldはDB列（`SPEC-100` §13・§15.1）とAdmin read応答から管理専用の列を除いたものであり、§55の範囲に収まる。
+- 変更しない場合の影響: `API-PUB-001`〜`005` を実装・試験できない（期待値を仕様から導けない）。実装が独自にfieldと状態語彙を決めて仕様と乖離する。
+- 影響を受ける可能性がある仕様書: SPEC-170（§27.2 に `TST-API-009` を同じ改訂で追加）、SPEC-050（§11.2 の「本文冒頭の要約」は `excerpt` で満たし、本文の変更は不要）、SPEC-200（`ACC-BIZ-010` は変更不要）、SPEC-030（§7.6。変更不要）、SPEC-100（§13.3 の `published_at` のCHECKは本UCRの範囲外。変更不要）、SPEC-140（変更不要）

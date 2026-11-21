@@ -16234,6 +16234,192 @@
       "verification_method": "config_validation"
     },
     {
+      "test_case_id": "TC-INF-DEP-001-002",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["INF-DEP-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Throwaway git repository with one synthetic commit and an ignored dist/ directory",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "git_sha is the checked-out 40-hex HEAD and git_tree_state is clean; a matching R39X_BUILD_GIT_SHA is accepted; ignored build output is not a change"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-INF-DEP-001-003",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["INF-DEP-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Throwaway git repository with a modified, staged or untracked non-ignored file, or a tracked file flagged assume-unchanged or skip-worktree",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "git_sha stays HEAD and git_tree_state is dirty"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-INF-DEP-001-004",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["INF-DEP-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Directory without its own .git (OCI build context), or a missing git executable, with a synthetic R39X_BUILD_GIT_SHA",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "git_sha is the build argument and git_tree_state is unverified; the HEAD of an enclosing repository is never borrowed"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-INF-DEP-001-005",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["INF-DEP-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "No git checkout and no or malformed R39X_BUILD_GIT_SHA, a build argument that disagrees with HEAD, a repository without a commit, or a build root whose .git (directory or worktree file) git cannot inspect",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Build identity resolution throws before any bundle is emitted (fail closed)"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-INF-DEP-001-006",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["INF-DEP-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Build script, identity module, OCI recipe and CI workflow source only; actual build is a separate command gate",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Identity is resolved before esbuild and recorded in backend-build.json; only R39X_BUILD_GIT_SHA is read from the environment; the OCI recipe declares the build argument before the backend build; CI checks the recorded git_sha"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false,
+      "verification_method": "config_validation"
+    },
+    {
+      "test_case_id": "TC-INF-DEP-001-007",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["INF-DEP-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Throwaway git repository with two commits and an annotated tag; image build plan only, Docker is not run",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The release revision resolves once to a 40-hex commit; git archive of that sha is the only build context and the same sha is the R39X_BUILD_GIT_SHA build argument; unknown, empty or option-shaped revisions are rejected"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-INF-DEP-001-008",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["INF-DEP-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Synthetic node child processes stand in for git archive and docker build; Docker is not run",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": ["build command missing", "build exits without reading", "archive exits non-zero", "archive command missing"],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A failure on either side of the archive pipe rejects the image build only after the other child is stopped; both exiting 0 after the whole archive is consumed resolves"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-INF-DEP-001-009",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["INF-DEP-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": ".dockerignore, OCI recipe and docs source only; Docker is not run",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The image context excludes node_modules, dist and .git; the build stage copies only the context and runs a frozen pnpm install before the backend build; docs limit the ancestry check to backend-build.json inside an image from build:backend:image"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false,
+      "verification_method": "config_validation"
+    },
+    {
       "test_case_id": "TC-COMMON-001",
       "level": "Unit",
       "suite": "unit",
@@ -16568,7 +16754,7 @@
       "expected_domain_postconditions": [
         "@off-r39x/db/schema exports exactly app and the thirteen table declarations (announcements, auditEvents, businessProfiles, entryTicketOfferings, events, faqItems, goods, goodsInventory, karaokeExclusiveScopes, karaokeSalesConfigurations, karaokeSlots, roleAssignments, sponsorLogos) with no helper leaking through the barrel",
         "The app schema object and both tables use the schema name app",
-        "@off-r39x/db root exports exactly the 17 runtime names (including createCurrentProfileRepository from PR-L2-1a and classifyDatabaseError, DatabaseUnavailableError and isDatabaseUnavailableCode from PR-S0-3a) and does not export the schema"
+        "@off-r39x/db root exports exactly the 19 runtime names (including createCurrentProfileRepository from PR-L2-1a, classifyDatabaseError, DatabaseUnavailableError and isDatabaseUnavailableCode from PR-S0-3a, and isDatabaseTemporaryFailure and typeDirectQueryFailure from the PR #66 round 6 follow-up) and does not export the schema"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -17974,7 +18160,14 @@
       "test_case_id": "TC-DEV-API-002-001",
       "level": "Unit",
       "suite": "unit",
-      "upstream_rule_ids": ["DEV-API-002", "DEV-TS-014"],
+      "upstream_rule_ids": [
+        "DEV-API-002",
+        "DEV-TS-014",
+        "DEV-API-003",
+        "SPEC-110-9",
+        "SPEC-110-17",
+        "SPEC-110-19"
+      ],
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
@@ -17985,9 +18178,12 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "@off-r39x/api-contract exports exactly createPublicRpc, currentProfileSchema, errorRetryable, errorSchema, errorStatuses, principalNavigationSchema, successSchema and updateCurrentProfileRequestSchema at runtime (PR-L2-1a added the two profile schemas, PR-S0-3a added errorRetryable)",
+        "@off-r39x/api-contract exports exactly createPublicRpc, currentProfileSchema, errorRetryable, errorSchema, errorStatuses, listDataSchema, listQuerySchema, pageQuery, principalNavigationSchema, successSchema and updateCurrentProfileRequestSchema at runtime (PR-L2-1a added the two profile schemas, PR-S0-3a added errorRetryable, PR-S0-3b added the three list schemas)",
         "ErrorCode, PrincipalNavigation, CurrentProfile, UpdateCurrentProfileRequest and AppType keep their compile-time shapes, including the hc client members self.principal.$get, self.profile.$get and self.profile.$patch (enforced by pnpm typecheck)",
-        "createPublicRpc registers only GET /api/v1/self/principal, GET /api/v1/self/profile and PATCH /api/v1/self/profile (guard, body validator and handler entries) and answers them with the data/meta envelope built from the injected principal, profile and request ID; a principal or profile with an extra key, or a profile updated_at without milliseconds, is rejected by the strict schema with 500; POST and PUT on the profile path and other paths are not registered"
+        "createPublicRpc registers only GET /api/v1/self/principal, GET /api/v1/self/profile and PATCH /api/v1/self/profile (guard, body validator and handler entries) and answers them with the data/meta envelope built from the injected principal, profile and request ID; a principal or profile with an extra key, or a profile updated_at without milliseconds, is rejected by the strict schema with 500; POST and PUT on the profile path and other paths are not registered",
+        "Every route of createPublicRpc validates the whole success envelope with successSchema: a request_id that is not a UUID, an upper-case UUID or empty makes GET principal, GET profile and PATCH profile answer 500 with no data",
+        "An upper- or mixed-case profile_ref from the principal or the profile dependency makes the three routes answer 500 without the reference",
+        "A request_id or profile_ref that is the nil UUID or the max UUID makes GET principal, GET profile and PATCH profile answer 500 without the value"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -18004,7 +18200,8 @@
         "SEC-API-022",
         "SPEC-110-19",
         "SPEC-110-20",
-        "SPEC-110-21"
+        "SPEC-110-21",
+        "SPEC-110-17"
       ],
       "system_invariant_ids": [],
       "api_operation_ids": [],
@@ -18017,7 +18214,9 @@
       "expected_http": null,
       "expected_domain_postconditions": [
         "errorStatuses keeps the 26 codes in order with their HTTP statuses, including METHOD_NOT_ALLOWED 405 and UNSUPPORTED_MEDIA_TYPE 415, and errorSchema's discriminated-union variants carry those codes in the same order",
-        "errorSchema, successSchema and principalNavigationSchema accept and reject the fixed inputs with the same parsed data and issue codes/paths as before, except that an unknown code is an invalid_union at the code path and a missing retryable is an invalid_value (S0-3a discriminated union, SPEC-110 section 16)"
+        "errorSchema, successSchema and principalNavigationSchema accept and reject the fixed inputs with the same parsed data and issue codes/paths as before, except that an unknown code is an invalid_union at the code path and a missing retryable is an invalid_value (S0-3a discriminated union, SPEC-110 section 16)",
+        "principalNavigationSchema rejects an upper-case profile_ref with one invalid_format issue on profile_ref; successSchema rejects meta.request_id that is not a UUID with one issue",
+        "errorSchema and successSchema refuse a request_id, and principalNavigationSchema a profile_ref, that is the nil UUID or the max UUID (SPEC-110 section 17: not canonical UUIDs); successSchema also refuses version digit 0 and variant digit c, each with one invalid_format issue"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -26397,7 +26596,11 @@
         "SEC-API-022",
         "AR-OWN-006",
         "AR-AZ-003",
-        "API-IDM-003"
+        "API-IDM-003",
+        "REL-DB-009",
+        "SPEC-110-50",
+        "SPEC-110-9",
+        "SPEC-110-19"
       ],
       "system_invariant_ids": ["INV-010-08"],
       "api_operation_ids": ["API-AUTH-002", "API-AUTH-004"],
@@ -26416,7 +26619,9 @@
         "401, 403 EMAIL_VERIFICATION_REQUIRED, 403 AUTHORIZATION_DENIED, 409 and a Principal store failure (503) never call the profile store",
         "Store unavailable and commit_unknown are 503 DATABASE_TEMPORARY_FAILURE (retryable); a store not_found after the guard is 500 INTERNAL_ERROR (OI-2, user decision); without the profiles dependency both routes are 503 TEMPORARY_UNAVAILABLE",
         "Idempotency-Key is ignored (two PATCHes with the same key write twice); PUT, POST and DELETE are 405 with Allow: GET, HEAD, PATCH",
-        "The completion log carries operation_id API-AUTH-002 / API-AUTH-004, http_route /api/v1/self/profile and one authorization.decision.completed"
+        "The completion log carries operation_id API-AUTH-002 / API-AUTH-004, http_route /api/v1/self/profile and one authorization.decision.completed",
+        "With the real repository on a fake pool, GET and PATCH answer the same DB failure the same way as the common boundary: EAI_AGAIN, 08006, 53300 (too many connections) and 57P05 (idle session timeout) are 503 DATABASE_TEMPORARY_FAILURE (retryable, details null), 57014 and 53200 are 500 INTERNAL_ERROR (not retryable); the raw error text is not logged",
+        "A store that returns an upper- or mixed-case profile_ref makes GET and PATCH answer 500 INTERNAL_ERROR (details null) through the common error envelope; the reference is never sent"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -26468,7 +26673,9 @@
         "DEV-API-003",
         "SPEC-110-54",
         "SPEC-110-10",
-        "SPEC-110-8"
+        "SPEC-110-8",
+        "SPEC-110-9",
+        "SPEC-110-17"
       ],
       "system_invariant_ids": [],
       "api_operation_ids": ["API-AUTH-002", "API-AUTH-004"],
@@ -26482,7 +26689,9 @@
       "expected_domain_postconditions": [
         "updateCurrentProfileRequestSchema accepts { display_name: string | null } only; an empty object, wrong types, non-object bodies, a parsed __proto__ key and every unknown field (profile_ref, auth_subject, role, roles, owner, profile_id, user_id, email, name, updated_at, public_ref, id, capabilities) are rejected",
         "currentProfileSchema is strict (profile_ref UUID, display_name nullable but required, updated_at YYYY-MM-DDTHH:mm:ss.sssZ); an extra auth_subject, id or email, a missing display_name and updated_at without milliseconds, with an offset or with microseconds are rejected",
-        "updated_at must be a real UTC instant (SPEC-110 §10): nonexistent days (2026-02-30, 2026-02-29, 2026-04-31, 1900-02-29), months 13 and 00, days 00 and 32, hours 24 and 25, minute 60, second 60, a lowercase z and a space instead of T are rejected, through currentProfileSchema and through its updated_at field schema; 2024-02-29T23:59:59.999Z, 2000-02-29T00:00:00.000Z, 2026-12-31T23:59:59.999Z, 2026-01-01T00:00:00.000Z and Date#toISOString output are accepted"
+        "updated_at must be a real UTC instant (SPEC-110 §10): nonexistent days (2026-02-30, 2026-02-29, 2026-04-31, 1900-02-29), months 13 and 00, days 00 and 32, hours 24 and 25, minute 60, second 60, a lowercase z and a space instead of T are rejected, through currentProfileSchema and through its updated_at field schema; 2024-02-29T23:59:59.999Z, 2000-02-29T00:00:00.000Z, 2026-12-31T23:59:59.999Z, 2026-01-01T00:00:00.000Z and Date#toISOString output are accepted",
+        "currentProfileSchema rejects a profile_ref in all upper case, in mixed case or with one upper-case hex digit, and accepts the same value in lower case (SPEC-110 section 9)",
+        "currentProfileSchema rejects a profile_ref that is the nil UUID, the max UUID, version digit 0 or 9, or variant digit c or 7 (SPEC-110 section 17 canonical UUID)"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -26670,15 +26879,17 @@
       "system_invariant_ids": ["INV-010-08"],
       "api_operation_ids": ["API-AUTH-002", "API-AUTH-004"],
       "db_constraint_names": [],
-      "preconditions": "createCurrentProfileRepository over node-postgres pools pointed at local TCP servers that misbehave (closed by the peer right after connect, accepts and never answers, pool used after end); no PostgreSQL; the pool-saturation case is in TC-API-007-005",
+      "preconditions": "createCurrentProfileRepository over node-postgres pools pointed at local TCP servers that misbehave (closed by the peer right after connect, accepts and never answers, pool used after end), and fake pools that reject the direct query, connect() or the UPDATE inside transaction() with a synthetic code; no DNS and no PostgreSQL; the pool-saturation case is in TC-API-007-005",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
-      "fault_points": ["FP.DB.BEFORE_TRANSACTION"],
+      "fault_points": ["FP.DB.BEFORE_TRANSACTION", "FP.DB.INSIDE_STATEMENT"],
       "expected_http": null,
       "expected_domain_postconditions": [
         "Each case first asserts that the raw pool error has no code and the node-postgres message (Connection terminated unexpectedly, Connection terminated due to connection timeout, Cannot use a pool after calling end on the pool)",
-        "readCurrentBusinessProfile and updateCurrentBusinessProfile then return { status: unavailable } and do not throw"
+        "readCurrentBusinessProfile and updateCurrentBusinessProfile then return { status: unavailable } and do not throw",
+        "Coded failures follow the common DB classification on both paths (Issue #69): EAI_AGAIN, ENOTFOUND, ECONNRESET, ECONNREFUSED, a five-letter errno, no code at all, 08006, 57P01, 53300 and 57P05 on the query, and EAI_AGAIN, ECONNREFUSED, 53300 or no code on connect(), return { status: unavailable } for read and update; 40001 on the read is unavailable",
+        "57014 (statement timeout), 53200, 58030, 23514 and 22001 are not unavailable: read and update throw the original error with its code, which the HTTP boundary answers with 500"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -26717,6 +26928,42 @@
       "critical": false
     },
     {
+      "test_case_id": "TC-API-007-010",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "TST-API-007",
+        "DEV-DB-004",
+        "DB-TIM-003",
+        "AR-OWN-006",
+        "API-AUTH-002",
+        "API-AUTH-004"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": ["API-AUTH-002", "API-AUTH-004"],
+      "db_constraint_names": [],
+      "preconditions": "createCurrentProfileRepository over a recording pool that answers in node-postgres array row mode; no PostgreSQL (what the database does with the statements is TC-API-007-005)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The read sends exactly one statement, built from the Drizzle table: SELECT public_ref, display_name, updated_at FROM app.business_profiles WHERE auth_subject = $1 with the verified subject as the only value, on the pool and without a transaction",
+        "The update sends exactly one statement inside BEGIN, SET LOCAL and COMMIT: UPDATE app.business_profiles SET display_name = $1, updated_at = transaction_timestamp() WHERE auth_subject = $2 RETURNING public_ref, display_name, updated_at, with the name (or null) and the subject as values; the connection is released normally",
+        "Neither statement contains INSERT, ON CONFLICT, DELETE or a row lock clause",
+        "Rows map to the profile with updated_at truncated to milliseconds (YYYY-MM-DDTHH:mm:ss.sssZ); no row is not_found; more than one row throws a cardinality violation",
+        "updated_at is decoded with node-postgres's timestamptz parser, not drizzle's new Date(text): years 0001 and 0099 keep their year and an offset other than +00 gives the same instant in UTC, on read and on update",
+        "A driver error on the UPDATE is rethrown as the driver's own error (SQLSTATE 23514 kept), not as drizzle's DrizzleQueryError",
+        "An error drizzle throws while mapping rows the database answered (a TypeError without a code) is thrown by both read and update; the read does not type it as unavailable, because only the driver's rejection wrapped in DrizzleQueryError is a database failure"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-DEV-API-003-002",
       "level": "Unit",
       "suite": "unit",
@@ -26727,7 +26974,8 @@
         "SPEC-110-16",
         "SPEC-110-20",
         "SPEC-110-21",
-        "SPEC-110-28"
+        "SPEC-110-28",
+        "SPEC-110-17"
       ],
       "system_invariant_ids": [],
       "api_operation_ids": [],
@@ -26742,7 +26990,8 @@
         "errorRetryable equals the SPEC-110 section 21 Retryable column in errorStatuses order; the 24 codes with a fixed Retryable reject the opposite value and the two conditional codes accept both booleans",
         "STATE_CONFLICT alone accepts details null or a strict item_failures of 1 to 50 entries ({ kind ENTRY|GOODS, target_ref lowercase UUID, reasons }) with reasons non-empty, unique and in API-PUR-ELG-001 order and no repeated (kind, target_ref); every other code accepts details null only",
         "Extra keys, unknown reasons and kinds, uppercase or non-UUID target_ref, and field or item_failures details on other codes are rejected; the parsed code type equals ErrorCode",
-        "The type of details is fixed per code by the type system: ErrorDetails of SOLD_OUT is null and a ServiceResult rejected with SOLD_OUT and item_failures does not compile"
+        "The type of details is fixed per code by the type system: ErrorDetails of SOLD_OUT is null and a ServiceResult rejected with SOLD_OUT and item_failures does not compile",
+        "Every error code refuses a request_id that is the nil UUID, the max UUID, version digit 0, variant digit c or upper case, and STATE_CONFLICT refuses the same non-canonical values as target_ref (SPEC-110 sections 9 and 17)"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -26765,7 +27014,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "classifyDatabaseError maps 40001/40P01/55P03 to retryable, a transaction deadline to deadline, SQLSTATE 08xxx/57P01-57P03 and DatabaseUnavailableError to unavailable and a bare Node errno (including EAI_AGAIN) to other, 57014 to statement_timeout, 23505/23P01/23503/23514 to constraint (name only when a string) and everything else to other",
+        "classifyDatabaseError maps 40001/40P01/55P03 to retryable, a transaction deadline to deadline, SQLSTATE 08xxx/53300 (too many connections)/57P01-57P03/57P05 (idle session timeout) and DatabaseUnavailableError to unavailable (53000/53100/53200/53400 stay other) and a bare Node errno (including EAI_AGAIN) to other, 57014 to statement_timeout, 23505/23P01/23503/23514 to constraint (name only when a string) and everything else to other",
         "resolveConstraintViolation calls the table's resolve exactly once and returns its result unchanged only for a registered name with a matching SQLSTATE; every other error is rethrown as the same reference with resolve not called; a resolve failure propagates; the original operation is never re-run"
       ],
       "expected_db_postconditions": [],
@@ -27048,6 +27297,782 @@
       "expected_observability": ["db.availability.failed is logged once"],
       "sensitivity_class": "synthetic",
       "critical": true
+    },
+    {
+      "test_case_id": "TC-API-QRY-001-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "API-QRY-001",
+        "SEC-API-011",
+        "SEC-API-018",
+        "SPEC-110-48.3",
+        "SPEC-110-12"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "preconditions": "Static listQuerySchema and pageQuery from @off-r39x/api-contract; synthetic query objects only; no environment variables, network, database or Redis",
+      "expected_domain_postconditions": [
+        "limit defaults to 30 and accepts 1..100; 0, 101, 1.5, abc and empty are rejected; cursor accepts 1..512 characters",
+        "A filter enum is checked; unknown keys (foo, sort, order_by, offset, page, __proto__) fail with unrecognized_keys"
+      ],
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-API-QRY-002-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["API-QRY-002", "SEC-API-018", "SPEC-110-48.3"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "preconditions": "Static listQuerySchema from @off-r39x/api-contract; synthetic shapes only; no environment variables, network, database or Redis",
+      "expected_domain_postconditions": [
+        "A shape defining limit, cursor, sort, order_by, offset or page throws at definition time",
+        "An Operation-defined mode enum with a default is accepted and rejects values outside the enum"
+      ],
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DEV-API-003-005",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["DEV-API-003", "SPEC-110-12", "SPEC-110-19"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "preconditions": "Static successSchema(listDataSchema(item)); synthetic UUIDs only; no environment variables, network, database or Redis",
+      "expected_domain_postconditions": [
+        "{ data: { items, page: { next_cursor, has_more } }, meta } is accepted only when has_more equals (next_cursor !== null) (repository decision A-6)",
+        "An empty or 513-character cursor, extra keys in data or page, and more than 100 items are rejected"
+      ],
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-QRY-004-001",
+      "level": "Security",
+      "suite": "security",
+      "upstream_rule_ids": ["API-QRY-004", "SPEC-110-12", "SPEC-110-9", "SEC-ERR-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "preconditions": "Synthetic 32-byte cursor keys from tests/harness/pagination.ts; no environment variables, network, database or Redis",
+      "expected_domain_postconditions": [
+        "encode then decode returns the same sort keys and public_ref; the token is deterministic base64url within 512 characters; numeric sort keys are safe integers only (1.5, 2**53, NaN and infinities make encode throw)",
+        "The payload holds only v, kv, k and r and none of the filter value, Operation ID or key bytes; an internal ID or uppercase public_ref makes encode throw"
+      ],
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-API-QRY-004-002",
+      "level": "Security",
+      "suite": "security",
+      "upstream_rule_ids": ["API-QRY-004", "SEC-DEP-007", "SEC-API-011"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "preconditions": "Synthetic 32-byte cursor keys from tests/harness/pagination.ts; no environment variables, network, database or Redis",
+      "expected_domain_postconditions": [
+        "Single-character substitutions, truncation, extension, non-base64url characters, non-canonical base64url, 513 characters, empty and too-short tokens decode to { ok: false }",
+        "A correctly signed token with a payload that breaks the strict schema, or a numeric key that is a fraction or an unsafe integer, decodes to { ok: false }; 1,000 seeded arbitrary strings never throw"
+      ],
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-API-QRY-004-003",
+      "level": "Security",
+      "suite": "security",
+      "upstream_rule_ids": ["API-QRY-004", "SEC-API-018", "SPEC-110-48.3"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "preconditions": "Synthetic 32-byte cursor keys from tests/harness/pagination.ts; no environment variables, network, database or Redis",
+      "expected_domain_postconditions": [
+        "A different key, key version, Operation, filter, mode or scope decodes to { ok: false }, including a binding that drops only the filter and keeps the mode",
+        "Binding key order and undefined values do not matter; limit is not part of the binding",
+        "listCursorBinding drops limit and cursor from the validated query and adds the server-derived scope (a cursor issued with limit 10 decodes with limit 50; another or a missing scope decodes to { ok: false }); a scope name that is a query field, or a non-scalar value, throws"
+      ],
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-API-QRY-004-004",
+      "level": "Security",
+      "suite": "security",
+      "upstream_rule_ids": ["SEC-KEY-001", "SEC-ERR-003", "SEC-DEP-007"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "preconditions": "Synthetic 32-byte cursor keys from tests/harness/pagination.ts; no environment variables, network, database or Redis",
+      "expected_domain_postconditions": [
+        "A 31- or 33-byte key and a key version of 0, negative, fractional or 2147483648 make encode and decode throw (fail closed, not { ok: false })",
+        "The thrown message and stack contain no key bytes in hex, base64 or base64url"
+      ],
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-API-QRY-001-002",
+      "level": "API",
+      "suite": "api",
+      "upstream_rule_ids": [
+        "API-QRY-001",
+        "API-QRY-004",
+        "SEC-API-011",
+        "SEC-ERR-002",
+        "SPEC-110-21",
+        "SPEC-160-15"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": [200, 400],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "http.request.completed and every captured log line carry no query string, cursor token or query value; http_route is a route template (SPEC-160 §15)"
+      ],
+      "sensitivity_class": "synthetic",
+      "preconditions": "Synthetic 32-byte cursor keys from tests/harness/pagination.ts; no environment variables, network, database or Redis; harness GET /api/v1/test/list behind validateQuery and readCursor",
+      "expected_domain_postconditions": [
+        "No query is 200 with page { next_cursor: null, has_more: false } and the handler sees limit 30",
+        "Unknown (including nameless ?=x), duplicate, out-of-range, empty or tampered cursor, filter-mismatched cursor and a cursor sent without its filter are 400 VALIDATION_FAILED, retryable false, details null, request_id equal to X-Request-Id, no-store, handler not run, and the body echoes no cursor or query value",
+        "A valid cursor is 200 and the handler receives the decoded position, reading the query through the same validateQuery instance, typed from its schema (no cast), and readListCursor",
+        "Reading through a validateQuery instance that did not run for the request is 500 INTERNAL_ERROR, never another schema's data"
+      ],
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-API-IDM-011-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "API-IDM-011",
+        "SPEC-110-18",
+        "API-IDM-005",
+        "DEV-API-007",
+        "OBS-COR-005"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Pure functions parseIdempotencyKey and keyDigest called directly; synthetic keys only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Accepts 16..128 characters made only of 0x20..0x7E and returns the value unchanged (no trim); rejects missing, 15, 129, non-ASCII, control characters (HTAB, NUL, US), DEL and 0x80 with a result that carries no reason",
+        "keyDigest is a 32 byte SHA-256 of the value (case sensitive, no trim) that differs from the HMAC correlation fingerprint and takes no secret"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-API-IDM-005-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["API-IDM-005", "TST-IDM-004", "SPEC-110-18", "DEV-TS-009"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Pure functions requestDigest and canonicalRequestJson fed with Zod-validated requests; synthetic values only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Same digest across JSON key order, whitespace, an omitted default, a Public Reference case difference and 1 versus 1.0 / -0 versus 0; different digest for a different value, array order, note case, omitted versus null, params versus body placement, query and body null versus {}",
+        "The canonical text equals a hand-written oracle (keys by UTF-16 code unit, no whitespace, JSON.stringify scalars) and the digest is its SHA-256; the function takes no headers"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-IDM-005-002",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["API-IDM-005", "SEC-ERR-003", "DEV-TS-004"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "requestDigest fed with values that JSON cannot represent, each carrying a synthetic marker",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Every such value (undefined body, NaN, Infinity, bigint, Date, Map, class instance, function, symbol, cycle, hole, getter, toJSON, non-string params) throws a fixed message that does not contain the value",
+        "An accessor for body, params, query or a params value, and a proxy whose trap throws, are refused with the same fixed message and no cause; no accessor is invoked, so a getter cannot pass one value to the check and another to the digest; for plain params, each value is read once from one descriptor that answers both the enumerability and the string check, and that checked string is the value hashed; a params proxy whose descriptor would change between reads is refused before any of its traps runs; the request itself must be a plain object with exactly body, params and query, each an enumerable data property (a class instance, a non-enumerable field, or any other own key such as an extra string, undefined, symbol, non-enumerable or accessor property is refused); params or query that is not a plain object (Map, class instance, Date, URLSearchParams) is refused rather than hashed as {}, while a null-prototype object has the digest of the equal literal; an explicit undefined property, a non-enumerable property or array element, a symbol key, an Array subclass, a nested value whose prototype is a proxy (refused before any trap runs), or any Proxy (transparent ones and an array proxy hiding its elements from the length descriptor and ownKeys included; as the request, params, query or anywhere inside body) inside body, query or params (nested and on arrays included) is refused rather than dropped, so it never shares the digest of a request that omits the field, while an omitted field is accepted and differs from null"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DEV-API-007-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["DEV-API-007", "API-IDM-011", "API-IDM-003", "SPEC-110-18"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "TRANSPORT_IDEMPOTENCY_OPERATIONS and the factory; the expected set is written from SPEC-110 section 18 v2.9.0 and SPEC-120 section 36.1",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The set is exactly the 42 target Operations (including API-ADM-KRK-007, no duplicate); check-in, API-AUTH-003/004, the eligibility reference, GET Operations and the webhook are excluded; the factory throws a fixed message for a non-target Operation and a non-target ID is a type error"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-IDM-011-002",
+      "level": "API",
+      "suite": "api",
+      "upstream_rule_ids": [
+        "API-IDM-011",
+        "SPEC-110-61-47",
+        "SPEC-110-18",
+        "SPEC-110-21",
+        "SPEC-110-24",
+        "SEC-ERR-001",
+        "SEC-ERR-002"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Harness-only route with a Principal and an Operation ID set by test middleware, validateJson and requireTransportIdempotency; harness-only routes on a test app (not in the production route table), synthetic values only; no DB or Redis",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": [200, 400, 401, 403, 415],
+      "expected_domain_postconditions": [
+        "A missing, empty, short, long, non-ASCII or HTAB-containing key answers 400 VALIDATION_FAILED with details null and no handler run; 16, 128 and UUID keys reach the handler with the SHA-256 of the value in the context; surrounding spaces are removed by HTTP parsing; two header fields are validated and hashed as one concatenated value (separator not asserted)",
+        "Through the production Node HTTP adapter (@hono/node-server) with separate Idempotency-Key lines on the wire: two 16-character lines reach the handler as one concatenated value whose SHA-256 is the key digest, spaces and tabs around a value are removed before validation, and two 64-character lines answer 400 VALIDATION_FAILED with no handler run",
+        "Authentication and authorization failures (401, 403) win over a missing key; against a body, media-type or malformed-JSON failure either failure is acceptable and the handler never runs; an invalid path parameter is 400 VALIDATION_FAILED (validated before the middleware), never 500, with or without a valid key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "http.request.completed is logged once with a status that matches the response and shows no raw key, digest or marker"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-API-IDM-005-003",
+      "level": "API",
+      "suite": "api",
+      "upstream_rule_ids": ["API-IDM-005", "TST-IDM-002", "SEC-API-023", "DEV-API-006"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Harness-only route as TC-API-IDM-011-002; harness-only routes on a test app (not in the production route table), synthetic values only; no DB or Redis",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": [200],
+      "expected_domain_postconditions": [
+        "Body order and spaces, X-Request-Id, Authorization and an uppercase path reference change neither digest; another key changes only the key digest; another quantity changes only the request digest; the context has four members and no request id or raw key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "http.request.completed is logged once with a status that matches the response and shows no raw key, digest or marker"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DEV-API-007-002",
+      "level": "API",
+      "suite": "api",
+      "upstream_rule_ids": [
+        "DEV-API-007",
+        "SPEC-110-24",
+        "SEC-ERR-001",
+        "SEC-ERR-003",
+        "DEV-TS-013"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Harness-only routes with a missing Principal, a missing or mismatched Operation ID, no owner-relation / Capability check (authorization not confirmed), and a normalize that throws or returns an unrepresentable value; harness-only routes on a test app (not in the production route table), synthetic values only; no DB or Redis",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "missing_principal",
+        "operation_id_mismatch",
+        "normalize_exception",
+        "non_json_value"
+      ],
+      "expected_http": [500],
+      "expected_domain_postconditions": [
+        "The wiring cases (no Principal, no Operation ID, a mismatched Operation ID, authorization not confirmed) answer 500 INTERNAL_ERROR (retryable false, details null) without running the handler both with no header (not 400) and with a valid key; the normalize cases (an exception, an undefined body, a non-JSON value) are sent with a valid key and answer 500 INTERNAL_ERROR without running the handler (with no key, 400 VALIDATION_FAILED comes before normalize is called); a database-like error is not 503; no body, header or log line contains the marker, the code or ZodError; one completion log with http_status 500"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "http.request.completed is logged once with a status that matches the response and shows no raw key, digest or marker"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-SEC-ERR-001-002",
+      "level": "Security",
+      "suite": "security",
+      "upstream_rule_ids": [
+        "SEC-ERR-001",
+        "SEC-ERR-002",
+        "SEC-ERR-003",
+        "OBS-COR-005",
+        "OBS-COR-006",
+        "DEV-API-006",
+        "SPEC-160-11"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Harness-only routes; an accepted key, a 129-character key, a key with DEL, and a normalize that throws the request body, all containing a synthetic marker; each case forbids its own sent key (raw and JSON-escaped), the SHA-256 of that key and the request digest of its own body; harness-only routes on a test app (not in the production route table), synthetic values only; no DB or Redis",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": ["synthetic_exception"],
+      "expected_http": [200, 400, 500],
+      "expected_domain_postconditions": [
+        "No response body, response header or log line contains the raw key, the marker, or the key digest or request digest in hex (both cases), base64 or base64url; the handler context holds no raw key; the completion log keeps the key set of an ordinary route"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "http.request.completed is logged once with a status that matches the response and shows no raw key, digest or marker"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "INF-DEP-005"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database per scenario; repository migration set applied; a synthetic backward-compatible expand migration applied from a temporary next-release source directory by runMigrations; readiness evaluated from a temporary directory holding only the repository set (the old build)",
+      "fixture_ids": [
+        "tests/fixtures/migrations/compat-expand.sql"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "Old build readiness is ready with no failures for the setup, API and Reconciliation identities; journal has one row beyond the build set"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "INF-DEP-005"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database per scenario; repository migration set applied; expand applied; old build readiness evaluated inside a transaction that injects one reversible fault per case, then rolled back; required column SET NOT NULL injected only after proving no NULL row exists",
+      "fixture_ids": [
+        "tests/fixtures/migrations/compat-expand.sql"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "required_constraint_removed",
+        "constraint_definition_changed",
+        "required_constraint_not_valid",
+        "index_removed_or_changed",
+        "column_contract_changed",
+        "required_column_set_not_null",
+        "table_renamed",
+        "extra_not_null_column",
+        "expand_column_set_not_null"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "Each fault is Not Ready with release_schema_contract and Ready again after ROLLBACK; additional index and table only stay Ready; a required constraint validated after NOT VALID is accepted by the contains comparison (auxiliary check on real PG17 catalog output)"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "Each fault emits security.fail_closed.triggered with query_name readiness.release_schema_contract"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "INF-DEP-005"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database per scenario; repository migration set applied; expand applied; journal faults injected in a rolled-back transaction; injected version verified between bundled rows by ORDER BY version COLLATE \"C\"",
+      "fixture_ids": [
+        "tests/fixtures/migrations/compat-expand.sql"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "journal_hash_altered",
+        "journal_row_deleted",
+        "journal_row_inserted_between"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "Each journal fault is Not Ready with migration_hash and Ready again after ROLLBACK; a changed hash on a row after the bundled set stays Ready"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "Each fault emits security.fail_closed.triggered with query_name readiness.migration_hash"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "INF-DEP-005"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database per scenario; repository migration set applied; journal equals the repository set; readiness evaluated once with a build set one migration longer and once with the same set plus an additional index in a rolled-back transaction",
+      "fixture_ids": [
+        "tests/fixtures/migrations/compat-expand.sql"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "journal_behind_build",
+        "extra_object_same_set"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "A journal shorter than the build set is Not Ready with migration_hash and without release_schema_contract; an extra object with the same set is Not Ready with release_schema_contract and Ready after ROLLBACK"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "readiness.migration_hash and readiness.release_schema_contract are logged"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-005",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "INF-DEP-005"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Pure functions only; no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-006",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "INF-DEP-005",
+        "REL-DB-011"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database per scenario; repository migration set applied; readiness client wrapped by a test Proxy; a synthetic migration (DDL and journal row in one transaction) committed from another READ COMMITTED connection right after the catalog response",
+      "fixture_ids": [
+        "tests/fixtures/migrations/compat-expand.sql"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "commit_between_reads_compatible",
+        "commit_between_reads_incompatible",
+        "commit_every_attempt"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "A compatible commit between the reads is Ready after a journal re-read; an incompatible commit (required column SET NOT NULL) is Not Ready with release_schema_contract; a commit after every attempt exhausts four attempts as release_schema_contract without migration_hash and the next check is Ready; readiness issues no BEGIN"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "Not Ready cases emit security.fail_closed.triggered with query_name readiness.release_schema_contract; the Ready case emits none"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "INF-DEP-005",
+        "TST-DB-002"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database per scenario; repository migration set applied; readiness connection only is default_transaction_isolation repeatable read (verified by SHOW); migration and fixture connections verified read committed",
+      "fixture_ids": [
+        "tests/fixtures/migrations/compat-expand.sql"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "repeatable_read_session"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "With a repeatable read readiness session a compatible commit between the reads is Ready and an incompatible commit is Not Ready with release_schema_contract"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "The Not Ready case emits security.fail_closed.triggered with query_name readiness.release_schema_contract"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-008",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "INF-DEP-005",
+        "REL-DB-011"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database per scenario; repository migration set applied; readiness connection has lock_timeout 1000 ms as in production; another connection holds an uncommitted compatible migration and commits 0.5 s or 8 s after the readiness connection is first seen waiting for a lock in pg_stat_activity (no observed wait fails the test)",
+      "fixture_ids": [
+        "tests/fixtures/migrations/compat-expand.sql"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "delayed_commit_within_budget",
+        "delayed_commit_beyond_budget"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "A COMMIT delayed within the 5 s retry budget is Ready; a COMMIT delayed beyond it is Not Ready for that check with release_schema_contract and Ready after the COMMIT"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "The beyond-budget case emits security.fail_closed.triggered with query_name readiness.release_schema_contract; the within-budget case emits none"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-009",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "INF-DEP-005",
+        "REL-DB-011"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "readSchemaState with a fake client and fake timers (no database); retry budget of SPEC-150 section 11 for 55P03",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "lock_timeout_every_attempt",
+        "elapsed_budget"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
     }
   ]
 }
