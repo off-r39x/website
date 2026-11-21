@@ -1077,6 +1077,17 @@ describe("TC-CON-001-001 two connections cannot both place an overlapping slot, 
     await x.connect();
     await y.connect();
     try {
+      // TST-DB-002: both racing sessions run in UTC and READ COMMITTED, checked before the race.
+      for (const [label, client] of [
+        ["X", x],
+        ["Y", y],
+      ] as const) {
+        expect((await client.query("SHOW TimeZone")).rows[0].TimeZone, label).toBe("UTC");
+        expect(
+          (await client.query("SHOW transaction_isolation")).rows[0].transaction_isolation,
+          label,
+        ).toBe("read committed");
+      }
       const rowA = slotRow(scopeId, configId); // [T, T+15m, T+20m)
       const rowB = slotRow(scopeId, configId, {
         usage_start: at(10),

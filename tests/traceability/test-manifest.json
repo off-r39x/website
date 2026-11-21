@@ -17757,7 +17757,7 @@
       "db_constraint_names": [
         "ex_karaoke_slots_scope_occupancy"
       ],
-      "preconditions": "Independent real PG17 database with every migration applied; two additional connections X and Y, a barrier on pg_stat_activity instead of sleep, statement_timeout 10s on Y; rows are committed so that other connections see them and are deleted again in finally; synthetic data only. The application has no write path yet; this case shows that the database refuses an overlap that a read-before-write check on a connection cannot see",
+      "preconditions": "Independent real PG17 database with every migration applied; two additional connections X and Y, each checked to run in UTC and READ COMMITTED before the race (TST-DB-002), a barrier on pg_stat_activity instead of sleep, statement_timeout 10s on Y; rows are committed so that other connections see them and are deleted again in finally; synthetic data only. The application has no write path yet; this case shows that the database refuses an overlap that a read-before-write check on a connection cannot see",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
@@ -28320,8 +28320,10 @@
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "Independent real PG17 database; only the repository migrations before 0004_karaoke_scopes_slots applied (the build released before GK-1); readiness evaluated from a temporary directory holding those migrations, with the required catalog of this repository minus the 0004 rows (asserted equal to the 0001-0003 live catalog); then the real 0004 applied by runMigrations from the repository",
-      "fixture_ids": [],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0004_karaoke_scopes_slots applied (the build released before GK-1); readiness evaluated from a temporary directory holding those migrations, with the fixed 0003 required catalog fixture (asserted equal to the 0001-0003 live catalog); then 0004, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0004",
+      "fixture_ids": [
+        "tests/fixtures/db/required-catalog-0003.json"
+      ],
       "clock_instant": null,
       "concurrency_seed": null,
       "fault_points": [],
