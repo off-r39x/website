@@ -18071,6 +18071,77 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-006-010",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "REL-DB-006",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried), mode rollback_for_commit (the COMMIT is replaced by ROLLBACK and its acknowledgement withheld for 8 s); transactionDeadlineMs 5200, longer than the 5 s elapsed budget of the 55P03 retry policy",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check finds the run uncommitted after the retry budget is spent: FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), exit code 2, and no second seed transaction is started"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; the Event INSERT is issued once in total; only allowed statements are issued"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened and one reliability.unknown_result.resolved record (FAILED, TEMPORARY_FAILURE); no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-011",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried), mode drop_request (nothing committed); transactionDeadlineMs 600; before the re-check connection is handed back, another session holds an ACCESS EXCLUSIVE lock on app.audit_events for 900 ms, longer than the deadline and shorter than the 1 s lock and 5 s statement timeouts",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check transaction is bounded by the transaction deadline: its Audit Event read is stopped at the deadline, the re-check is not retried and decides nothing, and the result is UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN, exit code 3), not a late CREATED"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; the Event INSERT is issued once in total; only allowed statements are issued"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record and no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-002-006",
       "level": "DB",
       "suite": "db",
