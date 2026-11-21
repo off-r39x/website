@@ -18142,6 +18142,75 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-006-012",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried); the original connection through a proxy in mode drop_request (nothing committed), the re-check connection through a second proxy in mode stall_statement on the re-check's Audit Event read; transactionDeadlineMs 800",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK",
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check connection is abandoned at the transaction deadline: UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN, exit code 3) well within 10 s, no verdict and no retry"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; the Event INSERT is issued once in total; only allowed statements are issued; no session keeps the migration lock"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record and no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-013",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData over a scripted pg Client double whose COMMIT fails with a connection error (result unknown) and whose re-check connection's seed xact lock statement fails with SQLSTATE 55P03 after 1600 ms of a controlled clock; the backoff wait advances the same clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 49.5, 99 and 198 ms; (b) every backoff wait ends 3500 ms late",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) a re-check backoff that would end past the 5 s budget is not started: UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) after the third re-check transaction, waits of 49.5 and 99 ms only; (b) after a wait that ended past the budget no further re-check transaction starts: UNKNOWN_RESULT"
+      ],
+      "expected_db_postconditions": [
+        "(a) three seed xact lock statements on the re-check connection; (b) one"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-002-006",
       "level": "DB",
       "suite": "db",
@@ -18275,6 +18344,72 @@
       "expected_observability": [
         "stdout carries exactly one JSON result line for each run, with the nine result keys"
       ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-009",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-005",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried) in front of the original connection, mode stall_statement on the Event count read (the network stops answering; the sockets stay open); transactionDeadlineMs 800",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The command keeps the transaction deadline itself: the stalled connection is abandoned at the deadline and the result is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), exit code 2, well within 10 s; not an unknown COMMIT result, not retried, the input is not read"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created, no INSERT and no COMMIT is sent; the abandoned session ends and no session keeps the migration lock"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No reliability.unknown_result.opened and no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-010",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "INF-SEED-004",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData over a scripted pg Client double whose seed xact lock statement fails with SQLSTATE 55P03 after 1600 ms of a controlled clock; the backoff wait advances the same clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 49.5, 99 and 198 ms; (b) every backoff wait ends 3500 ms late",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) a backoff that would end past the 5 s budget is not started: FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) after the third attempt, waits of 49.5 and 99 ms only; (b) after a wait that ended past the budget no further attempt starts: FAILED after the first attempt"
+      ],
+      "expected_db_postconditions": [
+        "(a) three seed xact lock statements in total; (b) one"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
       "sensitivity_class": "synthetic",
       "critical": true
     },

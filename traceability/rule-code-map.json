@@ -3501,7 +3501,11 @@
         "TC-TST-SEED-003-008",
         "TC-TST-SEED-006-009",
         "TC-TST-SEED-006-010",
-        "TC-TST-SEED-006-011"
+        "TC-TST-SEED-006-011",
+        "TC-TST-SEED-003-009",
+        "TC-TST-SEED-003-010",
+        "TC-TST-SEED-006-012",
+        "TC-TST-SEED-006-013"
       ],
       "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT"
     },
@@ -3559,9 +3563,13 @@
         "TC-TST-SEED-003-006",
         "TC-TST-SEED-006-009",
         "TC-TST-SEED-006-010",
-        "TC-TST-SEED-006-011"
+        "TC-TST-SEED-006-011",
+        "TC-TST-SEED-003-009",
+        "TC-TST-SEED-003-010",
+        "TC-TST-SEED-006-012",
+        "TC-TST-SEED-006-013"
       ],
-      "notes": "implementation mapping only: transaction advisory lock before the count; re-check on a new connection, under the migration lock, after an unknown COMMIT result, each re-check transaction within the transaction deadline; the retry after an uncommitted re-check stays within the 55P03 attempts and elapsed budget"
+      "notes": "implementation mapping only: transaction advisory lock before the count; re-check on a new connection, under the migration lock, after an unknown COMMIT result, each re-check transaction within the transaction deadline, kept on the client too (a connection that stops answering is abandoned); the 55P03 retries of the seed and of the re-check, and the retry after an uncommitted re-check, stay within the 55P03 attempts and elapsed budget, backoff included"
     },
     {
       "rule_id": "DB-SEED-003",
