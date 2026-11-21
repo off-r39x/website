@@ -19,7 +19,9 @@ import { createConnection, createServer, type Socket } from "node:net";
  * - `stall_statement` (FP.DB.INSIDE_STATEMENT): the first statement whose text matches `stallOn` is
  *   never sent upstream, and from then on nothing is forwarded in either direction, while both sockets
  *   stay open: the network stops answering. The upstream backend stays inside its transaction until
- *   the caller's socket closes (then the proxy closes the upstream one too).
+ *   the caller's socket closes (then the proxy closes the upstream one too). With `forwardStalled`,
+ *   the matching statement itself is still sent upstream (PostgreSQL runs it, for example grants a
+ *   lock) and only its answer and everything after it are lost.
  */
 export type CommitProxyMode =
   | "drop_ack"
@@ -41,7 +43,12 @@ const isCommitComplete = (frame: Buffer) =>
 /** Plain local fixture transport only (it cannot carry TLS). */
 export async function startCommitAcknowledgementDropProxy(
   target: URL,
-  options: { mode?: CommitProxyMode; delayMs?: number; stallOn?: RegExp } = {},
+  options: {
+    mode?: CommitProxyMode;
+    delayMs?: number;
+    stallOn?: RegExp;
+    forwardStalled?: boolean;
+  } = {},
 ) {
   const mode = options.mode ?? "drop_ack";
   if (mode === "stall_statement" && options.stallOn === undefined)
@@ -93,6 +100,7 @@ export async function startCommitAcknowledgementDropProxy(
         ) {
           fired += 1;
           stalled = true;
+          if (options.forwardStalled) upstream.write(frame);
           return;
         }
         if (isCommit && mode === "drop_request") {
