@@ -18211,6 +18211,43 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-006-014",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic values only; real TCP fault proxy (plain transport; TLS is not carried); acquireMigrationLock then seedInitialData; the original connection through a proxy in mode drop_request (nothing committed), the re-check connection through a second proxy in mode stall_statement on the migration lock statement, sent upstream and its answer lost; migrationLockDeadlineMs 800",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK",
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check connection is abandoned at the lock deadline: UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN, exit code 3) well within 10 s; the re-check reads nothing, decides nothing and is not retried"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; only allowed statements are issued; no session keeps the migration lock the server had granted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record and no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-002-006",
       "level": "DB",
       "suite": "db",
@@ -18407,6 +18444,39 @@
       ],
       "expected_db_postconditions": [
         "(a) three seed xact lock statements in total; (b) one"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-011",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "INF-SEED-004",
+        "REL-DB-005",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic values only; real TCP fault proxy (plain transport; TLS is not carried); acquireMigrationLock on an app_migrator connection through the proxy in mode stall_statement with deadlineMs 800: (a) on SET lock_timeout, not sent upstream; (b) on the migration lock statement, sent upstream (the server grants the lock) and its answer lost",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The acquisition is bounded on the client: it rejects with MigrationLockTimeoutError at the deadline, well within 10 s, instead of waiting for an answer that never arrives"
+      ],
+      "expected_db_postconditions": [
+        "(b) the abandoned session ends and no session keeps the migration lock the server had granted"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
