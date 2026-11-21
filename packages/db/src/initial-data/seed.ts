@@ -121,6 +121,12 @@ export type SeedOptions = {
    * the time left.
    */
   readonly transactionDeadlineMs?: number;
+  /**
+   * Client-side limit in ms for taking the migration lock again before the re-check (SPEC-180 section
+   * 24: 60000). Overridable for tests. A connection that does not answer within it is abandoned and
+   * the result stays unknown.
+   */
+  readonly migrationLockDeadlineMs?: number;
 };
 
 type Plan = { readonly kind: "all" } | { readonly kind: "offerings"; readonly eventId: string };
@@ -678,11 +684,17 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       // The re-check reads only under the migration lock (INF-SEED-003, SPEC-180 section 24): a
       // migration that started after the lost session ended finishes first. While the session of the
       // lost COMMIT still lives it holds the lock too, so this also waits for that COMMIT to end. Not
-      // acquired (the 60 second wait passed, or the connection failed): the re-check cannot run and
+      // acquired (the 60 second wait passed, the connection stopped answering and was abandoned, or
+      // it failed): the re-check cannot run and
       // the result stays unknown (DB-SEED-002 (4)). The wait is not part of the retry budget.
       const lockStartedAt = performance.now();
       try {
-        ownedLock = await acquireMigrationLock(reconnected);
+        ownedLock = await acquireMigrationLock(
+          reconnected,
+          options.migrationLockDeadlineMs === undefined
+            ? {}
+            : { deadlineMs: options.migrationLockDeadlineMs },
+        );
       } catch {
         return unknown;
       } finally {

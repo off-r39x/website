@@ -113,6 +113,9 @@ migrate, readiness and seed under one session lock. Running `db:migrate` and thi
 processes is for development, tests and re-runs: the lock is released in between. Every statement of the
 seed runs in a session that holds the migration lock: when a COMMIT result is lost, the re-check takes
 the lock again on its new connection (waiting up to 60 seconds, else `UNKNOWN_RESULT`) before it reads.
+The 60 seconds bound the whole lock acquisition on the client as well: a connection that stops
+answering while the lock is taken is abandoned (the command fails with `MIGRATION_LOCK_TIMEOUT`, the
+re-check ends in `UNKNOWN_RESULT`), and a lock the server may have granted ends with its session.
 Each statement of the seed transaction runs within the 8 second transaction deadline (SPEC-150 §9); a
 lock wait or read that would pass it ends the attempt as `FAILED`. The re-check transaction has the same
 deadline; a re-check that cannot decide within it ends as `UNKNOWN_RESULT`. The command keeps the

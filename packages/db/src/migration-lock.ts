@@ -40,21 +40,46 @@ export function isActiveMigrationLock(lock: unknown): lock is MigrationLock {
   return typeof lock === "object" && lock !== null && active.has(lock);
 }
 
+/** SPEC-180 section 24: the migration lock is acquired within 60 seconds, or the deployment fails. */
+export const MIGRATION_LOCK_ACQUIRE_MS = 60_000;
+
 /**
  * Takes the migration lock on `client` (a dedicated, connected app_migrator connection). Waits up to
  * 60 seconds (SPEC-180 section 24). Another role is refused before any lock statement is sent.
+ *
+ * The server-side `lock_timeout` cannot end a wait for an answer that never arrives (the network stops
+ * answering), so the whole acquisition, the statements before the lock included, is also bounded on
+ * the client by `deadlineMs` (60 seconds; overridable for tests). When it passes, the client is ended:
+ * pg destroys the socket of a client with a query in flight, so the backend ends, and a lock it may
+ * already have granted goes with it. The result is `MigrationLockTimeoutError`; do not use the client
+ * afterwards.
  */
-export async function acquireMigrationLock(client: Client): Promise<MigrationLock> {
-  const role = (await client.query("SELECT current_user AS role")).rows[0]?.role;
-  if (role !== "app_migrator") throw new MigrationPrincipalError();
-  await client.query("SET lock_timeout = '60s'");
-  await client.query("SET statement_timeout = '65s'");
-  await client.query("SET timezone = 'UTC'");
+export async function acquireMigrationLock(
+  client: Client,
+  options: { readonly deadlineMs?: number } = {},
+): Promise<MigrationLock> {
+  let abandoned = false;
+  const timer = setTimeout(
+    () => {
+      abandoned = true;
+      void client.end().catch(() => {});
+    },
+    Math.max(options.deadlineMs ?? MIGRATION_LOCK_ACQUIRE_MS, 0),
+  );
+  timer.unref();
   try {
+    const role = (await client.query("SELECT current_user AS role")).rows[0]?.role;
+    if (role !== "app_migrator") throw new MigrationPrincipalError();
+    await client.query("SET lock_timeout = '60s'");
+    await client.query("SET statement_timeout = '65s'");
+    await client.query("SET timezone = 'UTC'");
     await client.query("SELECT pg_advisory_lock(hashtext('r39x:schema-migration'))");
+    if (abandoned) throw new MigrationLockTimeoutError();
   } catch (error) {
-    if (sqlState(error) === "55P03") throw new MigrationLockTimeoutError();
+    if (abandoned || sqlState(error) === "55P03") throw new MigrationLockTimeoutError();
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
   const lock: MigrationLock = {
     client,
