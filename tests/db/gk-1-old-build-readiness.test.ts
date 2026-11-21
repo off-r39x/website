@@ -23,30 +23,27 @@ import { installSyntheticDirectory, prepareFoundationDatabase } from "../harness
 //
 // The old build is reproduced without a production test hook: its migration set is a temporary copy
 // of the repository migrations before 0004 (readiness runs with that directory as cwd, as in
-// ops-readiness-compat.test.ts), and its required catalog is this repository's contract without the
-// 0004 rows (schema-contract.json gained only those rows in GK-1). The first test proves that this
-// catalog is exactly what a 0001-0003 database has, i.e. the catalog the old build shipped.
+// ops-readiness-compat.test.ts), and its required catalog is the fixed fixture
+// fixtures/db/required-catalog-0003.json (schema-contract.json as the 0003 release shipped it). The
+// next release applies only the migrations up to 0004, from its own temporary copy, so later
+// migrations (0005 and on) do not change this scenario. The first test proves that the fixture is
+// exactly what a 0001-0003 database has.
 
 const GK1_VERSION = "0004_karaoke_scopes_slots";
-// vi.mock is hoisted above the module body, so the set it uses is hoisted with it.
-const { GK1_RELATIONS } = vi.hoisted(() => ({
-  GK1_RELATIONS: new Set([
-    "karaoke_exclusive_scopes",
-    "karaoke_slots",
-    "karaoke_exclusive_scopes_id_seq",
-    "karaoke_slots_id_seq",
-  ]),
-}));
+const GK1_RELATIONS = new Set([
+  "karaoke_exclusive_scopes",
+  "karaoke_slots",
+  "karaoke_exclusive_scopes_id_seq",
+  "karaoke_slots_id_seq",
+]);
 
 vi.mock("../../packages/db/src/schema-contract.ts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../packages/db/src/schema-contract.ts")>();
-  const withoutGk1 = Object.fromEntries(
-    Object.entries(actual.requiredCatalog).map(([key, tuples]) => [
-      key,
-      (tuples as unknown[][]).filter((tuple) => !GK1_RELATIONS.has(String(tuple[0]))),
-    ]),
-  );
-  return { ...actual, requiredCatalog: withoutGk1 };
+  const { readFileSync } = await import("node:fs");
+  const { resolve: resolvePath } = await import("node:path");
+  // cwd is tests/ (the backend runner), as REPO_MIGRATIONS below assumes.
+  const fixture = resolvePath(process.cwd(), "fixtures/db/required-catalog-0003.json");
+  return { ...actual, requiredCatalog: JSON.parse(readFileSync(fixture, "utf8")) };
 });
 
 const sourceUrl = process.env.TEST_DATABASE_URL;
@@ -85,6 +82,14 @@ function expectations(migrationSetHash: string): ReadinessExpectations {
   };
 }
 
+/** TST-DB-002: setup and migration sessions run in UTC and READ COMMITTED. */
+async function expectUtcReadCommitted(client: Client): Promise<void> {
+  expect((await client.query("SHOW TimeZone")).rows[0].TimeZone).toBe("UTC");
+  expect((await client.query("SHOW transaction_isolation")).rows[0].transaction_isolation).toBe(
+    "read committed",
+  );
+}
+
 const failClosed = (events: readonly LogEvent[]) =>
   events.filter((event) => event.event_name === "security.fail_closed.triggered");
 
@@ -94,6 +99,7 @@ describe("the build before GK-1 stays Ready after 0004 is applied (real PostgreS
   let setup: Client;
   let url: string;
   let oldRoot: string;
+  let nextRoot: string;
   let oldVersions: string[];
 
   async function oldBuildReadiness(pool: Pool) {
@@ -124,12 +130,19 @@ describe("the build before GK-1 stays Ready after 0004 is applied (real PostgreS
     if (position < 3) throw new Error(`${GK1_VERSION}.sql must follow 0001-0003`);
     const oldNames = names.slice(0, position);
     oldVersions = oldNames.map((file) => file.slice(0, -4));
-    oldRoot = await mkdtemp(join(tmpdir(), "r39x-gk1-old-"));
-    const dir = join(oldRoot, "packages/db/migrations");
-    await mkdir(dir, { recursive: true });
-    for (const file of oldNames) await copyFile(join(REPO_MIGRATIONS, file), join(dir, file));
+    const copySet = async (prefix: string, files: readonly string[]) => {
+      const root = await mkdtemp(join(tmpdir(), prefix));
+      const dir = join(root, "packages/db/migrations");
+      await mkdir(dir, { recursive: true });
+      for (const file of files) await copyFile(join(REPO_MIGRATIONS, file), join(dir, file));
+      return root;
+    };
+    oldRoot = await copySet("r39x-gk1-old-", oldNames);
+    // The next release is the one that brings 0004; nothing after it.
+    nextRoot = await copySet("r39x-gk1-next-", names.slice(0, position + 1));
     setup = new Client({ connectionString: url });
     await setup.connect();
+    await expectUtcReadCommitted(setup);
     // The database as the old build left it: only the migrations before 0004.
     await inCwd(oldRoot, () => prepareFoundationDatabase(setup));
     await installSyntheticDirectory(setup);
@@ -141,7 +154,8 @@ describe("the build before GK-1 stays Ready after 0004 is applied (real PostgreS
       await admin?.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
     } finally {
       await admin?.end();
-      if (oldRoot) await rm(oldRoot, { recursive: true, force: true });
+      for (const root of [oldRoot, nextRoot])
+        if (root) await rm(root, { recursive: true, force: true });
     }
   }, TIMEOUT);
 
@@ -150,20 +164,10 @@ describe("the build before GK-1 stays Ready after 0004 is applied (real PostgreS
     async () => {
       expect(await journal()).toEqual(oldVersions);
       expect(oldVersions).not.toContain(GK1_VERSION);
-      const current = (
-        await vi.importActual<typeof import("../../packages/db/src/schema-contract.ts")>(
-          "../../packages/db/src/schema-contract.ts",
-        )
-      ).requiredCatalog as Record<string, unknown[][]>;
-      // The derived catalog drops the GK-1 rows of every key and nothing else.
-      const dropped = Object.values(current)
-        .flat()
-        .filter((tuple) => GK1_RELATIONS.has(String(tuple[0])));
-      expect(dropped.length).toBeGreaterThan(0);
-      expect(
-        Object.values(requiredCatalog as Record<string, unknown[][]>).flat().length +
-          dropped.length,
-      ).toBe(Object.values(current).flat().length);
+      // The fixture has none of the 0004 relations, and the 0001-0003 database matches it exactly.
+      const fixtureTuples = Object.values(requiredCatalog as Record<string, unknown[][]>).flat();
+      expect(fixtureTuples.length).toBeGreaterThan(0);
+      expect(fixtureTuples.filter((tuple) => GK1_RELATIONS.has(String(tuple[0])))).toEqual([]);
       expect(catalogSatisfies(await liveCatalog(), requiredCatalog, "exact")).toBe(true);
 
       const pool = new Pool({ connectionString: url, max: 1, options: READINESS_OPTIONS });
@@ -182,12 +186,13 @@ describe("the build before GK-1 stays Ready after 0004 is applied (real PostgreS
   it(
     "TC-INF-HLT-006-010 INF-HLT-006 INF-RBK-002 after the real 0004 is applied the old build stays Ready for the setup, API and Reconciliation identities",
     async () => {
-      // The next release (this repository) applies 0004 with the production runner.
+      // The next release applies 0004 (and nothing after it) with the production runner.
       const migrator = new Client({ connectionString: url });
       await migrator.connect();
       try {
         await migrator.query("SET ROLE app_migrator");
-        await runMigrations(migrator);
+        await expectUtcReadCommitted(migrator);
+        await inCwd(nextRoot, () => runMigrations(migrator));
       } finally {
         await migrator.end();
       }
