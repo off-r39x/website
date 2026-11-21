@@ -26968,7 +26968,7 @@
       "test_case_id": "TC-API-QRY-004-001",
       "level": "Security",
       "suite": "security",
-      "upstream_rule_ids": ["API-QRY-004", "SPEC-110-12", "SPEC-110-9", "SEC-ERR-001"],
+      "upstream_rule_ids": ["API-QRY-004", "API-QRY-005", "SPEC-110-12", "SPEC-110-9", "SEC-ERR-001"],
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
@@ -26984,7 +26984,7 @@
       "preconditions": "Synthetic 32-byte cursor keys from tests/harness/pagination.ts; no environment variables, network, database or Redis",
       "expected_domain_postconditions": [
         "encode then decode returns the same sort keys and public_ref; the token is deterministic base64url within 512 characters; numeric sort keys are safe integers only (1.5, 2**53, NaN and infinities make encode throw)",
-        "The payload holds only v, kv, k and r and none of the filter value, Operation ID or key bytes; an internal ID or uppercase public_ref makes encode throw"
+        "The payload holds only v, kv, k and r and none of the filter value, Operation ID or key bytes; an internal ID, an uppercase public_ref or a lowercase public_ref that is not a SPEC-110 section 9 canonical UUID (nil, max, version 0 or 9, variant 7 or c) makes encode throw (API-QRY-005)"
       ],
       "critical": true
     },
@@ -26992,7 +26992,7 @@
       "test_case_id": "TC-API-QRY-004-002",
       "level": "Security",
       "suite": "security",
-      "upstream_rule_ids": ["API-QRY-004", "SEC-DEP-007", "SEC-API-011"],
+      "upstream_rule_ids": ["API-QRY-004", "API-QRY-005", "SEC-DEP-007", "SEC-API-011"],
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
@@ -27008,7 +27008,7 @@
       "preconditions": "Synthetic 32-byte cursor keys from tests/harness/pagination.ts; no environment variables, network, database or Redis",
       "expected_domain_postconditions": [
         "Single-character substitutions, truncation, extension, non-base64url characters, non-canonical base64url, 513 characters, empty and too-short tokens decode to { ok: false }",
-        "A correctly signed token with a payload that breaks the strict schema, or a numeric key that is a fraction or an unsafe integer, decodes to { ok: false }; 1,000 seeded arbitrary strings never throw"
+        "A correctly signed token with a payload that breaks the strict schema (including a public_ref r that is nil, max, version 0 or 9, or variant 7 or c, API-QRY-005), or a numeric key that is a fraction or an unsafe integer, decodes to { ok: false }; 1,000 seeded arbitrary strings never throw"
       ],
       "critical": true
     },

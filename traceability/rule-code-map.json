@@ -5578,10 +5578,11 @@
         "TC-INF-SEC-007-007",
         "TC-API-QRY-005-001",
         "TC-API-QRY-004-001",
+        "TC-API-QRY-004-002",
         "TC-API-QRY-004-003",
         "TC-API-QRY-001-002"
       ],
-      "notes": "Cursor signed with LIST_CURSOR_HMAC_KEY and carrying its version (codec from S0-3b); no list Operation is mounted yet"
+      "notes": "Cursor signed with LIST_CURSOR_HMAC_KEY and carrying its version (codec from S0-3b); the public_ref is a SPEC-110 section 9 canonical UUID on encode and decode (UCR-110-014); no list Operation is mounted yet"
     },
     {
       "rule_id": "SEC-KEY-006",
