@@ -362,6 +362,48 @@ describe("TC-API-IDM-008-001 a record lives 24 hours and an expired row is reuse
   });
 });
 
+// ---- TC-API-IDM-008-002 --------------------------------------------------------------------------
+
+describe("TC-API-IDM-008-002 a new record's times come from the writing transaction's transaction_timestamp() (SPEC-100 section 43.1, DB-TIM-002, real PostgreSQL 17)", () => {
+  it("TC-API-IDM-008-002 a first claim stores created_at = transaction_timestamp() of the claiming transaction and expires_at 24 hours later, not the statement or commit time", async () => {
+    const input = claimInput(P1, "synthetic-idem-key-new-time-0001", "synthetic-request-new-time");
+    const client = await pool().connect();
+    let t: string;
+    try {
+      await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+      t = (await client.query("SELECT transaction_timestamp()::text AS t")).rows[0].t as string;
+      // Let the wall clock move past transaction_timestamp(), so statement_timestamp() and clock_timestamp()
+      // at the INSERT differ from it.
+      await client.query("SELECT pg_sleep(0.05)");
+      const claim = await claimTransportIdempotency(client, input);
+      expect(claim.status).toBe("first");
+      if (claim.status !== "first") throw new Error("expected first");
+      await setTransportIdempotencyResult(client, claim.handle, {
+        type: RESULT_TYPE,
+        refs: [ref(0x921)],
+      });
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+    const rows = await recordRows(admin);
+    expect(rows).toHaveLength(1);
+    const times = (
+      await admin.query(
+        `SELECT created_at = $1::timestamptz AS created_is_t,
+                expires_at = $1::timestamptz + interval '24 hours' AS expires_is_t_24h,
+                created_at < now() AS created_before_now
+           FROM app.idempotency_records WHERE id = $2::bigint`,
+        [t, rows[0]?.id],
+      )
+    ).rows[0];
+    expect(times).toEqual({ created_is_t: true, expires_is_t_24h: true, created_before_now: true });
+  });
+});
+
 // ---- TC-API-IDM-009-001 --------------------------------------------------------------------------
 
 describe("TC-API-IDM-009-001 N concurrent requests are serialised by the unique key (real PostgreSQL 17)", () => {

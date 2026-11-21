@@ -65,7 +65,21 @@ export const GOLDEN_INDEXES: readonly GoldenIndex[] = [
   ],
 ];
 
-export const GOLDEN_SEQUENCE = ["idempotency_records_id_seq", "bigint", "app_migrator"] as const;
+/**
+ * SPEC-100 §43.1 (UCR-100-005) / SPEC-180 §22.2: app_api_runtime gets INSERT on these columns only, never
+ * on the time columns (created_at, expires_at come from their transaction_timestamp() defaults) nor on the
+ * GENERATED ALWAYS identity id. SELECT and UPDATE stay table-level: DB-IDM-003 reuse UPDATEs the time columns.
+ */
+export const GOLDEN_API_INSERT_COLUMNS = [
+  "principal_profile_id",
+  "operation_id",
+  "key_digest",
+  "request_digest",
+  "result_ref_type",
+  "result_refs",
+] as const;
+
+export const GOLDEN_SEQUENCE =["idempotency_records_id_seq", "bigint", "app_migrator"] as const;
 /** [relname, relkind, owner, relrowsecurity] as schema-contract.json lists a table. */
 export const GOLDEN_TABLE_ROW = [IDEMPOTENCY_TABLE, "r", "app_migrator", false] as const;
 

@@ -22,6 +22,7 @@ import {
 } from "../harness/db/idempotency.ts";
 import {
   byFirst,
+  GOLDEN_API_INSERT_COLUMNS,
   GOLDEN_COLUMNS,
   GOLDEN_CONSTRAINTS,
   GOLDEN_INDEXES,
@@ -621,7 +622,14 @@ describe("TC-DB-IDM-003-001 runtime privileges on app.idempotency_records (real 
     "app_reconciliation_runtime",
     "app_runtime",
   ] as const;
+  // SPEC-100 section 43.1 (UCR-100-005): SELECT and UPDATE are table-level (DB-IDM-003 reuse UPDATEs the
+  // time columns); INSERT is column-level and leaves out created_at, expires_at and the identity id.
+  const API_TABLE_GRANTS = ["SELECT", "UPDATE"];
   const API_GRANTS = ["SELECT", "INSERT", "UPDATE"];
+  const apiColumnGrants = (column: string): string[] =>
+    (GOLDEN_API_INSERT_COLUMNS as readonly string[]).includes(column)
+      ? API_GRANTS
+      : API_TABLE_GRANTS;
 
   async function tablePrivileges(role: string) {
     const result: Record<string, boolean> = {};
@@ -635,8 +643,17 @@ describe("TC-DB-IDM-003-001 runtime privileges on app.idempotency_records (real 
   const only = (granted: readonly string[]) =>
     Object.fromEntries(PRIVILEGES.map((privilege) => [privilege, granted.includes(privilege)]));
 
-  it("TC-DB-IDM-003-001 has_table_privilege: app_api_runtime has SELECT, INSERT and UPDATE only (no DELETE, TRUNCATE, REFERENCES, TRIGGER); the workers, app_runtime and PUBLIC have nothing", async () => {
-    expect(await tablePrivileges("app_api_runtime")).toEqual(only(API_GRANTS));
+  it("TC-DB-IDM-003-001 has_table_privilege: app_api_runtime has table-level SELECT and UPDATE only (INSERT is column-level; no DELETE, TRUNCATE, REFERENCES, TRIGGER); the workers, app_runtime and PUBLIC have nothing", async () => {
+    expect(await tablePrivileges("app_api_runtime")).toEqual(only(API_TABLE_GRANTS));
+    expect(
+      (
+        await admin.query("SELECT has_any_column_privilege($1, $2, 'INSERT') AS allowed", [
+          "app_api_runtime",
+          T,
+        ])
+      ).rows[0].allowed,
+      "app_api_runtime can INSERT some columns",
+    ).toBe(true);
     for (const role of ["app_email_runtime", "app_reconciliation_runtime", "app_runtime"]) {
       expect(await tablePrivileges(role), role).toEqual(only([]));
     }
@@ -658,18 +675,27 @@ describe("TC-DB-IDM-003-001 runtime privileges on app.idempotency_records (real 
         .filter((entry) => entry.grantee_name !== "app_migrator")
         .map((entry) => `${entry.grantee_name}:${entry.privilege_type}`)
         .sort(),
-    ).toEqual(API_GRANTS.map((privilege) => `app_api_runtime:${privilege}`).sort());
+    ).toEqual(API_TABLE_GRANTS.map((privilege) => `app_api_runtime:${privilege}`).sort());
   });
 
-  it("TC-DB-IDM-003-001 no column has an ACL of its own, and has_column_privilege of every role equals the table-level grants", async () => {
-    const withAcl = (
+  it("TC-DB-IDM-003-001 the only column ACLs are app_api_runtime INSERT on the non-time, non-identity columns, and has_column_privilege of every role matches (SPEC-100 section 43.1)", async () => {
+    const columnAcl = (
       await admin.query(
-        `SELECT a.attname FROM pg_attribute a
+        `SELECT a.attname,
+                CASE WHEN e.grantee = 0 THEN 'PUBLIC' ELSE pg_get_userbyid(e.grantee) END AS grantee_name,
+                e.privilege_type
+           FROM pg_attribute a, aclexplode(a.attacl) e
           WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped AND a.attacl IS NOT NULL`,
         [T],
       )
-    ).rows;
-    expect(withAcl, "columns with a column-level ACL").toEqual([]);
+    ).rows as { attname: string; grantee_name: string; privilege_type: string }[];
+    expect(
+      columnAcl.map((entry) => `${entry.attname}:${entry.grantee_name}:${entry.privilege_type}`).sort(),
+      "column-level ACL entries",
+    ).toEqual(GOLDEN_API_INSERT_COLUMNS.map((column) => `${column}:app_api_runtime:INSERT`).sort());
+    expect(GOLDEN_API_INSERT_COLUMNS).not.toContain("created_at");
+    expect(GOLDEN_API_INSERT_COLUMNS).not.toContain("expires_at");
+    expect(GOLDEN_API_INSERT_COLUMNS).not.toContain("id");
     const COLUMN_PRIVILEGES = ["SELECT", "INSERT", "UPDATE", "REFERENCES"] as const;
     const effective = (
       await admin.query(
@@ -685,7 +711,7 @@ describe("TC-DB-IDM-003-001 runtime privileges on app.idempotency_records (real 
     expect(effective).toHaveLength(GOLDEN_COLUMNS.length * ROLES.length * COLUMN_PRIVILEGES.length);
     const deviations = effective
       .filter((row) => {
-        const granted = row.role_name === "app_api_runtime" ? API_GRANTS : [];
+        const granted = row.role_name === "app_api_runtime" ? apiColumnGrants(row.column_name) : [];
         return row.allowed !== granted.includes(row.privilege);
       })
       .map((row) => `${row.role_name} ${row.column_name} ${row.privilege}=${row.allowed}`);
@@ -748,6 +774,60 @@ describe("TC-DB-IDM-003-001 runtime privileges on app.idempotency_records (real 
         await expect(api.query(statement), statement).rejects.toMatchObject({ code: "42501" });
         await api.query("ROLLBACK TO SAVEPOINT denied");
       }
+      await api.query("ROLLBACK");
+    } finally {
+      api.release();
+    }
+    expect(await recordCount(admin)).toBe(0);
+  });
+
+  it("TC-DB-IDM-003-001 app_api_runtime cannot supply created_at, expires_at or the identity id on INSERT (42501), and the defaults set both times from its transaction_timestamp()", async () => {
+    const api = await poolOf("app_api_runtime").connect();
+    const params = [profileA, OPERATION_ID, Buffer.from(KEY), Buffer.from(REQUEST)];
+    try {
+      await api.query("BEGIN");
+      const refused = [
+        [
+          "created_at",
+          `INSERT INTO ${T}(principal_profile_id, operation_id, key_digest, request_digest, created_at)
+           VALUES ($1::bigint, $2, $3, $4, transaction_timestamp() - interval '1 hour')`,
+        ],
+        [
+          "expires_at",
+          `INSERT INTO ${T}(principal_profile_id, operation_id, key_digest, request_digest, expires_at)
+           VALUES ($1::bigint, $2, $3, $4, transaction_timestamp() + interval '24 hours')`,
+        ],
+        [
+          "created_at and expires_at",
+          `INSERT INTO ${T}(principal_profile_id, operation_id, key_digest, request_digest, created_at, expires_at)
+           VALUES ($1::bigint, $2, $3, $4, transaction_timestamp() - interval '1 hour',
+                   transaction_timestamp() + interval '23 hours')`,
+        ],
+        [
+          "id",
+          `INSERT INTO ${T}(id, principal_profile_id, operation_id, key_digest, request_digest)
+           OVERRIDING SYSTEM VALUE VALUES (9001, $1::bigint, $2, $3, $4)`,
+        ],
+      ] as const;
+      for (const [label, statement] of refused) {
+        await api.query("SAVEPOINT denied");
+        await expect(api.query(statement, params), label).rejects.toMatchObject({ code: "42501" });
+        await api.query("ROLLBACK TO SAVEPOINT denied");
+      }
+      const t = (await api.query("SELECT transaction_timestamp()::text AS t")).rows[0].t as string;
+      const times = (
+        await api.query(
+          `INSERT INTO ${T}(principal_profile_id, operation_id, key_digest, request_digest, result_ref_type, result_refs)
+           VALUES ($1::bigint, $2, $3, $4, NULL, '{}')
+           RETURNING created_at = $5::timestamptz AS created_is_t,
+                     expires_at = $5::timestamptz + interval '24 hours' AS expires_is_t_24h`,
+          [...params, t],
+        )
+      ).rows[0];
+      expect(times, "the time columns come from the defaults").toEqual({
+        created_is_t: true,
+        expires_is_t_24h: true,
+      });
       await api.query("ROLLBACK");
     } finally {
       api.release();
