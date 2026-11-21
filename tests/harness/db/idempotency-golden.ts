@@ -79,7 +79,7 @@ export const GOLDEN_API_INSERT_COLUMNS = [
   "result_refs",
 ] as const;
 
-export const GOLDEN_SEQUENCE =["idempotency_records_id_seq", "bigint", "app_migrator"] as const;
+export const GOLDEN_SEQUENCE = ["idempotency_records_id_seq", "bigint", "app_migrator"] as const;
 /** [relname, relkind, owner, relrowsecurity] as schema-contract.json lists a table. */
 export const GOLDEN_TABLE_ROW = [IDEMPOTENCY_TABLE, "r", "app_migrator", false] as const;
 

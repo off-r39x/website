@@ -2927,12 +2927,14 @@
       "rule_id": "DB-TIM-002",
       "code_paths": [
         "packages/db/migrations/0003_public_content_sales.sql",
+        "packages/db/migrations/0005_idempotency_records.sql",
         "packages/db/src/schema/public-content.ts",
         "packages/db/src/schema/sales.ts",
-        "packages/db/src/schema/goods.ts"
+        "packages/db/src/schema/goods.ts",
+        "packages/db/src/idempotency-records.ts"
       ],
-      "test_case_ids": ["TC-DB-TIM-001-001", "TC-DB-ARC-007-004"],
-      "notes": "implementation mapping only: created_at and updated_at default to transaction_timestamp(); no trigger maintains them"
+      "test_case_ids": ["TC-DB-TIM-001-001", "TC-DB-ARC-007-004", "TC-API-IDM-008-002"],
+      "notes": "implementation mapping only: created_at and updated_at default to transaction_timestamp(); no trigger maintains them; the idempotency record's created_at and expires_at come from transaction_timestamp() and app_api_runtime cannot INSERT them"
     },
     {
       "rule_id": "DB-SAL-002",
@@ -5625,7 +5627,12 @@
         "packages/db/migrations/0005_idempotency_records.sql",
         "packages/db/src/idempotency-records.ts"
       ],
-      "test_case_ids": ["TC-API-IDM-008-001", "TC-DB-IDM-001-001", "TC-DB-IDM-003-001"],
+      "test_case_ids": [
+        "TC-API-IDM-008-001",
+        "TC-API-IDM-008-002",
+        "TC-DB-IDM-001-001",
+        "TC-DB-IDM-003-001"
+      ],
       "notes": "implementation mapping only: replay record primitives exist in packages/db; no business Operation mounts them yet; 24 hour expiry"
     },
     {

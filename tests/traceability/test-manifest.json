@@ -27784,10 +27784,12 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "app_api_runtime can SELECT, INSERT and UPDATE a record and is refused DELETE and TRUNCATE with 42501; app_email_runtime and app_reconciliation_runtime are refused every operation with 42501"
+        "app_api_runtime can SELECT, INSERT and UPDATE a record and is refused DELETE and TRUNCATE with 42501; app_email_runtime and app_reconciliation_runtime are refused every operation with 42501",
+        "app_api_runtime is refused with 42501 an INSERT that supplies created_at, expires_at, both, or the identity id (OVERRIDING SYSTEM VALUE); an INSERT without them gets created_at = its transaction_timestamp() and expires_at 24 hours later (SPEC-100 section 43.1, UCR-100-005)"
       ],
       "expected_db_postconditions": [
-        "has_table_privilege: app_api_runtime has SELECT, INSERT and UPDATE only; app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC have none; no column ACL; no role has a privilege on the identity sequence; the app schema has no purge function"
+        "has_table_privilege: app_api_runtime has table-level SELECT and UPDATE only; app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC have none; no role has a privilege on the identity sequence; the app schema has no purge function",
+        "The only column ACL entries are app_api_runtime INSERT on principal_profile_id, operation_id, key_digest, request_digest, result_ref_type and result_refs (not created_at, expires_at or id); has_column_privilege of every role and column matches; UPDATE stays table-level because DB-IDM-003 reuse updates the time columns"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
@@ -27919,6 +27921,31 @@
       ],
       "expected_db_postconditions": [
         "Row count unchanged by the reuse; ck_idempotency_records_expiry holds after the reuse"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-API-IDM-008-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": ["API-IDM-008", "DB-TIM-002", "TST-IDM-004"],
+      "system_invariant_ids": ["INV-010-10"],
+      "api_operation_ids": [],
+      "db_constraint_names": ["ck_idempotency_records_expiry"],
+      "preconditions": "Independent real PostgreSQL 17 database (TLS) migrated with 0001 to the idempotency_records migration; synthetic Business Profiles; synthetic values only; the claim transaction reads its transaction_timestamp() T and waits briefly before claiming, so statement and clock time differ from T",
+      "fixture_ids": [],
+      "clock_instant": "DB time: transaction_timestamp() read inside the claiming transaction; no JavaScript clock",
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A first claim creates a new record whose created_at is T and whose expires_at is T + 24 hours (the reuse side is TC-API-IDM-008-001)"
+      ],
+      "expected_db_postconditions": [
+        "One row; created_at = T, expires_at = T + 24 hours, created_at earlier than the checking transaction's now(); ck_idempotency_records_expiry holds"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],

@@ -690,7 +690,9 @@ describe("TC-DB-IDM-003-001 runtime privileges on app.idempotency_records (real 
       )
     ).rows as { attname: string; grantee_name: string; privilege_type: string }[];
     expect(
-      columnAcl.map((entry) => `${entry.attname}:${entry.grantee_name}:${entry.privilege_type}`).sort(),
+      columnAcl
+        .map((entry) => `${entry.attname}:${entry.grantee_name}:${entry.privilege_type}`)
+        .sort(),
       "column-level ACL entries",
     ).toEqual(GOLDEN_API_INSERT_COLUMNS.map((column) => `${column}:app_api_runtime:INSERT`).sort());
     expect(GOLDEN_API_INSERT_COLUMNS).not.toContain("created_at");
