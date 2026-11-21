@@ -114,7 +114,10 @@ processes is for development, tests and re-runs: the lock is released in between
 seed runs in a session that holds the migration lock: when a COMMIT result is lost, the re-check takes
 the lock again on its new connection (waiting up to 60 seconds, else `UNKNOWN_RESULT`) before it reads.
 Each statement of the seed transaction runs within the 8 second transaction deadline (SPEC-150 §9); a
-lock wait or read that would pass it ends the attempt as `FAILED`.
+lock wait or read that would pass it ends the attempt as `FAILED`. The re-check transaction has the same
+deadline; a re-check that cannot decide within it ends as `UNKNOWN_RESULT`. A run that the re-check
+finds uncommitted is retried only within the SPEC-150 55P03 budget (4 attempts, 5 seconds from the first
+attempt, not counting the migration lock wait), else `FAILED`.
 
 Environment variables (an `app_migrator` direct URL on port 5432 over TLS, as for `db:migrate`):
 

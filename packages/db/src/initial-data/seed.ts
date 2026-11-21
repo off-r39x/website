@@ -115,8 +115,9 @@ export type SeedOptions = {
   readonly actorRef: string;
   readonly logger?: { log(event: LogEvent): void };
   /**
-   * Wall clock of one seed transaction in ms (SPEC-150 section 9: 8000). Overridable for tests. Every
-   * statement of the transaction (the xact lock, the reads and the writes) runs within the time left.
+   * Wall clock of one seed or re-check transaction in ms (SPEC-150 section 9: 8000). Overridable for
+   * tests. Every statement of the transaction (the xact lock, the reads and the writes) runs within
+   * the time left.
    */
   readonly transactionDeadlineMs?: number;
 };
@@ -200,6 +201,36 @@ async function beginTransaction(client: Client): Promise<void> {
   await client.query(
     `SET LOCAL statement_timeout = '${TIMEOUTS.statementMs}ms'; SET LOCAL lock_timeout = '${TIMEOUTS.lockMs}ms'; SET LOCAL timezone = 'UTC'`,
   );
+}
+
+/**
+ * The wall clock of one transaction (SPEC-150 section 9), applied to every statement of it. The BEGIN
+ * timeouts bound a statement to 5 s and a lock wait to 1 s; once less than 5 s is left, the statement
+ * timeout (which also bounds lock waits) is first lowered to the time left, and a timeout it causes is
+ * the deadline. The deadline is checked before and after each statement, so a slow lock wait or read
+ * cannot lead to a verdict after the deadline either.
+ */
+function transactionDeadline(client: Client, deadlineMs: number) {
+  const startedAt = performance.now();
+  const remainingMs = () => deadlineMs - (performance.now() - startedAt);
+  const check = () => {
+    if (remainingMs() <= 0) throw new DeadlineExceeded();
+  };
+  const within = async <T>(work: () => Promise<T>): Promise<T> => {
+    check();
+    const left = Math.floor(remainingMs());
+    const lowered = left < TIMEOUTS.statementMs;
+    if (lowered) await client.query(`SET LOCAL statement_timeout = '${Math.max(left, 1)}ms'`);
+    try {
+      const result = await work();
+      check();
+      return result;
+    } catch (error) {
+      if (lowered && sqlState(error) === "57014") throw new DeadlineExceeded();
+      throw error;
+    }
+  };
+  return { remainingMs, check, within };
 }
 
 async function readEventIds(client: Client): Promise<string[]> {
@@ -307,30 +338,13 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     });
     let commitSent = false;
     let stage: "statement" | "audit" = "statement";
-    const startedAt = performance.now();
-    const remainingMs = () => deadlineMs - (performance.now() - startedAt);
-    const checkDeadline = () => {
-      if (remainingMs() <= 0) throw new DeadlineExceeded();
-    };
-    // Each statement runs within the time left (SPEC-150 section 9). The BEGIN timeouts bound a
-    // statement to 5 s and a lock wait to 1 s; once less than 5 s is left, the statement timeout (which
-    // also bounds lock waits) is first lowered to the time left, and a timeout it causes is the
-    // deadline. The deadline is checked before and after each statement, so a slow lock wait or read
-    // cannot end in NOOP after the deadline either.
-    const withinDeadline = async <T>(work: () => Promise<T>): Promise<T> => {
-      checkDeadline();
-      const left = Math.floor(remainingMs());
-      const lowered = left < TIMEOUTS.statementMs;
-      if (lowered) await client.query(`SET LOCAL statement_timeout = '${Math.max(left, 1)}ms'`);
-      try {
-        const result = await work();
-        checkDeadline();
-        return result;
-      } catch (error) {
-        if (lowered && sqlState(error) === "57014") throw new DeadlineExceeded();
-        throw error;
-      }
-    };
+    // Each statement runs within the time left, so a slow lock wait or read cannot end in NOOP
+    // after the deadline either.
+    const {
+      remainingMs,
+      check: checkDeadline,
+      within: withinDeadline,
+    } = transactionDeadline(client, deadlineMs);
     try {
       await beginTransaction(client);
       await withinDeadline(() => client.query(SEED_XACT_LOCK));
@@ -467,16 +481,23 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     return undefined;
   };
 
-  /** DB-SEED-002 (1)-(4). Resolves undefined when the result cannot be determined (4). */
+  /**
+   * DB-SEED-002 (1)-(4). Resolves undefined when the result cannot be determined (4). Each re-check
+   * transaction has the same wall clock as a seed transaction (SPEC-150 section 9): a re-check that
+   * cannot decide within it is rolled back, is not retried, and the result stays unknown.
+   */
   const recheck = async (connection: Client, executionId: string): Promise<Recheck | undefined> => {
     const startedAt = performance.now();
     for (let n = 1; n <= MAX_ATTEMPTS; n += 1) {
       try {
+        const { within } = transactionDeadline(connection, deadlineMs);
         await beginTransaction(connection);
-        await connection.query(SEED_XACT_LOCK);
-        const audit = await connection.query(
-          "SELECT audit_event_id, target_type, target_ref FROM app.audit_events WHERE operation_id = $1 AND operation_execution_id = $2",
-          [SEED_OPERATION_ID, executionId],
+        await within(() => connection.query(SEED_XACT_LOCK));
+        const audit = await within(() =>
+          connection.query(
+            "SELECT audit_event_id, target_type, target_ref FROM app.audit_events WHERE operation_id = $1 AND operation_execution_id = $2",
+            [SEED_OPERATION_ID, executionId],
+          ),
         );
         let verdict: Recheck;
         if (audit.rows.length > 0) {
@@ -497,11 +518,12 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
           let eventId: string | undefined;
           if (plan.kind === "offerings") eventId = plan.eventId;
           else {
-            const eventIds = await readEventIds(connection);
+            const eventIds = await within(() => readEventIds(connection));
             if (eventIds.length === 1) eventId = eventIds[0];
           }
+          const target = eventId;
           verdict =
-            eventId !== undefined && (await hasOfferings(connection, eventId))
+            target !== undefined && (await within(() => hasOfferings(connection, target)))
               ? { kind: "complete" }
               : { kind: "uncommitted" };
         }
@@ -525,6 +547,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     const budgetStartedAt = performance.now();
     // Time spent waiting for the migration lock is not part of the retry budget (SPEC-180 section 24).
     let lockWaitMs = 0;
+    const budgetElapsedMs = () => performance.now() - budgetStartedAt - lockWaitMs;
     for (;;) {
       attemptNumber += 1;
       const executionId = randomUUID();
@@ -545,11 +568,10 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       if (attempt.kind === "retry") {
         retries += 1;
         const policy = RETRY_POLICIES[attempt.code];
-        const elapsed = performance.now() - budgetStartedAt - lockWaitMs;
         if (
           attemptNumber >= MAX_ATTEMPTS ||
           retries >= policy.maxAttempts ||
-          elapsed >= policy.maxElapsedMs
+          budgetElapsedMs() >= policy.maxElapsedMs
         )
           return failedOutcome(
             executionId,
@@ -636,14 +658,19 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         return { outcome: "NOOP", operationExecutionId: executionId, attemptNumber };
       }
       // Not committed (DB-SEED-002 (3)): start over on the new connection, which already holds the
-      // migration lock, with a new execution id. The attempt counts against the same budget.
+      // migration lock, with a new execution id, only within the REL-DB-001 retry budget (SPEC-150
+      // section 11, 55P03 row: 4 attempts, 5 s from the first attempt). The time of the lost COMMIT,
+      // the reconnect and the re-check counts against that budget; the migration lock wait does not.
       log({
         ...resolved(),
         level: "WARN",
         result: "FAILED",
         failure_class: "TEMPORARY_FAILURE",
       });
-      if (attemptNumber >= MAX_ATTEMPTS)
+      if (
+        attemptNumber >= MAX_ATTEMPTS ||
+        budgetElapsedMs() >= RETRY_POLICIES["55P03"].maxElapsedMs
+      )
         return failedOutcome(
           executionId,
           attemptNumber,
