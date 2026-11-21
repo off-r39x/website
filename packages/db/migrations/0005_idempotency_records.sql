@@ -39,4 +39,10 @@ CREATE UNIQUE INDEX ux_idempotency_records_principal_operation_key
 -- are generated without them. Workers get no grant: recovery commands that need a record are API Operations.
 REVOKE ALL ON app.idempotency_records
   FROM PUBLIC, app_runtime, app_api_runtime, app_email_runtime, app_reconciliation_runtime;
-GRANT SELECT, INSERT, UPDATE ON app.idempotency_records TO app_api_runtime;
+GRANT SELECT, UPDATE ON app.idempotency_records TO app_api_runtime;
+-- SPEC-100 §43.1 (UCR-100-005) / DB-TIM-002: INSERT is column-level and leaves out created_at and expires_at,
+-- so a new record always takes both times from the transaction_timestamp() defaults; the GENERATED ALWAYS id is
+-- left out too. UPDATE stays table-level because DB-IDM-003 reuse updates the time columns, so the DB role does
+-- not protect them; the Hono repository statement does (it never takes a time as input).
+GRANT INSERT (principal_profile_id, operation_id, key_digest, request_digest, result_ref_type, result_refs)
+  ON app.idempotency_records TO app_api_runtime;
