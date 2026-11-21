@@ -115,9 +115,12 @@ seed runs in a session that holds the migration lock: when a COMMIT result is lo
 the lock again on its new connection (waiting up to 60 seconds, else `UNKNOWN_RESULT`) before it reads.
 Each statement of the seed transaction runs within the 8 second transaction deadline (SPEC-150 §9); a
 lock wait or read that would pass it ends the attempt as `FAILED`. The re-check transaction has the same
-deadline; a re-check that cannot decide within it ends as `UNKNOWN_RESULT`. A run that the re-check
-finds uncommitted is retried only within the SPEC-150 55P03 budget (4 attempts, 5 seconds from the first
-attempt, not counting the migration lock wait), else `FAILED`.
+deadline; a re-check that cannot decide within it ends as `UNKNOWN_RESULT`. The command keeps the
+deadline itself too: a connection that stops answering is abandoned when the deadline passes (its
+session, and the migration lock with it, ends), so the command does not hang. A run that the re-check
+finds uncommitted, and a lock timeout, are retried only within the SPEC-150 55P03 budget (4 attempts,
+5 seconds from the first attempt, not counting the migration lock wait), backoff included, else
+`FAILED` (or `UNKNOWN_RESULT` for the re-check).
 
 Environment variables (an `app_migrator` direct URL on port 5432 over TLS, as for `db:migrate`):
 

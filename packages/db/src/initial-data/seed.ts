@@ -99,8 +99,9 @@ export function outcomeLogFields(outcome: SeedOutcome): {
 export type SeedOptions = {
   /**
    * From `acquireMigrationLock`; its client runs the first attempt. If that attempt's COMMIT result
-   * becomes unknown, the client is ended and the handle is invalidated (`release()` then returns
-   * false and sends no SQL), whatever the final outcome. Do not use the client after the seed.
+   * becomes unknown, or its connection is abandoned (the transaction deadline passed, or a ROLLBACK
+   * got no answer), the client is ended and the handle is invalidated (`release()` then returns false
+   * and sends no SQL), whatever the final outcome. Do not use the client after the seed.
    */
   readonly lock: MigrationLock;
   /**
@@ -209,9 +210,26 @@ async function beginTransaction(client: Client): Promise<void> {
  * timeout (which also bounds lock waits) is first lowered to the time left, and a timeout it causes is
  * the deadline. The deadline is checked before and after each statement, so a slow lock wait or read
  * cannot lead to a verdict after the deadline either.
+ *
+ * The server-side timeouts cannot end a wait for an answer that never arrives (the network stops
+ * answering), so the deadline is also kept on the client: when it passes, the connection is abandoned.
+ * pg destroys the socket of a client with a query in flight, so that query fails at once, and the
+ * backend ends with its locks (the migration lock included). `abandoned()` then tells the caller that
+ * the connection is gone. `disarm()` before COMMIT is sent: a COMMIT in flight has its own wait, and its
+ * expiry makes the result unknown (REL-DB-006), not a failure.
  */
 function transactionDeadline(client: Client, deadlineMs: number) {
   const startedAt = performance.now();
+  let abandoned = false;
+  const timer = setTimeout(
+    () => {
+      abandoned = true;
+      void client.end().catch(() => {});
+    },
+    Math.max(deadlineMs, 0),
+  );
+  timer.unref();
+  const disarm = () => clearTimeout(timer);
   const remainingMs = () => deadlineMs - (performance.now() - startedAt);
   const check = () => {
     if (remainingMs() <= 0) throw new DeadlineExceeded();
@@ -230,7 +248,7 @@ function transactionDeadline(client: Client, deadlineMs: number) {
       throw error;
     }
   };
-  return { remainingMs, check, within };
+  return { remainingMs, check, within, disarm, abandoned: () => abandoned };
 }
 
 async function readEventIds(client: Client): Promise<string[]> {
@@ -321,6 +339,19 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     if (lock) await succeedsWithin(lock.release(), CLOSE_WAIT_MS);
     if (connection) await succeedsWithin(connection.end(), CLOSE_WAIT_MS);
   };
+  // A connection given up on (its COMMIT result was lost, its transaction deadline passed, or its
+  // ROLLBACK got no answer). Its session may still hold the migration lock until the backend ends:
+  // invalidate the lock handle (the caller's release() then sends nothing) and end the client. With a
+  // query in flight pg destroys the socket, so the backend ends and drops its session lock. No unlock
+  // is sent on it.
+  const abandonConnection = async (lost: Client) => {
+    invalidateMigrationLock(lost === ownedConnection && ownedLock ? ownedLock : options.lock);
+    if (lost === ownedConnection) {
+      ownedLock = undefined;
+      ownedConnection = undefined;
+    }
+    await succeedsWithin(lost.end(), CLOSE_WAIT_MS);
+  };
 
   let parsedInput: ReturnType<typeof parseInitialDataInput> | undefined;
   const loadInput = () => {
@@ -339,12 +370,9 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     let commitSent = false;
     let stage: "statement" | "audit" = "statement";
     // Each statement runs within the time left, so a slow lock wait or read cannot end in NOOP
-    // after the deadline either.
-    const {
-      remainingMs,
-      check: checkDeadline,
-      within: withinDeadline,
-    } = transactionDeadline(client, deadlineMs);
+    // after the deadline either, and a connection that stops answering is abandoned at the deadline.
+    const deadline = transactionDeadline(client, deadlineMs);
+    const { remainingMs, check: checkDeadline, within: withinDeadline } = deadline;
     try {
       await beginTransaction(client);
       await withinDeadline(() => client.query(SEED_XACT_LOCK));
@@ -419,6 +447,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       // synchronous callback can block the event loop past the deadline. Not yet sent: roll back.
       checkDeadline();
       const commitWaitMs = remainingMs();
+      deadline.disarm();
       commitSent = true;
       const committed = client.query("COMMIT").then(() => "ok" as const);
       committed.catch(() => {});
@@ -447,10 +476,19 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       };
     } catch (error) {
       if (commitSent && commitAcknowledgementUnknown(error)) return { kind: "unknown" };
-      // Not committed: close the transaction. A connection that cannot even roll back is gone, which
-      // proves nothing was committed (REL-DB-005): a temporary failure, to be run again.
-      if (!(await succeedsWithin(client.query("ROLLBACK"), CLOSE_WAIT_MS)))
+      // Abandoned at the deadline before COMMIT was sent: nothing can have been committed (REL-DB-005)
+      // and the backend ends, so the transaction is rolled back. Not retried, like any deadline.
+      if (deadline.abandoned()) {
+        await abandonConnection(client);
         return fail("TEMPORARY_FAILURE", "DATABASE_TEMPORARY_FAILURE");
+      }
+      // Not committed: close the transaction. A connection that cannot even roll back is gone, which
+      // proves nothing was committed (REL-DB-005): a temporary failure, to be run again. It is
+      // abandoned, so that a connection that stopped answering does not keep the migration lock.
+      if (!(await succeedsWithin(client.query("ROLLBACK"), CLOSE_WAIT_MS))) {
+        await abandonConnection(client);
+        return fail("TEMPORARY_FAILURE", "DATABASE_TEMPORARY_FAILURE");
+      }
       if (error instanceof DeadlineExceeded)
         return fail("TEMPORARY_FAILURE", "DATABASE_TEMPORARY_FAILURE");
       if (isDatabaseRetryable(error)) return { kind: "retry", code: error.code };
@@ -460,6 +498,8 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         isSqlstate(code) ? code : undefined,
       );
       return fail(failureClass, errorCode);
+    } finally {
+      deadline.disarm();
     }
   };
 
@@ -484,13 +524,16 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
   /**
    * DB-SEED-002 (1)-(4). Resolves undefined when the result cannot be determined (4). Each re-check
    * transaction has the same wall clock as a seed transaction (SPEC-150 section 9): a re-check that
-   * cannot decide within it is rolled back, is not retried, and the result stays unknown.
+   * cannot decide within it is rolled back, is not retried, and the result stays unknown. A connection
+   * that stops answering is abandoned at that deadline. A lock timeout is retried within the 55P03
+   * budget, backoff included.
    */
   const recheck = async (connection: Client, executionId: string): Promise<Recheck | undefined> => {
     const startedAt = performance.now();
     for (let n = 1; n <= MAX_ATTEMPTS; n += 1) {
+      const deadline = transactionDeadline(connection, deadlineMs);
+      const { within } = deadline;
       try {
-        const { within } = transactionDeadline(connection, deadlineMs);
         await beginTransaction(connection);
         await within(() => connection.query(SEED_XACT_LOCK));
         const audit = await within(() =>
@@ -530,12 +573,28 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         await connection.query("ROLLBACK");
         return verdict;
       } catch (error) {
+        if (deadline.abandoned()) {
+          await abandonConnection(connection);
+          return undefined;
+        }
         const closed = await succeedsWithin(connection.query("ROLLBACK"), CLOSE_WAIT_MS);
-        if (!closed || !isDatabaseRetryable(error) || n >= MAX_ATTEMPTS) return undefined;
+        if (!closed) {
+          await abandonConnection(connection);
+          return undefined;
+        }
+        if (!isDatabaseRetryable(error) || n >= MAX_ATTEMPTS) return undefined;
         const policy = RETRY_POLICIES[error.code];
-        const elapsed = performance.now() - startedAt;
-        if (elapsed >= policy.maxElapsedMs) return undefined;
-        await sleep(retryDelay(policy, Math.min(n, policy.maxAttempts - 1)));
+        const delay = retryDelay(policy, Math.min(n, policy.maxAttempts - 1));
+        const elapsed = () => performance.now() - startedAt;
+        // The backoff is part of the budget: a wait that would end past it is not started, and a wait
+        // that ended late does not start another re-check transaction either.
+        if (elapsed() + delay >= policy.maxElapsedMs) return undefined;
+        // This transaction has ended (rolled back); the next one gets its own deadline.
+        deadline.disarm();
+        await sleep(delay);
+        if (elapsed() >= policy.maxElapsedMs) return undefined;
+      } finally {
+        deadline.disarm();
       }
     }
     return undefined;
@@ -568,18 +627,20 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       if (attempt.kind === "retry") {
         retries += 1;
         const policy = RETRY_POLICIES[attempt.code];
-        if (
-          attemptNumber >= MAX_ATTEMPTS ||
-          retries >= policy.maxAttempts ||
-          budgetElapsedMs() >= policy.maxElapsedMs
-        )
-          return failedOutcome(
+        const exhausted = () =>
+          failedOutcome(
             executionId,
             attemptNumber,
             "TEMPORARY_FAILURE",
             "DATABASE_TEMPORARY_FAILURE",
           );
-        await sleep(retryDelay(policy, retries));
+        if (attemptNumber >= MAX_ATTEMPTS || retries >= policy.maxAttempts) return exhausted();
+        // The backoff is part of the budget (SPEC-150 section 11): a wait that would end past it is
+        // not started, and the budget is checked again after the wait, which can end late.
+        const delay = retryDelay(policy, retries);
+        if (budgetElapsedMs() + delay >= policy.maxElapsedMs) return exhausted();
+        await sleep(delay);
+        if (budgetElapsedMs() >= policy.maxElapsedMs) return exhausted();
         continue;
       }
 
@@ -608,17 +669,9 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       };
       // Abandon the connection that lost the result, before the re-check and any retry. It may still
       // be alive (the deadline timer fired while COMMIT was in flight), and its session holds the
-      // migration lock: a retry would wait for that lock. Invalidate the lock handle (the caller's
-      // release() then sends nothing) and end the client; with a query in flight pg destroys the
-      // socket, so the backend ends and drops its session lock. No unlock is sent on it. A late
-      // COMMIT that takes effect is found by the re-check (1); an uncommitted one is retried (3).
-      const lostClient = client;
-      invalidateMigrationLock(ownedLock ?? options.lock);
-      if (ownedConnection === lostClient) {
-        ownedLock = undefined;
-        ownedConnection = undefined;
-      }
-      await succeedsWithin(lostClient.end(), CLOSE_WAIT_MS);
+      // migration lock: a retry would wait for that lock. A late COMMIT that takes effect is found by
+      // the re-check (1); an uncommitted one is retried (3).
+      await abandonConnection(client);
       const reconnected = await reconnect();
       if (reconnected === undefined) return unknown;
       ownedConnection = reconnected;
