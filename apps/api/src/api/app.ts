@@ -18,7 +18,7 @@ import { errorFromException, errorResponse } from "./respond.ts";
 import { assertMountedAuthRoutes, assertMountedRoutesClassified } from "./routes.ts";
 import { mountRpcRoutes } from "./rpc.ts";
 import type { ErrorCode } from "./schemas/common.ts";
-import type { CurrentProfileStore } from "./services/index.ts";
+import type { CurrentProfileStore, PublicContentStore } from "./services/index.ts";
 
 export { type ApiEnvironment, ApiFailure } from "./failure.ts";
 export { requireCapability } from "./middleware/capability.ts";
@@ -49,6 +49,10 @@ export interface AppDependencies {
   authProxy?: AuthProxy;
   /** API-AUTH-002 / 004. Absent => both routes fail closed (503). */
   profiles?: CurrentProfileStore;
+  /** API-PUB-001..005, 012. Absent => all six fail closed (503). */
+  publicContent?: PublicContentStore;
+  /** SEC-WEB-026 / SPEC-180 §13.2. Absent or undefined (an invalid setting) => API-PUB-012 fails closed (503). */
+  sponsorImageOrigins?: readonly string[] | undefined;
 }
 const EXPOSED_HEADERS = "X-Request-Id, Retry-After";
 export function createApp(dependencies: AppDependencies) {
