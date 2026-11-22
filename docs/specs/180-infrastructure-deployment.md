@@ -1866,7 +1866,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 
 1. Web=React SPA/Cloudflare Pages、API=Hono/Railway、DB=Neon PostgreSQL、Auth=Neon Auth、Payment=Stripe、Email=Resendを維持している。
 2. Browser / React SPAからBusiness Databaseへの直接Business mutation経路がない。
-3. `production`, `staging`, `development`, `test` がCloudflare Pages（Environment別project）/ Railway（1つのprojectの中のEnvironment別environment。`test` はRailway environmentを置かない間はCIのephemeral services。§14）/ Neon（Environment別project）/ Provider credential / observabilityで分離される。
+3. `production`, `staging`, `development`, `test` がCloudflare Pages（Environment別project）/ Railway（1つのprojectの中のEnvironment別environment。§14）/ Neon（Environment別project）/ Provider credential / observabilityで分離される。`test` は§8.1の表に従い、Cloudflare PagesのprojectとRailway environmentはdeployed E2Eが必要な場合だけ、NeonのprojectはProvider contractが要求する場合だけ置き、置かない間はCIのephemeral services（PostgreSQL 17を含む）を使う。
 4. Production Secret / QR protected material / Session material / Business Dataがdevelopment/testへ流れない。
 5. Node 24.x、PostgreSQL 17、`pgcrypto`, `btree_gist`がdeployment manifest / readiness / testで一致する。
 6. runtime / migration / incident read / Audit read / Audit purge / backup / emergency recovery identityが分離される。
