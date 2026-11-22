@@ -17407,7 +17407,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "CREATED and NOOP exit 0 and are told apart by the outcome; FAILED exits 2; invalid configuration (including a -pooler host in any case or percent-encoded) exits 2 with CONFIGURATION_INVALID before any connection; a URL without a port connects to 5432 even when PGPORT names another port"
+        "CREATED and NOOP exit 0 and are told apart by the outcome; FAILED exits 2; invalid configuration (including a -pooler host in any case or percent-encoded, and a URL without a database name) exits 2 with CONFIGURATION_INVALID before any connection; a URL without a port connects to 5432 even when PGPORT names another port; the database named in the URL is used even when PGDATABASE names another one"
       ],
       "expected_db_postconditions": [
         "Rows and Audit Events exist only after CREATED; NOOP does not need INITIAL_DATA_SEED_JSON; two Events, a missing input and every invalid configuration leave nothing created"

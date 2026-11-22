@@ -3541,7 +3541,7 @@
         "TC-TST-SEED-006-014",
         "TC-TST-SEED-003-004"
       ],
-      "notes": "implementation mapping only: runs as app_migrator under the migration lock handle, and takes the migration lock again on the new connection before the re-check after an unknown COMMIT result; the lock acquisition is bounded to 60 seconds on the client too (a connection that stops answering is abandoned); the command connects only to the direct endpoint it checked (decoded host, no -pooler host in any case, port fixed to 5432); SQL limited to the target tables, audit_events, lock and session settings"
+      "notes": "implementation mapping only: runs as app_migrator under the migration lock handle, and takes the migration lock again on the new connection before the re-check after an unknown COMMIT result; the lock acquisition is bounded to 60 seconds on the client too (a connection that stops answering is abandoned); the command connects only to the direct endpoint it checked (decoded host, no -pooler host in any case, port fixed to 5432, database name required so that PGDATABASE cannot choose it); SQL limited to the target tables, audit_events, lock and session settings"
     },
     {
       "rule_id": "INF-SEED-004",
