@@ -17309,7 +17309,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "Unknown keys, wrong types, CHECK-equivalent ordering and range violations, lowercase or four letter currency, empty Event name, timestamps without an offset, unsafe integers, lone surrogates, empty or non-array Offerings and non-JSON text are rejected with an error code only",
+        "Unknown keys, wrong types, CHECK-equivalent ordering and range violations, lowercase or four letter currency, empty Event name, timestamps without an offset, unsafe integers, numbers not written as a plain integer literal (checked as written, before JSON.parse rounding: 1000.00000000000001, -1e-400, 1e3, 1000.0, -0), lone surrogates, empty or non-array Offerings and non-JSON text are rejected with an error code only",
         "Valid full, minimal and null-valued inputs and many Offerings are accepted; an absent or empty input is reported as missing"
       ],
       "expected_db_postconditions": [],
@@ -17407,7 +17407,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "CREATED and NOOP exit 0 and are told apart by the outcome; FAILED exits 2; invalid configuration exits 2 with CONFIGURATION_INVALID before any connection"
+        "CREATED and NOOP exit 0 and are told apart by the outcome; FAILED exits 2; invalid configuration (including a -pooler host in any case or percent-encoded) exits 2 with CONFIGURATION_INVALID before any connection; a URL without a port connects to 5432 even when PGPORT names another port"
       ],
       "expected_db_postconditions": [
         "Rows and Audit Events exist only after CREATED; NOOP does not need INITIAL_DATA_SEED_JSON; two Events, a missing input and every invalid configuration leave nothing created"
@@ -18120,7 +18120,7 @@
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried), mode drop_request (nothing committed); transactionDeadlineMs 600; before the re-check connection is handed back, another session holds an ACCESS EXCLUSIVE lock on app.audit_events for 900 ms, longer than the deadline and shorter than the 1 s lock and 5 s statement timeouts",
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried), mode drop_request (nothing committed); recheckDeadlineMs 600 (the seed transaction keeps the default deadline, so that it reaches COMMIT on a slow runner too); before the re-check connection is handed back, another session holds an ACCESS EXCLUSIVE lock on app.audit_events for 900 ms, longer than the deadline and shorter than the 1 s lock and 5 s statement timeouts",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
@@ -18155,7 +18155,7 @@
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried); the original connection through a proxy in mode drop_request (nothing committed), the re-check connection through a second proxy in mode stall_statement on the re-check's Audit Event read; transactionDeadlineMs 800",
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried); the original connection through a proxy in mode drop_request (nothing committed), the re-check connection through a second proxy in mode stall_statement on the re-check's Audit Event read; recheckDeadlineMs 800 (the seed transaction keeps the default deadline)",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
@@ -18239,6 +18239,106 @@
       ],
       "expected_db_postconditions": [
         "Nothing is created; only allowed statements are issued; no session keeps the migration lock the server had granted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record and no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-015",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-005",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried); the original connection through a proxy in mode drop_ack (the COMMIT takes effect), the re-check connection through a second proxy in mode stall_statement with stallOnTerminate (the unlock is answered, the Terminate and the half-close are not)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK",
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check finds this run's Audit Events: CREATED, well within 10 s; the re-check client socket is destroyed after the close wait instead of being left open"
+      ],
+      "expected_db_postconditions": [
+        "One set of rows: one Event, two Offerings and three Audit Events"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-016",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData over a scripted pg Client double whose seed xact lock statements take a scripted time of a controlled clock and fail with a scripted SQLSTATE; the backoff wait advances the same clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 49.5 and 99 ms; the original COMMIT fails with a connection loss; on the re-check connection the first xact lock fails with 55P03 at 4800 ms and the second is granted after 200 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The retried re-check transaction has only what is left of the 5 s budget (statement timeout at most 151 ms): UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) at attempt 1, no verdict and no seed retry"
+      ],
+      "expected_db_postconditions": [
+        "The re-check reads no Audit Event and sends no COMMIT; two re-check xact lock statements"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-017",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried); the original connection through a proxy in mode drop_request (nothing committed); the re-check connect callback fails after 2.5 s on its first call and connects only after 2 s on its second",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The reconnect stays within the 3 s connection budget (SPEC-150 section 11): the second attempt gets only what is left of it, UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) within 3.5 s of the first attempt, two connect calls in total, no re-check"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; no re-check connection takes the migration lock or reads an Audit Event; the connection that arrives after the budget is ended"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [
@@ -18477,6 +18577,70 @@
       ],
       "expected_db_postconditions": [
         "(b) the abandoned session ends and no session keeps the migration lock the server had granted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-012",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "REL-DB-005",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic values only; real TCP fault proxy (plain transport; TLS is not carried) in mode stall_statement with stallOnTerminate: every answer arrives, then the Terminate message is not sent upstream and the caller's half-close is never answered; acquireMigrationLock, release, then endConnection with a 500 ms wait",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "endConnection settles well within 2 s although the graceful close never completes; the client socket is destroyed, so it no longer keeps the process alive"
+      ],
+      "expected_db_postconditions": [
+        "The stalled app_migrator session ends; no app_migrator session remains"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-013",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData over a scripted pg Client double whose seed xact lock statements take a scripted time of a controlled clock and fail with a scripted SQLSTATE; the backoff wait advances the same clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 49.5 and 99 ms; (a) the first xact lock fails with 55P03 at 4800 ms and the second is granted after 200 ms; (b) the first fails with 40001 at 1500 ms and the second with 55P03 after 400 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) the retry has only what is left of the 5 s budget (its statement timeout is lowered to at most 151 ms), not a new 8 s: FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 2; (b) the 2 s budget of 40001 is not extended by the later 55P03: the backoff that would end past 2 s is not started, FAILED at attempt 2"
+      ],
+      "expected_db_postconditions": [
+        "No COMMIT is sent; two seed xact lock statements in total"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
