@@ -128,9 +128,10 @@ finds uncommitted, and a lock timeout, are retried only within the SPEC-150 55P0
 `FAILED` (or `UNKNOWN_RESULT` for the re-check). The retry after an uncommitted re-check waits the same
 full jitter backoff as any 55P03 retry. A retried transaction runs within what is left of that budget,
 not a new 8 seconds, and a later SQLSTATE with a longer budget (`40001` 2 s, `40P01` 3 s, `55P03`
-5 s) never extends a budget already applied. The new connection for the re-check is acquired within the
-SPEC-150 budget for a temporary connection failure (3 attempts, 3 seconds in total, each attempt bounded
-by what is left), else `UNKNOWN_RESULT`. A connection whose server stops answering at the close is
+5 s) never extends a budget already applied. The first connection and the new connection for the
+re-check are both acquired within the SPEC-150 budget for a temporary connection failure (3 attempts,
+3 seconds in total, backoff included, each attempt bounded by what is left), else `FAILED`
+(`DATABASE_TEMPORARY_FAILURE`) for the first one and `UNKNOWN_RESULT` for the re-check. A connection whose server stops answering at the close is
 destroyed after 3 seconds, so the command still exits.
 
 Environment variables (an `app_migrator` direct URL on port 5432 over TLS, as for `db:migrate`):
@@ -153,7 +154,8 @@ between staging and production and never put it in the repository, a log or a pu
 local run: `export INITIAL_DATA_SEED_JSON="$(cat packages/db/seed/initial-data.example.json)"` (bash) or
 `$env:INITIAL_DATA_SEED_JSON = Get-Content -Raw packages/db/seed/initial-data.example.json` (PowerShell).
 
-The URL is checked as pg reads it (the host percent-decoded, `-pooler` in any case rejected), and pg is
+The URL is checked as pg reads it (the host percent-decoded, `-pooler` in any case rejected, and a
+host with a `/`, which pg would take as a Unix socket directory without TLS, rejected), and pg is
 given the checked host, user, password and database with the port fixed to 5432, never the URL itself:
 `PGHOST` and `PGPORT` cannot redirect it. A URL without a database name is rejected
 (`CONFIGURATION_INVALID`), so `PGDATABASE` cannot choose the database either.

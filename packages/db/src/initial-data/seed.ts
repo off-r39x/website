@@ -334,6 +334,61 @@ async function insertRow(
   return { id: String(inserted.id), publicRef: String(inserted.public_ref), fields };
 }
 
+/**
+ * SPEC-150 section 11 "temporary DB connection acquisition": 3 attempts within 3 seconds in total,
+ * the attempts and the backoff included. Each attempt gets only what is left of the 3 seconds; a
+ * client that arrives after that is ended, not used. No attempt starts after the budget. Used for the
+ * command's first connection and for the re-check connection.
+ */
+export async function connectWithinBudget(
+  connect: SeedOptions["connect"],
+): Promise<Client | undefined> {
+  const policy = RETRY_POLICIES.databaseConnection;
+  const startedAt = performance.now();
+  const leftMs = () => policy.maxElapsedMs - (performance.now() - startedAt);
+  for (let n = 1; n <= policy.maxAttempts; n += 1) {
+    const timeoutMs = leftMs();
+    if (timeoutMs <= 0) break;
+    let connecting: Promise<Client>;
+    try {
+      connecting = connect({ timeoutMs: Math.ceil(timeoutMs) });
+    } catch {
+      connecting = Promise.reject(new Error("connect failed"));
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settled = await Promise.race([
+      connecting.then(
+        (connection) => ({ kind: "connected" as const, connection }),
+        () => ({ kind: "failed" as const }),
+      ),
+      new Promise<{ kind: "late" }>((resolve) => {
+        timer = setTimeout(() => resolve({ kind: "late" }), timeoutMs);
+      }),
+    ]);
+    if (timer) clearTimeout(timer);
+    if (settled.kind === "connected") {
+      settled.connection.on("error", () => {});
+      return settled.connection;
+    }
+    if (settled.kind === "late") {
+      // Too late for this run: a client that still arrives is closed at once.
+      connecting.then(
+        (connection) => {
+          connection.on("error", () => {});
+          void endConnection(connection);
+        },
+        () => {},
+      );
+      break;
+    }
+    if (n >= policy.maxAttempts) break;
+    const delay = retryDelay(policy, n);
+    if (delay >= leftMs()) break;
+    await sleep(delay);
+  }
+  return undefined;
+}
+
 export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome> {
   // A handle that acquireMigrationLock did not issue, or that was released: no SQL, no input read.
   if (!isActiveMigrationLock(options.lock)) throw new Error("Active migration lock required");
@@ -539,57 +594,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     }
   };
 
-  /**
-   * SPEC-150 section 11 "temporary DB connection acquisition": 3 attempts within 3 seconds in total,
-   * the attempts and the backoff included. Each attempt gets only what is left of the 3 seconds; a
-   * client that arrives after that is ended, not used. No attempt starts after the budget.
-   */
-  const reconnect = async (): Promise<Client | undefined> => {
-    const policy = RETRY_POLICIES.databaseConnection;
-    const startedAt = performance.now();
-    const leftMs = () => policy.maxElapsedMs - (performance.now() - startedAt);
-    for (let n = 1; n <= policy.maxAttempts; n += 1) {
-      const timeoutMs = leftMs();
-      if (timeoutMs <= 0) break;
-      let connecting: Promise<Client>;
-      try {
-        connecting = connect({ timeoutMs: Math.ceil(timeoutMs) });
-      } catch {
-        connecting = Promise.reject(new Error("connect failed"));
-      }
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const settled = await Promise.race([
-        connecting.then(
-          (connection) => ({ kind: "connected" as const, connection }),
-          () => ({ kind: "failed" as const }),
-        ),
-        new Promise<{ kind: "late" }>((resolve) => {
-          timer = setTimeout(() => resolve({ kind: "late" }), timeoutMs);
-        }),
-      ]);
-      if (timer) clearTimeout(timer);
-      if (settled.kind === "connected") {
-        settled.connection.on("error", () => {});
-        return settled.connection;
-      }
-      if (settled.kind === "late") {
-        // Too late for this run: a client that still arrives is closed at once.
-        connecting.then(
-          (connection) => {
-            connection.on("error", () => {});
-            void endConnection(connection);
-          },
-          () => {},
-        );
-        break;
-      }
-      if (n >= policy.maxAttempts) break;
-      const delay = retryDelay(policy, n);
-      if (delay >= leftMs()) break;
-      await sleep(delay);
-    }
-    return undefined;
-  };
+  const reconnect = () => connectWithinBudget(connect);
 
   /**
    * DB-SEED-002 (1)-(4). Resolves undefined when the result cannot be determined (4). Each re-check

@@ -6,6 +6,7 @@ import { createLogger, type LogEvent } from "@off-r39x/observability";
 import { TIMEOUTS } from "@off-r39x/reliability";
 import { Client } from "pg";
 import {
+  connectWithinBudget,
   endConnection,
   failedOutcome,
   outcomeExitCode,
@@ -58,7 +59,8 @@ type MigrationTarget = {
  * to those decoded values: the `-pooler` check ignores case. pg then gets the parts, not the URL, with
  * the port fixed to 5432, so that neither a host spelled another way nor PGPORT / PGHOST can lead it
  * to another endpoint. The database name is required too: without one pg would read PGDATABASE (or
- * fall back to the user name), and the target would depend on the environment, not on the URL.
+ * fall back to the user name), and the target would depend on the environment, not on the URL. A host
+ * with a slash is refused: pg would take it as a Unix socket directory, without TLS.
  */
 function migrationTarget(connectionString: string | undefined): MigrationTarget | undefined {
   if (!connectionString) return undefined;
@@ -84,6 +86,9 @@ function migrationTarget(connectionString: string | undefined): MigrationTarget 
     user !== "app_migrator" ||
     url.search ||
     host === "" ||
+    // pg takes a host that starts with "/" as a Unix socket directory and connects to it without
+    // TLS; no DNS name or address has a slash either, so any slash is refused.
+    host.includes("/") ||
     database === "" ||
     host.toLowerCase().includes("-pooler") ||
     (url.port !== "" && url.port !== String(DIRECT_PORT))
@@ -206,19 +211,31 @@ async function execute(
     return client;
   };
 
-  let client: Client;
+  // The client constructor reads the configuration (and the PG* variables it does not get); a
+  // throw there is a configuration error, not a temporary failure.
   try {
-    client = newClient();
+    newClient();
   } catch {
     return failedBeforeSeed(executionId, "PERMANENT_FAILURE", "CONFIGURATION_INVALID");
   }
+  const open = async ({ timeoutMs }: { readonly timeoutMs: number }): Promise<Client> => {
+    const next = newClient(timeoutMs);
+    try {
+      await next.connect();
+    } catch (error) {
+      await endConnection(next, CLOSE_WAIT_MS);
+      throw error;
+    }
+    return next;
+  };
+
+  // SPEC-150 section 11 "temporary DB connection acquisition": the first connection gets the same 3
+  // attempts within 3 seconds, backoff included, as the re-check connection.
+  const client = await connectWithinBudget(open);
+  if (client === undefined)
+    return failedBeforeSeed(executionId, "TEMPORARY_FAILURE", "DATABASE_TEMPORARY_FAILURE");
   let lock: MigrationLock | undefined;
   try {
-    try {
-      await client.connect();
-    } catch {
-      return failedBeforeSeed(executionId, "TEMPORARY_FAILURE", "DATABASE_TEMPORARY_FAILURE");
-    }
     try {
       lock = await acquireMigrationLock(client);
     } catch (error) {
@@ -234,16 +251,7 @@ async function execute(
     // handler as a crash (exit 1), which the README treats like UNKNOWN_RESULT: run the command again.
     return await seedInitialData({
       lock,
-      connect: async ({ timeoutMs }) => {
-        const next = newClient(timeoutMs);
-        try {
-          await next.connect();
-        } catch (error) {
-          await endConnection(next, CLOSE_WAIT_MS);
-          throw error;
-        }
-        return next;
-      },
+      connect: open,
       readInput: () => process.env.INITIAL_DATA_SEED_JSON,
       actorRef,
       ...(logger === undefined ? {} : { logger }),
