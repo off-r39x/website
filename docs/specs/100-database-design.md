@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-100
 title: Database Design
-version: 2.5.1
+version: 2.5.2
 status: provisional
 depends_on:
   - SPEC-000
@@ -885,7 +885,7 @@ Columns:
 - `stripe_payment_intent_id text NULL UNIQUE`
 - `stripe_charge_id text NULL UNIQUE`
 - `checkout_session_created_at timestamptz NOT NULL`
-- `payment_deadline_at timestamptz GENERATED ALWAYS AS (checkout_session_created_at + interval '30 minutes') STORED`
+- `payment_deadline_at timestamptz GENERATED ALWAYS AS (((checkout_session_created_at AT TIME ZONE 'UTC') + interval '30 minutes') AT TIME ZONE 'UTC') STORED`
 - `payment_completed_at timestamptz NULL`
 - `amount_total bigint NOT NULL CHECK >= 0`
 - `currency text NOT NULL`
@@ -893,6 +893,8 @@ Columns:
 - `bound_at timestamptz NOT NULL DEFAULT transaction_timestamp()`
 - `deactivated_at timestamptz NULL`
 - `stripe_receipt_url text NULL`
+
+`payment_deadline_at` は `checkout_session_created_at` の30分後である。式は `checkout_session_created_at` をUTCの `timestamp without time zone` へ変換して30分を足し、`AT TIME ZONE 'UTC'` で `timestamptz` へ戻す。PostgreSQLのgenerated columnはIMMUTABLEな式しか受け付けない。`timestamptz + interval` はsessionの `TimeZone` に依存するSTABLEな演算子なので、`checkout_session_created_at + interval '30 minutes'` をそのまま式にすると `generation expression is not immutable` で拒否される（PostgreSQL 17で確認）。`AT TIME ZONE 'UTC'` を挟む式はIMMUTABLEであり、UTCには夏時間がないため、すべての入力で `checkout_session_created_at + interval '30 minutes'` と同じ値になる（microsecondまで保つ）。列の型は `timestamptz` のままであり、途中の `timestamp without time zone` の値は保存しない（`DB-TIM-001` に当たらない）。PostgreSQLが正規化して保存する式（`pg_get_expr`）は `(((checkout_session_created_at AT TIME ZONE 'UTC'::text) + '00:30:00'::interval) AT TIME ZONE 'UTC'::text)` である（`UCR-100-006`）。
 
 Partial unique:
 
@@ -1224,12 +1226,14 @@ Columns:
 - `slot_id bigint NOT NULL`
 - `state text NOT NULL CHECK IN ('ACTIVE','COMMITTED','RELEASED','EXPIRED')`
 - `hold_acquired_at timestamptz NOT NULL DEFAULT transaction_timestamp()`
-- `hold_expires_at timestamptz GENERATED ALWAYS AS (hold_acquired_at + interval '45 minutes') STORED`
+- `hold_expires_at timestamptz GENERATED ALWAYS AS (((hold_acquired_at AT TIME ZONE 'UTC') + interval '45 minutes') AT TIME ZONE 'UTC') STORED`
 - `committed_at timestamptz NULL`
 - `released_at timestamptz NULL`
 - `expired_at timestamptz NULL`
 - `created_at timestamptz NOT NULL DEFAULT transaction_timestamp()`
 - `updated_at timestamptz NOT NULL`
+
+`hold_expires_at` は `hold_acquired_at` の45分後である。式は§21の `payment_deadline_at` と同じ理由（generated columnはIMMUTABLEな式だけを受け付け、`timestamptz + interval` はSTABLE）で `AT TIME ZONE 'UTC'` を挟み、すべての入力で `hold_acquired_at + interval '45 minutes'` と同じ値になる。列の型は `timestamptz` のままである。PostgreSQLが正規化して保存する式（`pg_get_expr`）は `(((hold_acquired_at AT TIME ZONE 'UTC'::text) + '00:45:00'::interval) AT TIME ZONE 'UTC'::text)` である（`UCR-100-006`）。
 
 Composite FKs:
 
@@ -2078,6 +2082,8 @@ Drizzleの宣言だけに依存せず、次はmigration SQLをCanonicalとする
 
 SQL-only DDLにはcommentで関連 `DB-*` / upstream Rule IDを記載する。
 
+generated columnの式はIMMUTABLEでなければならない。`timestamptz` に `interval` を足すgenerated columnは、§21の `payment_deadline_at` と§30の `hold_expires_at` のとおり `AT TIME ZONE 'UTC'` を挟んで書く。generated columnの式はmigration SQLを正とする。
+
 **DB-MIG-002:** Drizzle schemaとSQL-only migrationが同じconstraintを二重生成しない。
 
 ## 58. Database trigger policy
@@ -2389,6 +2395,7 @@ Retry count、backoff、reconciliation、Review Case解消Runbookを定義する
 | UCR-180-001 | INCORPORATED | §13.5 初期データ（`DB-SEED-001〜007`）、`SPEC-180 §45.3` `INF-SEED-001〜006` |
 | UCR-100-004 | INCORPORATED | §14.1 `DB-AUTH-003`、§43 `auth_subject` / CHECK / `DB-XFN-004`、§48、§62、§67、SPEC-110 §61 Acceptance 49、SPEC-150 §66 Acceptance 53、SPEC-150 `REL-AUTH-009` / `REL-REC-016〜017`、SPEC-110 `API-AUTH-003` / `API-ADM-REC-007` / §49 |
 | UCR-100-005 | INCORPORATED | §43.1 `app.idempotency_records` の `created_at` / `expires_at`（時刻を決める主体、Clientの範囲、時刻の列の保護を `app_api_runtime` の権限に求めないこと）、SPEC-170 §28.1 `TST-IDM-004` (1)、SPEC-170 §78 |
+| UCR-100-006 | INCORPORATED | §21 `payment_deadline_at`・§30 `hold_expires_at` のgenerated columnの式（`AT TIME ZONE 'UTC'` を挟むIMMUTABLEな式）、§57 |
 
 既存の `UCR-130-005` は引き続き `DEFERRED_NONBLOCKING` であり、運用Indexの先取り追加は行わない。
 
@@ -2413,3 +2420,14 @@ Retry count、backoff、reconciliation、Review Case解消Runbookを定義する
 - 変更しない場合の影響: 現在の文言は実装できない保証を求めるため、実装は文言に反したままになるか、仕様にないtrigger・DB関数・roleを推測で足すことになる。レビューで同じ指摘が繰り返される（PR #84 への外部レビュー）。
 - 影響を受ける可能性がある仕様書: SPEC-170（本改訂で §28.1 `TST-IDM-004` (1) と §78 へ反映。`TST-IDM-008` はDomain側の保護の範囲を本節と同じに定めるので変更不要）。SPEC-110（§18.1 `API-IDM-008` は「作成時刻から24時間」、`API-IDM-006` 1 は再利用で作成時刻を更新するとだけ定め、時刻を決める主体と手段を定めないので変更不要。`API-IDM-010` は本節が期限のずれの影響の根拠として引く範囲を既に定めるので変更不要）、SPEC-180（§22.2 の「Business APIに必要なSELECT / INSERT / UPDATE」は列単位のINSERTも含むので変更不要）、SPEC-140（§39 のexplicit table / sequence privilegeと整合し変更不要）、SPEC-150（この表の時刻に触れないので変更不要）、SPEC-190（変更不要）、SPEC-200（`ACC-GEN-004`。変更不要）
 - 範囲外として残す事項: 実装（`app.idempotency_records` のmigration、記録を書くHono repositoryのコード、INSERTの列単位の権限を採るかどうか、関係するTest）は後続のPRで行う。
+
+### UCR-100-006
+
+- **Status:** `INCORPORATED`。本改訂（SPEC-100 v2.5.2）で本文へ反映した（プロジェクト所有者の決定、2026-11-22。別の仕様PRを実装PRより先に出すことを選んだ。`SPEC-000` §8）。generated columnの式の物理表現の修正であり、値（Checkout Session作成の30分後、Hold取得の45分後）、列名・型・NOT NULL、§67 Acceptance 23・24、`DB-KRK-006`、§32の条件は変えていない。新しいerror code・state・Capability・Operation・index・trigger・DB関数・roleは追加していない。現在の契約は本文を正とし、以下の要求はその経緯の記録である。
+- 対象: SPEC-100 §21（`app.payment_bindings.payment_deadline_at`）、§30（`app.karaoke_holds.hold_expires_at`）、§57。§8.1 `DB-TIM-001`、§32、§67 Acceptance 23・24に関連する。
+- 現在の仕様（改訂前）: §21は `payment_deadline_at timestamptz GENERATED ALWAYS AS (checkout_session_created_at + interval '30 minutes') STORED`、§30は `hold_expires_at timestamptz GENERATED ALWAYS AS (hold_acquired_at + interval '45 minutes') STORED` としていた。PostgreSQLのgenerated columnはIMMUTABLEな式しか受け付けず、`timestamptz + interval` の演算子はsessionの `TimeZone` に依存するSTABLEな関数なので、どちらの式もPostgreSQL 17で `ERROR: generation expression is not immutable` になり、表を作れなかった（`postgres:17` で確認）。
+- 要求する変更: (1) §21の式を `((checkout_session_created_at AT TIME ZONE 'UTC') + interval '30 minutes') AT TIME ZONE 'UTC'`、§30の式を `((hold_acquired_at AT TIME ZONE 'UTC') + interval '45 minutes') AT TIME ZONE 'UTC'` とする。(2) 両節に、式の理由、値が元の式と一致すること、列の型が `timestamptz` のままであること、PostgreSQLが正規化して保存する式（§21は `(((checkout_session_created_at AT TIME ZONE 'UTC'::text) + '00:30:00'::interval) AT TIME ZONE 'UTC'::text)`、§30は `(((hold_acquired_at AT TIME ZONE 'UTC'::text) + '00:45:00'::interval) AT TIME ZONE 'UTC'::text)`）を記載する。(3) §57に、generated columnの式はIMMUTABLEでなければならず、`timestamptz` に `interval` を足す場合は `AT TIME ZONE 'UTC'` を挟むこと、式はmigration SQLを正とすることを記載する。
+- 理由: `AT TIME ZONE 'UTC'`（`timestamptz` から `timestamp` へ、またその逆）と `timestamp + interval` はIMMUTABLEなので、式全体がIMMUTABLEになる。UTCには夏時間もoffsetの変更もないため、sessionの `TimeZone` が何であっても、すべての入力で元の式と同じ値になり、microsecondも保たれる（`postgres:17` で、両方の式について、`TimeZone` が `Asia/Tokyo`・`America/New_York`・`Europe/Berlin` の場合、夏時間の切り替わりの前後、`infinity` / `-infinity` で元の式と一致することを確認）。途中の `timestamp without time zone` の値は式の中だけにあり保存しないので、`DB-TIM-001` に当たらない。他の案は採らない。generated columnをやめて通常の列とCHECKにする案は、`DB-KRK-006` と §32 が定めるgenerated columnによる固定を変え、APIが期限の値を書く経路を増やす。式を直せばgenerated columnのまま同じ値を固定できる。triggerで求める案は §58 に反する。IMMUTABLEと宣言したDB関数で包む案は、仕様にないDB objectを増やし、STABLEな演算をIMMUTABLEと偽る。
+- 変更しない場合の影響: §21・§30の表をmigrationで作れない。実装は仕様と異なる式を推測で使うか、generated columnをやめて §32・§67 Acceptance 23・24の「DB上で固定」を満たせなくなる。PR #92（PR-L1-1a、migration 0006）は §21に本UCRの式をすでに使っており、本UCRの反映を前提とする。
+- 影響を受ける可能性がある仕様書: SPEC-070（Payment Deadlineを作成の30分後と定めるだけで式を定めないので変更不要）、SPEC-090（Holdの45分を定めるだけで式を定めないので変更不要）、SPEC-110（§28の `hold_expires_at=acquired+45m` generatedは値の記述なので変更不要）、SPEC-170（generated columnの式を定めないので変更不要。Test Case IDとmanifestは実装のWork Planが `SPEC-170` §5 に従って割り当てる）、SPEC-180（`INF-HLT-006` のrequired catalogは実装のmigrationから作る記録であり、本文に式を書かないので変更不要）、SPEC-200（変更不要）。ほかの仕様書に `+ interval '30 minutes'` / `'45 minutes'` をgenerated columnとして書いた箇所はない。
+- 範囲外として残す事項: 実装（`app.payment_bindings` のmigrationとDrizzle schemaはPR #92（PR-L1-1a）、`app.karaoke_holds` はPR-GK-2）とそのTestは、それぞれの実装PRで行う。
