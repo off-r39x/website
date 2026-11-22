@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseServerConfig, parseSponsorImageOrigins } from "../../packages/config/src/index.ts";
+import { listCursorEnv } from "../harness/pagination.ts";
 import { rateLimitEnv } from "../harness/rate-limit/api.ts";
 import { createTree, removeTree, runScript } from "../harness/script-fixtures.ts";
 import { expectedHeadersFile, INDEX_HTML } from "../harness/web-dist.ts";
@@ -131,7 +132,7 @@ describe("TC-API-006-105 the API and the Pages headers normalize one setting the
   });
 });
 
-function apiEnvironment(): Record<string, string> {
+function apiEnvironment(): Record<string, string | undefined> {
   const url = new URL(`${"postgresql:"}//db.example.test/business`);
   url.username = "app_api_runtime";
   url.password = "synthetic";
@@ -176,6 +177,7 @@ function apiEnvironment(): Record<string, string> {
     ALLOWED_HOSTS: "api.example.test",
     ALLOWED_ORIGINS: "https://web.example.test",
     ...rateLimitEnv(),
+    ...listCursorEnv(),
   };
 }
 

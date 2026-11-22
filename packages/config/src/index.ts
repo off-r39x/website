@@ -172,6 +172,8 @@ export function parseSponsorImageOrigins(raw: string | undefined): readonly stri
 }
 /** INF-SEC-003: only the API service reads the rate limit Secrets. */
 const rateLimitSecrets = ["RATE_LIMIT_REDIS_URL", "RATE_LIMIT_HMAC_KEY"];
+/** INF-SEC-003 / SPEC-180 §26: only the API service reads the list cursor key (INF-SEC-007). */
+const listCursorSecrets = ["LIST_CURSOR_HMAC_KEY"];
 const forbiddenAll = [
   "MIGRATION_DATABASE_URL",
   "BACKUP_DATABASE_URL",
@@ -204,7 +206,7 @@ function parse(service: Service, env: Readonly<Record<string, string | undefined
     throw new Error();
   const forbidden = [
     ...forbiddenAll,
-    ...(service === "api" ? [] : rateLimitSecrets),
+    ...(service === "api" ? [] : [...rateLimitSecrets, ...listCursorSecrets]),
     ...(service === "email-worker"
       ? [
           "STRIPE_SECRET_KEY",
@@ -330,6 +332,10 @@ function parse(service: Service, env: Readonly<Record<string, string | undefined
     config: parseRateLimitConfig(env.RATE_LIMIT_CONFIG),
     trustedProxyHops: parseTrustedProxyHops(env.TRUSTED_PROXY_HOPS),
   });
+  // INF-SEC-007 / SEC-KEY-006: missing or malformed key or version is a startup failure; no unsigned
+  // cursor, default key or other Secret as a fallback.
+  const listCursorKey = decodeSecretKey(text.parse(env.LIST_CURSOR_HMAC_KEY));
+  const listCursorVersion = positive.parse(env.LIST_CURSOR_HMAC_KEY_VERSION);
   const webhooks = z
     .object({ STRIPE_WEBHOOK_SECRET: text, RESEND_WEBHOOK_SECRET: text })
     .parse(env);
@@ -347,6 +353,10 @@ function parse(service: Service, env: Readonly<Record<string, string | undefined
     }),
     rateLimit,
     sponsorImageOrigins: parseSponsorImageOrigins(env.SPONSOR_IMAGE_ALLOWED_ORIGINS),
+    listCursor: Object.freeze({
+      hmacKey: () => listCursorKey.slice(),
+      hmacKeyVersion: listCursorVersion,
+    }),
     auth: Object.freeze({
       issuer: authInput.AUTH_ISSUER,
       audience: authInput.AUTH_AUDIENCE,

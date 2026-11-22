@@ -8,6 +8,7 @@ import { actorContext } from "./actor-context.ts";
 import { AUTH_ROUTES, type AuthProxy } from "./auth-proxy.ts";
 import { type ApiEnvironment, ApiFailure } from "./failure.ts";
 import { operationContext, requestContextMiddleware } from "./middleware/request-context.ts";
+import type { CursorKey } from "./pagination.ts";
 import {
   type AppRateLimit,
   createPrincipalRateLimitHooks,
@@ -53,6 +54,8 @@ export interface AppDependencies {
   publicContent?: PublicContentStore;
   /** SEC-WEB-026 / SPEC-180 §13.2. Absent or undefined (an invalid setting) => API-PUB-012 fails closed (503). */
   sponsorImageOrigins?: readonly string[] | undefined;
+  /** API-QRY-005 / INF-SEC-007 (SPEC-180 §28.3). Absent => list routes fail closed (503) through requireListCursorKey. */
+  listCursorKey?: CursorKey;
 }
 const EXPOSED_HEADERS = "X-Request-Id, Retry-After";
 export function createApp(dependencies: AppDependencies) {
