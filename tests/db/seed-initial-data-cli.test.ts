@@ -178,6 +178,18 @@ describe("TC-TST-SEED-003-004 exit codes and the CREATED / NOOP distinction (INF
       "a URL with an empty database name",
       { MIGRATION_DATABASE_URL: "postgresql://app_migrator@db.invalid:5432/" },
     ],
+    [
+      // pg takes a host that starts with "/" as a Unix socket directory and connects without TLS:
+      // the required direct TLS connection would be bypassed.
+      "a percent-encoded Unix socket directory as the host",
+      {
+        MIGRATION_DATABASE_URL: "postgresql://app_migrator@%2Fvar%2Frun%2Fpostgresql:5432/example",
+      },
+    ],
+    [
+      "a host with a slash inside",
+      { MIGRATION_DATABASE_URL: "postgresql://app_migrator@db%2Fsocket.invalid:5432/example" },
+    ],
     ["no MIGRATION_DATABASE_URL", { MIGRATION_DATABASE_URL: undefined }],
     [
       "no actor ref",

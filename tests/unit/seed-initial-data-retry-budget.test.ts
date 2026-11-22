@@ -1,7 +1,7 @@
 import { performance } from "node:perf_hooks";
 import type { Client } from "pg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { seedInitialData } from "../../packages/db/src/initial-data/seed.ts";
+import { connectWithinBudget, seedInitialData } from "../../packages/db/src/initial-data/seed.ts";
 import { acquireMigrationLock } from "../../packages/db/src/migration-lock.ts";
 import { buildInitialDataInput, SEED_ACTOR_REF } from "../harness/db/initial-data.ts";
 
@@ -298,5 +298,52 @@ describe("TC-TST-SEED-006-018 the retry after an uncommitted re-check waits the 
     expect(clock.sleeps).toEqual([49.5]);
     expect(xactLocks(recheck.statements)).toHaveLength(1);
     expect(commits(recheck.statements)).toEqual([]);
+  });
+});
+
+describe("TC-TST-SEED-003-014 the first connection of the command is retried within the connection budget (REL-DB-011, SPEC-150 section 11)", () => {
+  // The command opens its first connection with connectWithinBudget, as the re-check does: 3 attempts
+  // within 3 s in total, full jitter backoff (100 ms initial, 500 ms max) included.
+  const connectionLoss = () => new Error("synthetic connection failure");
+  const fakeClient = () => scriptedClient({ xactLock: "grant" }).client;
+
+  it("TC-TST-SEED-003-014 (a) two temporary failures, then a connection: the third attempt's client, after 99 and 198 ms of backoff", async () => {
+    const timeouts: number[] = [];
+    const connected = fakeClient();
+    let calls = 0;
+    const client = await connectWithinBudget(async ({ timeoutMs }) => {
+      timeouts.push(timeoutMs);
+      calls += 1;
+      if (calls < 3) throw connectionLoss();
+      return connected;
+    });
+    expect(client).toBe(connected);
+    expect(calls).toBe(3);
+    expect(clock.sleeps).toEqual([99, 198]);
+    // Each attempt gets only what is left of the 3 s.
+    expect(timeouts).toEqual([3000, 2901, 2703]);
+  });
+
+  it("TC-TST-SEED-003-014 (b) every attempt fails: no client after three attempts, no fourth", async () => {
+    let calls = 0;
+    const client = await connectWithinBudget(async () => {
+      calls += 1;
+      throw connectionLoss();
+    });
+    expect(client).toBeUndefined();
+    expect(calls).toBe(3);
+    expect(clock.sleeps).toEqual([99, 198]);
+  });
+
+  it("TC-TST-SEED-003-014 (c) a slow failure leaves less than the backoff: no further attempt within the 3 s", async () => {
+    let calls = 0;
+    const client = await connectWithinBudget(async () => {
+      calls += 1;
+      clock.now += 2950;
+      throw connectionLoss();
+    });
+    expect(client).toBeUndefined();
+    expect(calls).toBe(1);
+    expect(clock.sleeps).toEqual([]);
   });
 });
