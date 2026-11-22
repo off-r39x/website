@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-200
 title: System Acceptance Criteria
-version: 3.2.0
+version: 3.3.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -947,7 +947,7 @@ Pages / Railway / Neonへの移行は `SPEC-170 §18.1` の `TC-STACK-001〜010`
 
 **ACC-INF-003:** deployed Node / PostgreSQL major、extensions、runtime process identityは`SPEC-180`のCurrent Canonical valueと一致する。SPEC-200はmajor version値を所有しない。
 
-Pagesは静的SPAのみとしNode server runtimeを持たない。Node majorはCI / Railwayに適用する。API / worker / DB / AuthのSingapore配置と4環境別project、非本番への本番認証データ複製禁止を検証する。
+Pagesは静的SPAのみとしNode server runtimeを持たない。Node majorはCI / Railwayに適用する。API / worker / DB / AuthのSingapore配置、4環境の分離（Cloudflare Pages / NeonはEnvironment別project、Railwayは1つのprojectの中のEnvironment別environment。`SPEC-180` §8.1 / §14）、非本番への本番認証データ複製禁止を検証する。
 
 **ACC-INF-004:** API runtime、Email Worker、Reconciliation Worker、migration、Audit read / purge、backup、emergency recoveryのDB role / machine identity separationがCurrent `INF-*`に一致する。
 
