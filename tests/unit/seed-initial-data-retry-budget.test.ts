@@ -44,7 +44,7 @@ function scriptedClient(options: {
   xactLock: "timeout" | "grant";
   commit?: "lost" | "ok";
   /** Consumed in order before `xactLock` applies: how long each xact lock takes, and its SQLSTATE. */
-  xactLocks?: { advanceMs: number; code?: "40001" | "55P03" }[];
+  xactLocks?: { advanceMs: number; code?: "40001" | "40P01" | "55P03" }[];
 }) {
   const statements: string[] = [];
   const script = [...(options.xactLocks ?? [])];
@@ -142,9 +142,17 @@ function collectingLogger() {
 }
 const EXHAUSTED = "reliability.retry.exhausted";
 
+const ATTEMPTED = "reliability.retry.attempted";
+const RETRY_SQLSTATES = ["40001", "40P01", "55P03"];
+
 afterEach(() => {
-  // Like every output of the command, no record carries a SQLSTATE (seed-initial-data-cli.ts).
-  for (const record of collected) expect(record).not.toHaveProperty("sqlstate");
+  // A SQLSTATE is written only as the cause of a retry (OBS-DB-002, OBS-DB-003), and only a retryable
+  // one: never on any other record of the command (seed-initial-data-cli.ts).
+  for (const record of collected) {
+    if (!("sqlstate" in record)) continue;
+    expect([ATTEMPTED, EXHAUSTED]).toContain(record.event_name);
+    expect(RETRY_SQLSTATES).toContain(record.sqlstate);
+  }
   collected.length = 0;
 });
 
@@ -663,5 +671,139 @@ describe("TC-TST-SEED-003-017 an exhausted retry budget emits reliability.retry.
     );
     expect(opened.kind).toBe("connected");
     expect(named(EXHAUSTED)).toEqual([]);
+  });
+});
+
+describe("TC-TST-SEED-003-018 every retry is observable with its cause: the SQLSTATE and the unit retried (SPEC-160 section 22, OBS-DB-002, OBS-DB-003)", () => {
+  const SEED = "initial_data.seed";
+  const RECHECK = "initial_data.recheck";
+  const CONNECT = "initial_data.connect";
+  const noRecheck = async (): Promise<Client> => {
+    throw new Error("no re-check expected");
+  };
+  /** attempt_number, query_name and sqlstate (undefined when absent) of each record, in order. */
+  const causes = (records: Record<string, unknown>[]) =>
+    records.map((record) => ({
+      attempt: record.attempt_number,
+      unit: record.query_name,
+      sqlstate: record.sqlstate,
+    }));
+
+  it("TC-TST-SEED-003-018 (a) 55P03 retries of the seed transaction: attempted at 2 and 3 and exhausted at 3, each with 55P03", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "timeout" });
+    const outcome = await seedWith(main.client, noRecheck, logger);
+    expect(outcome).toMatchObject({ outcome: "FAILED", attemptNumber: 3 });
+    expect(named(ATTEMPTED)).toEqual([
+      expect.objectContaining({ is_retry: true, operation_id: "PROVISION.INITIAL_DATA_SEED" }),
+      expect.objectContaining({ is_retry: true, operation_id: "PROVISION.INITIAL_DATA_SEED" }),
+    ]);
+    expect(causes(named(ATTEMPTED))).toEqual([
+      { attempt: 2, unit: SEED, sqlstate: "55P03" },
+      { attempt: 3, unit: SEED, sqlstate: "55P03" },
+    ]);
+    expect(causes(named(EXHAUSTED))).toEqual([{ attempt: 3, unit: SEED, sqlstate: "55P03" }]);
+  });
+
+  it("TC-TST-SEED-003-018 (b) 40001 until the count runs out: attempted at 2 to 4 and exhausted at 4, each with 40001", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: Array.from({ length: 4 }, () => ({ advanceMs: 10, code: "40001" as const })),
+    });
+    await seedWith(main.client, noRecheck, logger);
+    expect(causes(named(ATTEMPTED))).toEqual([
+      { attempt: 2, unit: SEED, sqlstate: "40001" },
+      { attempt: 3, unit: SEED, sqlstate: "40001" },
+      { attempt: 4, unit: SEED, sqlstate: "40001" },
+    ]);
+    expect(causes(named(EXHAUSTED))).toEqual([{ attempt: 4, unit: SEED, sqlstate: "40001" }]);
+  });
+
+  it("TC-TST-SEED-003-018 (c) each retry names the SQLSTATE that caused it: 40P01, then 40001, then CREATED", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [
+        { advanceMs: 10, code: "40P01" },
+        { advanceMs: 10, code: "40001" },
+      ],
+    });
+    const outcome = await seedWith(main.client, noRecheck, logger);
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 3 });
+    expect(causes(named(ATTEMPTED))).toEqual([
+      { attempt: 2, unit: SEED, sqlstate: "40P01" },
+      { attempt: 3, unit: SEED, sqlstate: "40001" },
+    ]);
+    expect(named(EXHAUSTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-018 (d) connection retries: attempted at 2 and 3 and exhausted at 3 for the connection, with no SQLSTATE", async () => {
+    const { logger, named } = collectingLogger();
+    await openSeedConnection(
+      async () => {
+        throw new Error("synthetic connection failure");
+      },
+      { executionId: EXECUTION_ID, logger },
+    );
+    expect(named(ATTEMPTED)).toEqual([
+      expect.objectContaining({ is_retry: true, operation_execution_id: EXECUTION_ID }),
+      expect.objectContaining({ is_retry: true, operation_execution_id: EXECUTION_ID }),
+    ]);
+    expect(causes(named(ATTEMPTED))).toEqual([
+      { attempt: 2, unit: CONNECT, sqlstate: undefined },
+      { attempt: 3, unit: CONNECT, sqlstate: undefined },
+    ]);
+    expect(causes(named(EXHAUSTED))).toEqual([{ attempt: 3, unit: CONNECT, sqlstate: undefined }]);
+  });
+
+  it("TC-TST-SEED-003-018 (e) 55P03 retries of the re-check: attempted at re-check 2 and 3 and exhausted at 3, for the re-check", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({ xactLock: "timeout" });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT" });
+    const ours = expect.objectContaining({
+      is_retry: true,
+      operation_execution_id: outcome.operationExecutionId,
+    });
+    expect(named(ATTEMPTED)).toEqual([ours, ours]);
+    expect(causes(named(ATTEMPTED))).toEqual([
+      { attempt: 2, unit: RECHECK, sqlstate: "55P03" },
+      { attempt: 3, unit: RECHECK, sqlstate: "55P03" },
+    ]);
+    expect(causes(named(EXHAUSTED))).toEqual([{ attempt: 3, unit: RECHECK, sqlstate: "55P03" }]);
+  });
+
+  it("TC-TST-SEED-003-018 (f) the retry after an uncommitted re-check is a seed retry without a SQLSTATE (no lock timeout caused it)", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({ xactLock: "grant" });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 2 });
+    expect(causes(named(ATTEMPTED))).toEqual([{ attempt: 2, unit: SEED, sqlstate: undefined }]);
+  });
+
+  it("TC-TST-SEED-003-018 (g) a retry cut off by what is left of the budget is exhausted with the SQLSTATE that started the retries", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }, { advanceMs: 200 }],
+    });
+    await seedWith(main.client, noRecheck, logger);
+    expect(causes(named(ATTEMPTED))).toEqual([{ attempt: 2, unit: SEED, sqlstate: "55P03" }]);
+    expect(causes(named(EXHAUSTED))).toEqual([{ attempt: 2, unit: SEED, sqlstate: "55P03" }]);
+  });
+
+  it("TC-TST-SEED-003-018 (h) a re-check retry cut off by what is left of its budget: exhausted for the re-check with 55P03", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }, { advanceMs: 200 }],
+    });
+    await seedWith(main.client, async () => recheck.client, logger);
+    expect(causes(named(ATTEMPTED))).toEqual([{ attempt: 2, unit: RECHECK, sqlstate: "55P03" }]);
+    expect(causes(named(EXHAUSTED))).toEqual([{ attempt: 2, unit: RECHECK, sqlstate: "55P03" }]);
   });
 });

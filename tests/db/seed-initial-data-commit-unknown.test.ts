@@ -919,7 +919,10 @@ describe("TC-TST-SEED-006-017 the reconnect after an unknown COMMIT result stays
     expect(statements.filter((text) => MIGRATION_LOCK.test(text))).toHaveLength(1);
     expect(statements.some((text) => AUDIT_RECHECK.test(text))).toBe(false);
     expect(named(logs, RESOLVED)).toHaveLength(0);
-    expect(named(logs, RETRY_ATTEMPTED)).toHaveLength(0);
+    // The second connection attempt is a retry of the connection (SPEC-160 section 22), not of the seed.
+    expect(named(logs, RETRY_ATTEMPTED).map((log) => log.query_name)).toEqual([
+      "initial_data.connect",
+    ]);
     // The connection that arrived after the budget is ended, not left open.
     await waitUntil(async () => late !== undefined, { label: "the late connection arriving" });
     await waitUntil(async () => (await admin.query(MIGRATOR_SESSIONS_SQL)).rows[0].n === 0, {
