@@ -4019,9 +4019,10 @@
         "TC-DB-RETRY-004",
         "TC-DB-RETRY-005",
         "TC-DB-RETRY-006",
-        "TC-TST-SEED-003-017"
+        "TC-TST-SEED-003-017",
+        "TC-TST-SEED-003-018"
       ],
-      "notes": "Foundation audit repair; local synthetic evidence does not assert live-provider or release readiness; the initial data seed command logs reliability.retry.exhausted when its connection, seed transaction or re-check retry budget runs out"
+      "notes": "Foundation audit repair; local synthetic evidence does not assert live-provider or release readiness; the initial data seed command logs reliability.retry.exhausted when its connection, seed transaction or re-check retry budget runs out; its retry events carry the cause (query_name for the connection, seed or re-check, sqlstate 40001, 40P01 or 55P03 for a transaction retry), and every retry, the re-check's included, logs reliability.retry.attempted"
     },
     {
       "rule_id": "OBS-DB-004",
@@ -5965,7 +5966,8 @@
         "TC-TST-SEED-003-014",
         "TC-TST-SEED-003-015",
         "TC-TST-SEED-003-016",
-        "TC-TST-SEED-003-017"
+        "TC-TST-SEED-003-017",
+        "TC-TST-SEED-003-018"
       ],
       "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits; the first connection is acquired within the SPEC-150 temporary connection budget (3 attempts, 3 seconds, backoff included), else FAILED; a connection that succeeds after the budget is ended, not used; an authentication rejection (SQLSTATE class 28) is not retried"
     },
@@ -5981,9 +5983,10 @@
         "TC-TST-SEED-005-007",
         "TC-TST-SEED-003-008",
         "TC-TST-SEED-003-016",
-        "TC-TST-SEED-003-017"
+        "TC-TST-SEED-003-017",
+        "TC-TST-SEED-003-018"
       ],
-      "notes": "implementation mapping only: result line on stdout, common log fields on stderr, no input value, connection string or exception message; a refused authentication is FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED)"
+      "notes": "implementation mapping only: result line on stdout, common log fields on stderr, no input value, connection string or exception message; a refused authentication is FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED); a SQLSTATE is written only as the cause on the retry events"
     },
     {
       "rule_id": "INF-SEED-006",

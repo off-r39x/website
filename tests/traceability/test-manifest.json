@@ -18343,7 +18343,7 @@
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [
-        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record and no reliability.retry.attempted record"
+        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record, and reliability.retry.attempted only for the second connection attempt (query_name initial_data.connect), none for the seed"
       ],
       "sensitivity_class": "synthetic",
       "critical": true
@@ -18804,7 +18804,43 @@
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [
-        "Exactly one reliability.retry.exhausted (level ERROR, result FAILED, failure_class TEMPORARY_FAILURE, operation_id PROVISION.INITIAL_DATA_SEED, provider NEON_DB, the attempt's operation_execution_id and attempt_number, no sqlstate, as no output of the command carries one) in (a) attempt 3, (b) attempt 4, (c) attempt 3, (d) attempt 1, (e) re-check attempt 3, (g) attempt 2, (h) re-check attempt 2; none in (f) and (i)"
+        "Exactly one reliability.retry.exhausted (level ERROR, result FAILED, failure_class TEMPORARY_FAILURE, operation_id PROVISION.INITIAL_DATA_SEED, provider NEON_DB, the attempt's operation_execution_id and attempt_number; its cause is TC-TST-SEED-003-018) in (a) attempt 3, (b) attempt 4, (c) attempt 3, (d) attempt 1, (e) re-check attempt 3, (g) attempt 2, (h) re-check attempt 2; none in (f) and (i)"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-018",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "OBS-DB-003",
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-160-22",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData and openSeedConnection with the schema-checking logger of @off-r39x/observability collecting its records; scripted connection doubles and a controlled clock (Math.random 0.99); (a) 55P03 until the 5 s budget; (b) 40001 four times; (c) 40P01, then 40001, then success; (d) every connection attempt fails; (e) the re-check gets 55P03 until its budget; (f) the re-check finds the run uncommitted, the retry succeeds; (g) a seed retry and (h) a re-check retry cut off by what is left of the budget",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) FAILED at attempt 3; (c) CREATED at attempt 3; (e) UNKNOWN_RESULT; (f) CREATED at attempt 2"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.retry.attempted (is_retry true) at each retry and reliability.retry.exhausted at exhaustion, each with query_name for the unit retried and sqlstate for the SQLSTATE that caused the retry: (a) attempted 2 and 3, exhausted 3, initial_data.seed 55P03; (b) attempted 2 to 4, exhausted 4, initial_data.seed 40001; (c) attempted 2 with 40P01 and 3 with 40001, no exhaustion; (d) attempted 2 and 3, exhausted 3, initial_data.connect without sqlstate; (e) attempted 2 and 3, exhausted 3, initial_data.recheck 55P03; (f) attempted 2, initial_data.seed without sqlstate; (g) attempted and exhausted 2, initial_data.seed 55P03; (h) attempted and exhausted 2, initial_data.recheck 55P03",
+        "In every case of the file, a sqlstate appears only on reliability.retry.attempted or reliability.retry.exhausted, and only as 40001, 40P01 or 55P03"
       ],
       "sensitivity_class": "synthetic",
       "critical": true
