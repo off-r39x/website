@@ -123,14 +123,19 @@ deadline itself too: a connection that stops answering is abandoned when the dea
 session, and the migration lock with it, ends), so the command does not hang. A run that the re-check
 finds uncommitted, and a lock timeout, are retried only within the SPEC-150 55P03 budget (4 attempts,
 5 seconds from the first attempt, not counting the migration lock wait), backoff included, else
-`FAILED` (or `UNKNOWN_RESULT` for the re-check).
+`FAILED` (or `UNKNOWN_RESULT` for the re-check). A retried transaction runs within what is left of that
+budget, not a new 8 seconds, and a later SQLSTATE with a longer budget (`40001` 2 s, `40P01` 3 s, `55P03`
+5 s) never extends a budget already applied. The new connection for the re-check is acquired within the
+SPEC-150 budget for a temporary connection failure (3 attempts, 3 seconds in total, each attempt bounded
+by what is left), else `UNKNOWN_RESULT`. A connection whose server stops answering at the close is
+destroyed after 3 seconds, so the command still exits.
 
 Environment variables (an `app_migrator` direct URL on port 5432 over TLS, as for `db:migrate`):
 
 | Name | Meaning |
 | --- | --- |
 | `APP_ENV` | `production`, `staging`, `development` or `test` |
-| `MIGRATION_DATABASE_URL` | Direct `app_migrator` URL: no query string, no `-pooler` host, port 5432 |
+| `MIGRATION_DATABASE_URL` | Direct `app_migrator` URL: no query string, no `-pooler` host, port 5432 or none |
 | `INITIAL_DATA_SEED_ACTOR_REF` | Stable non-secret identity for the Audit Event, `[A-Za-z0-9_:-]{1,128}` |
 | `INITIAL_DATA_SEED_JSON` | The input JSON; read only when a row has to be created |
 
@@ -138,10 +143,16 @@ The input has the two keys `event` and `entry_ticket_offerings` (one or more). S
 `packages/db/seed/initial-data.example.json` (synthetic values only). Unknown keys are rejected,
 including `id`, `public_ref`, `event_id`, `sale_control_state`, `held_quantity`,
 `committed_quantity`, `business_timezone`, `created_at` and `updated_at`. Timestamps need an offset.
+Numbers are checked as written: only a plain integer literal is accepted (`1000`, not `1000.0`, `1e3`,
+`-0` or a fraction that JSON parsing would round).
 Keep the real input in the protected GitHub Environment Secret of each environment; never share it
 between staging and production and never put it in the repository, a log or a pull request. For a
 local run: `export INITIAL_DATA_SEED_JSON="$(cat packages/db/seed/initial-data.example.json)"` (bash) or
 `$env:INITIAL_DATA_SEED_JSON = Get-Content -Raw packages/db/seed/initial-data.example.json` (PowerShell).
+
+The URL is checked as pg reads it (the host percent-decoded, `-pooler` in any case rejected), and pg is
+given the checked host, user, password and database with the port fixed to 5432, never the URL itself:
+`PGHOST` and `PGPORT` cannot redirect it.
 
 The command never updates or deletes a row: it creates only when there is no Event (or the only Event
 has no Offering), reports `NOOP` otherwise, and fails when two or more Events exist. stdout is exactly one

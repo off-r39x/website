@@ -6,6 +6,7 @@ import { createLogger, type LogEvent } from "@off-r39x/observability";
 import { TIMEOUTS } from "@off-r39x/reliability";
 import { Client } from "pg";
 import {
+  endConnection,
   failedOutcome,
   outcomeExitCode,
   outcomeLogFields,
@@ -32,6 +33,7 @@ const APP_ENVIRONMENTS = ["production", "staging", "development", "test"] as con
 type AppEnvironment = (typeof APP_ENVIRONMENTS)[number];
 const SAFE_REF = /^[A-Za-z0-9_:-]{1,128}$/;
 const CLOSE_WAIT_MS = 3000;
+const DIRECT_PORT = 5432;
 
 type Logger = { log(event: LogEvent): void };
 
@@ -42,8 +44,22 @@ const failedBeforeSeed = (
   errorCode: string,
 ): SeedOutcome => failedOutcome(operationExecutionId, 1, failureClass, errorCode);
 
-/** The same conditions as migrate-cli.ts: a dedicated, direct app_migrator URL. */
-function migrationUrl(connectionString: string | undefined): URL | undefined {
+/** Where the command connects: the checked parts of the URL, handed to pg one by one. */
+type MigrationTarget = {
+  readonly host: string;
+  readonly user: string;
+  readonly password: string;
+  readonly database: string | undefined;
+};
+
+/**
+ * The same conditions as migrate-cli.ts: a dedicated, direct app_migrator URL. The URL is taken apart
+ * here, the way pg would read it (the host and the credentials percent-decoded), and the checks apply
+ * to those decoded values: the `-pooler` check ignores case. pg then gets the parts, not the URL, with
+ * the port fixed to 5432, so that neither a host spelled another way nor PGPORT / PGHOST can lead it
+ * to another endpoint.
+ */
+function migrationTarget(connectionString: string | undefined): MigrationTarget | undefined {
   if (!connectionString) return undefined;
   let url: URL;
   try {
@@ -51,22 +67,30 @@ function migrationUrl(connectionString: string | undefined): URL | undefined {
   } catch {
     return undefined;
   }
-  let username: string;
+  let user: string;
+  let password: string;
+  let host: string;
+  let database: string;
   try {
-    username = decodeURIComponent(url.username);
+    user = decodeURIComponent(url.username);
+    password = decodeURIComponent(url.password);
+    host = decodeURIComponent(url.hostname.replace(/^\[(.+)\]$/, "$1"));
+    database = decodeURI(url.pathname.slice(1));
   } catch {
     return undefined;
   }
   if (
-    username !== "app_migrator" ||
+    user !== "app_migrator" ||
     url.search ||
-    url.hostname.includes("-pooler") ||
-    (url.port && url.port !== "5432")
+    host === "" ||
+    host.toLowerCase().includes("-pooler") ||
+    (url.port !== "" && url.port !== String(DIRECT_PORT))
   )
     return undefined;
-  return url;
+  return { host, user, password, database: database === "" ? undefined : database };
 }
 
+/** Waits at most CLOSE_WAIT_MS for `work` (the unlock); the client itself is ended with endConnection. */
 async function closeQuietly(work: Promise<unknown>): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -106,12 +130,12 @@ async function run(): Promise<void> {
     );
   }
 
-  const url = migrationUrl(process.env.MIGRATION_DATABASE_URL);
+  const target = migrationTarget(process.env.MIGRATION_DATABASE_URL);
   let outcome: SeedOutcome;
-  if (appEnv === undefined || actorRef === undefined || url === undefined) {
+  if (appEnv === undefined || actorRef === undefined || target === undefined) {
     outcome = failedBeforeSeed(fallbackExecutionId, "PERMANENT_FAILURE", "CONFIGURATION_INVALID");
   } else {
-    outcome = await execute(url, actorRef, logger, fallbackExecutionId);
+    outcome = await execute(target, actorRef, logger, fallbackExecutionId);
   }
 
   const fields = outcomeLogFields(outcome);
@@ -152,24 +176,27 @@ async function run(): Promise<void> {
 }
 
 async function execute(
-  url: URL,
+  target: MigrationTarget,
   actorRef: string,
   logger: Logger | undefined,
   executionId: string,
 ): Promise<SeedOutcome> {
-  const connectionString = url.href;
   // Node warns (to stderr) when the TLS server name is an IP address; the certificate is then matched
   // against the address by checkServerIdentity itself.
-  const servername = isIP(url.hostname) === 0 ? url.hostname : undefined;
-  const newClient = (): Client => {
+  const servername = isIP(target.host) === 0 ? target.host : undefined;
+  const newClient = (timeoutMs: number = TIMEOUTS.poolAcquireMs): Client => {
     const client = new Client({
-      connectionString,
+      host: target.host,
+      port: DIRECT_PORT,
+      user: target.user,
+      password: target.password,
+      ...(target.database === undefined ? {} : { database: target.database }),
       ssl: {
         rejectUnauthorized: true,
         ...(servername === undefined ? {} : { servername }),
         checkServerIdentity,
       },
-      connectionTimeoutMillis: TIMEOUTS.poolAcquireMs,
+      connectionTimeoutMillis: Math.max(1, Math.min(TIMEOUTS.poolAcquireMs, timeoutMs)),
       application_name: "r39x/deployment/initial-data-seed",
     });
     // A connection error after connect must not become an unhandled event (it would print a stack).
@@ -205,12 +232,12 @@ async function execute(
     // handler as a crash (exit 1), which the README treats like UNKNOWN_RESULT: run the command again.
     return await seedInitialData({
       lock,
-      connect: async () => {
-        const next = newClient();
+      connect: async ({ timeoutMs }) => {
+        const next = newClient(timeoutMs);
         try {
           await next.connect();
         } catch (error) {
-          await closeQuietly(next.end());
+          await endConnection(next, CLOSE_WAIT_MS);
           throw error;
         }
         return next;
@@ -221,7 +248,9 @@ async function execute(
     });
   } finally {
     if (lock) await closeQuietly(lock.release());
-    await closeQuietly(client.end());
+    // A peer that stops answering after the unlock would leave the socket (and the process) open:
+    // endConnection destroys it after the wait.
+    await endConnection(client, CLOSE_WAIT_MS);
   }
 }
 

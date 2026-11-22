@@ -107,9 +107,11 @@ export type SeedOptions = {
   /**
    * A new connected client, for the re-check after an unknown COMMIT result and the retry after it.
    * The seed takes the migration lock on it before the re-check reads anything, and releases the
-   * lock and ends the client before it returns.
+   * lock and ends the client before it returns. `timeoutMs` is what is left of the 3 second connection
+   * budget (SPEC-150 section 11): the attempt should give up by then. The seed stops waiting for it at
+   * that time in any case, and ends a client that arrives later.
    */
-  readonly connect: () => Promise<Client>;
+  readonly connect: (options: { readonly timeoutMs: number }) => Promise<Client>;
   /** Called at most once, and only when a row has to be created (INF-SEED-002). */
   readonly readInput: () => string | undefined;
   /** An INFRASTRUCTURE_OPERATOR reference (SPEC-160 section 19.1). */
@@ -121,6 +123,11 @@ export type SeedOptions = {
    * the time left.
    */
   readonly transactionDeadlineMs?: number;
+  /**
+   * Wall clock of one re-check transaction in ms, when it should differ from `transactionDeadlineMs`
+   * (which it defaults to). Overridable for tests only.
+   */
+  readonly recheckDeadlineMs?: number;
   /**
    * Client-side limit in ms for taking the migration lock again before the re-check (SPEC-180 section
    * 24: 60000). Overridable for tests. A connection that does not answer within it is abandoned and
@@ -202,6 +209,19 @@ async function succeedsWithin(work: Promise<unknown>, ms: number): Promise<boole
   }
 }
 
+/**
+ * Ends a client and makes sure its socket goes. With no query in flight, pg's end() sends Terminate and
+ * waits for the server to close the connection; a peer that stops answering never does, and the open
+ * socket would keep the process alive. After `waitMs` the socket is destroyed (pg keeps it on a private
+ * field), which also ends the server session once the network carries it again.
+ */
+export async function endConnection(client: Client, waitMs: number = CLOSE_WAIT_MS): Promise<void> {
+  if (await succeedsWithin(client.end(), waitMs)) return;
+  (
+    client as unknown as { connection?: { stream?: { destroy(): void } } }
+  ).connection?.stream?.destroy();
+}
+
 /** BEGIN with the SPEC-150 section 9 statement and lock timeouts. The xact lock is taken next. */
 async function beginTransaction(client: Client): Promise<void> {
   await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
@@ -230,7 +250,7 @@ function transactionDeadline(client: Client, deadlineMs: number) {
   const timer = setTimeout(
     () => {
       abandoned = true;
-      void client.end().catch(() => {});
+      void endConnection(client);
     },
     Math.max(deadlineMs, 0),
   );
@@ -321,6 +341,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
   if (!SAFE_REF.test(actorRef))
     return failedOutcome(randomUUID(), 1, "PERMANENT_FAILURE", "CONFIGURATION_INVALID");
   const deadlineMs = options.transactionDeadlineMs ?? TIMEOUTS.transactionMs;
+  const recheckDeadlineMs = options.recheckDeadlineMs ?? deadlineMs;
 
   const log = (event: LogEvent) => {
     try {
@@ -343,7 +364,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     ownedLock = undefined;
     ownedConnection = undefined;
     if (lock) await succeedsWithin(lock.release(), CLOSE_WAIT_MS);
-    if (connection) await succeedsWithin(connection.end(), CLOSE_WAIT_MS);
+    if (connection) await endConnection(connection);
   };
   // A connection given up on (its COMMIT result was lost, its transaction deadline passed, or its
   // ROLLBACK got no answer). Its session may still hold the migration lock until the backend ends:
@@ -356,7 +377,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       ownedLock = undefined;
       ownedConnection = undefined;
     }
-    await succeedsWithin(lost.end(), CLOSE_WAIT_MS);
+    await endConnection(lost);
   };
 
   let parsedInput: ReturnType<typeof parseInitialDataInput> | undefined;
@@ -368,7 +389,16 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
   // What the attempt in flight was creating, for the re-check after a lost COMMIT acknowledgement.
   let plan: Plan = { kind: "all" };
 
-  const attemptOnce = async (executionId: string, attemptNumber: number): Promise<Attempt> => {
+  /**
+   * One seed transaction. `attemptDeadlineMs` is its wall clock: the transaction deadline, or, for a
+   * retry, what is left of the retry budget when that is less (REL-DB-011: the budget covers the
+   * attempts and the backoff from the first attempt on).
+   */
+  const attemptOnce = async (
+    executionId: string,
+    attemptNumber: number,
+    attemptDeadlineMs: number,
+  ): Promise<Attempt> => {
     const fail = (failureClass: SeedFailureClass, errorCode: string): Attempt => ({
       kind: "done",
       outcome: failedOutcome(executionId, attemptNumber, failureClass, errorCode),
@@ -377,7 +407,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     let stage: "statement" | "audit" = "statement";
     // Each statement runs within the time left, so a slow lock wait or read cannot end in NOOP
     // after the deadline either, and a connection that stops answering is abandoned at the deadline.
-    const deadline = transactionDeadline(client, deadlineMs);
+    const deadline = transactionDeadline(client, attemptDeadlineMs);
     const { remainingMs, check: checkDeadline, within: withinDeadline } = deadline;
     try {
       await beginTransaction(client);
@@ -509,20 +539,54 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     }
   };
 
-  /** SPEC-150 section 11 "temporary DB connection acquisition": 3 attempts within 3 seconds. */
+  /**
+   * SPEC-150 section 11 "temporary DB connection acquisition": 3 attempts within 3 seconds in total,
+   * the attempts and the backoff included. Each attempt gets only what is left of the 3 seconds; a
+   * client that arrives after that is ended, not used. No attempt starts after the budget.
+   */
   const reconnect = async (): Promise<Client | undefined> => {
     const policy = RETRY_POLICIES.databaseConnection;
     const startedAt = performance.now();
+    const leftMs = () => policy.maxElapsedMs - (performance.now() - startedAt);
     for (let n = 1; n <= policy.maxAttempts; n += 1) {
+      const timeoutMs = leftMs();
+      if (timeoutMs <= 0) break;
+      let connecting: Promise<Client>;
       try {
-        const connection = await connect();
-        connection.on("error", () => {});
-        return connection;
+        connecting = connect({ timeoutMs: Math.ceil(timeoutMs) });
       } catch {
-        const elapsed = performance.now() - startedAt;
-        if (n >= policy.maxAttempts || elapsed >= policy.maxElapsedMs) break;
-        await sleep(Math.min(retryDelay(policy, n), policy.maxElapsedMs - elapsed));
+        connecting = Promise.reject(new Error("connect failed"));
       }
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const settled = await Promise.race([
+        connecting.then(
+          (connection) => ({ kind: "connected" as const, connection }),
+          () => ({ kind: "failed" as const }),
+        ),
+        new Promise<{ kind: "late" }>((resolve) => {
+          timer = setTimeout(() => resolve({ kind: "late" }), timeoutMs);
+        }),
+      ]);
+      if (timer) clearTimeout(timer);
+      if (settled.kind === "connected") {
+        settled.connection.on("error", () => {});
+        return settled.connection;
+      }
+      if (settled.kind === "late") {
+        // Too late for this run: a client that still arrives is closed at once.
+        connecting.then(
+          (connection) => {
+            connection.on("error", () => {});
+            void endConnection(connection);
+          },
+          () => {},
+        );
+        break;
+      }
+      if (n >= policy.maxAttempts) break;
+      const delay = retryDelay(policy, n);
+      if (delay >= leftMs()) break;
+      await sleep(delay);
     }
     return undefined;
   };
@@ -531,13 +595,19 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
    * DB-SEED-002 (1)-(4). Resolves undefined when the result cannot be determined (4). Each re-check
    * transaction has the same wall clock as a seed transaction (SPEC-150 section 9): a re-check that
    * cannot decide within it is rolled back, is not retried, and the result stays unknown. A connection
-   * that stops answering is abandoned at that deadline. A lock timeout is retried within the 55P03
-   * budget, backoff included.
+   * that stops answering is abandoned at that deadline. A retryable SQLSTATE is retried within its
+   * budget, backoff included; a retried re-check transaction runs within what is left of that budget,
+   * and a later SQLSTATE never extends a budget already applied.
    */
   const recheck = async (connection: Client, executionId: string): Promise<Recheck | undefined> => {
     const startedAt = performance.now();
+    const elapsed = () => performance.now() - startedAt;
+    let budgetLimitMs = Number.POSITIVE_INFINITY;
     for (let n = 1; n <= MAX_ATTEMPTS; n += 1) {
-      const deadline = transactionDeadline(connection, deadlineMs);
+      const deadline = transactionDeadline(
+        connection,
+        Math.min(recheckDeadlineMs, budgetLimitMs - elapsed()),
+      );
       const { within } = deadline;
       try {
         await beginTransaction(connection);
@@ -590,15 +660,15 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         }
         if (!isDatabaseRetryable(error) || n >= MAX_ATTEMPTS) return undefined;
         const policy = RETRY_POLICIES[error.code];
+        budgetLimitMs = Math.min(budgetLimitMs, policy.maxElapsedMs);
         const delay = retryDelay(policy, Math.min(n, policy.maxAttempts - 1));
-        const elapsed = () => performance.now() - startedAt;
         // The backoff is part of the budget: a wait that would end past it is not started, and a wait
         // that ended late does not start another re-check transaction either.
-        if (elapsed() + delay >= policy.maxElapsedMs) return undefined;
+        if (elapsed() + delay >= budgetLimitMs) return undefined;
         // This transaction has ended (rolled back); the next one gets its own deadline.
         deadline.disarm();
         await sleep(delay);
-        if (elapsed() >= policy.maxElapsedMs) return undefined;
+        if (elapsed() >= budgetLimitMs) return undefined;
       } finally {
         deadline.disarm();
       }
@@ -613,6 +683,9 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     // Time spent waiting for the migration lock is not part of the retry budget (SPEC-180 section 24).
     let lockWaitMs = 0;
     const budgetElapsedMs = () => performance.now() - budgetStartedAt - lockWaitMs;
+    // The smallest elapsed budget of the retry classes applied so far (SPEC-150 section 11): a later
+    // SQLSTATE with a longer budget does not extend it. No limit until the first retry.
+    let budgetLimitMs = Number.POSITIVE_INFINITY;
     for (;;) {
       attemptNumber += 1;
       const executionId = randomUUID();
@@ -627,7 +700,11 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
           attempt_number: attemptNumber,
           provider: "NEON_DB",
         });
-      const attempt = await attemptOnce(executionId, attemptNumber);
+      const attempt = await attemptOnce(
+        executionId,
+        attemptNumber,
+        Math.min(deadlineMs, budgetLimitMs - budgetElapsedMs()),
+      );
       if (attempt.kind === "done") return attempt.outcome;
 
       if (attempt.kind === "retry") {
@@ -640,13 +717,15 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
             "TEMPORARY_FAILURE",
             "DATABASE_TEMPORARY_FAILURE",
           );
+        budgetLimitMs = Math.min(budgetLimitMs, policy.maxElapsedMs);
         if (attemptNumber >= MAX_ATTEMPTS || retries >= policy.maxAttempts) return exhausted();
         // The backoff is part of the budget (SPEC-150 section 11): a wait that would end past it is
-        // not started, and the budget is checked again after the wait, which can end late.
+        // not started, and the budget is checked again after the wait, which can end late. The next
+        // attempt then runs within what is left of the budget.
         const delay = retryDelay(policy, retries);
-        if (budgetElapsedMs() + delay >= policy.maxElapsedMs) return exhausted();
+        if (budgetElapsedMs() + delay >= budgetLimitMs) return exhausted();
         await sleep(delay);
-        if (budgetElapsedMs() >= policy.maxElapsedMs) return exhausted();
+        if (budgetElapsedMs() >= budgetLimitMs) return exhausted();
         continue;
       }
 
@@ -726,16 +805,15 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       // migration lock, with a new execution id, only within the REL-DB-001 retry budget (SPEC-150
       // section 11, 55P03 row: 4 attempts, 5 s from the first attempt). The time of the lost COMMIT,
       // the reconnect and the re-check counts against that budget; the migration lock wait does not.
+      // The retry runs within what is left of it, and a smaller budget already applied stays.
+      budgetLimitMs = Math.min(budgetLimitMs, RETRY_POLICIES["55P03"].maxElapsedMs);
       log({
         ...resolved(),
         level: "WARN",
         result: "FAILED",
         failure_class: "TEMPORARY_FAILURE",
       });
-      if (
-        attemptNumber >= MAX_ATTEMPTS ||
-        budgetElapsedMs() >= RETRY_POLICIES["55P03"].maxElapsedMs
-      )
+      if (attemptNumber >= MAX_ATTEMPTS || budgetElapsedMs() >= budgetLimitMs)
         return failedOutcome(
           executionId,
           attemptNumber,

@@ -116,13 +116,28 @@ function parseRow(
   return row;
 }
 
+/** Stands in for a number whose text is not the plain form of its value; no column accepts it. */
+const NOT_AS_WRITTEN = Object.freeze({});
+
+/**
+ * JSON.parse rounds a number before any check sees it (1000.00000000000001 becomes 1000, -1e-400
+ * becomes -0). The number is therefore checked in the form it was written: it is kept only when its
+ * source text is exactly the plain decimal form of the parsed value, which for an integer column means
+ * an integer literal without a fraction, an exponent or a negative zero. The source text comes from the
+ * reviver context (Node 24); without it, every number is rejected (fail closed).
+ */
+function reviveNumber(_key: string, value: unknown, context?: { readonly source?: string }) {
+  if (typeof value !== "number") return value;
+  return context?.source !== undefined && context.source === String(value) ? value : NOT_AS_WRITTEN;
+}
+
 /** Parses the raw `INITIAL_DATA_SEED_JSON` text. Never throws. */
 export function parseInitialDataInput(raw: string | undefined): ParseResult {
   if (raw === undefined || raw === "")
     return Object.freeze({ ok: false, errorCode: "INITIAL_DATA_INPUT_MISSING" });
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(raw, reviveNumber as (key: string, value: unknown) => unknown);
   } catch {
     // The parser message quotes a fragment of the input; it is dropped on purpose.
     return INVALID;
