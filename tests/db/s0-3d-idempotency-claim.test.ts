@@ -22,6 +22,7 @@ import {
   digest,
   type EffectInput,
   effectRows,
+  expectUtcReadCommitted,
   hex,
   insertProfile,
   installSyntheticBusiness,
@@ -75,6 +76,8 @@ const pool = (i = 0): Pool => {
 beforeAll(async () => {
   admin = new Client({ connectionString: url });
   await admin.connect();
+  // TST-DB-002: the setup and fixture session is UTC and READ COMMITTED, checked before setup.
+  await expectUtcReadCommitted(admin, "admin session");
   await prepareFoundationDatabase(admin);
   await installSyntheticBusiness(admin);
   profile1 = await insertProfile(admin, P1);
@@ -228,6 +231,7 @@ describe("TC-DB-IDM-001-004 a first claim's handle sets the result only in the t
     input: ReturnType<typeof claimInput>,
   ) {
     await client.query("BEGIN");
+    await expectUtcReadCommitted(client, "claiming transaction");
     const claim = await claimTransportIdempotency(client, input);
     if (claim.status !== "first") throw new Error("expected first");
     await client.query("COMMIT");
@@ -240,6 +244,7 @@ describe("TC-DB-IDM-001-004 a first claim's handle sets the result only in the t
     try {
       const handle = await claimAndCommitWithoutResult(client, input);
       await client.query("BEGIN");
+      await expectUtcReadCommitted(client, "later transaction");
       await expect(
         setTransportIdempotencyResult(client, handle, { type: RESULT_TYPE, refs: [ref(0xa01)] }),
       ).rejects.toThrow();
@@ -261,9 +266,11 @@ describe("TC-DB-IDM-001-004 a first claim's handle sets the result only in the t
     const other = await pool().connect();
     try {
       await claimer.query("BEGIN");
+      await expectUtcReadCommitted(claimer, "claiming transaction");
       const claim = await claimTransportIdempotency(claimer, input);
       if (claim.status !== "first") throw new Error("expected first");
       await other.query("BEGIN");
+      await expectUtcReadCommitted(other, "other connection's transaction");
       const sent = vi.spyOn(other, "query");
       await expect(
         setTransportIdempotencyResult(other, claim.handle, {
@@ -311,6 +318,7 @@ describe("TC-DB-IDM-001-004 a first claim's handle sets the result only in the t
         [seed?.id],
       );
       await client.query("BEGIN");
+      await expectUtcReadCommitted(client, "reusing transaction");
       const reuse = await claimTransportIdempotency(
         client,
         claimInput(P1, key, "synthetic-request-new"),
@@ -339,6 +347,77 @@ describe("TC-DB-IDM-001-004 a first claim's handle sets the result only in the t
       client.release();
     }
   });
+
+  // A claim rolled back to a savepoint and a later claim of the same key in the same transaction share the
+  // record id, the connection and the top-level transaction id; only the row version tells them apart.
+  const SAVEPOINT_CASES = [
+    ["an expired row reused inside a savepoint, then reused again after the rollback", true, false],
+    ["an expired row reused inside a savepoint, then again inside a second savepoint", true, true],
+    ["a new row inserted inside a savepoint, then inserted again after the rollback", false, false],
+  ] as const;
+  for (const [label, expired, secondInSavepoint] of SAVEPOINT_CASES) {
+    it(`TC-DB-IDM-001-004 ${label}: the rolled-back claim's handle cannot set the new request's result; the new handle can`, async () => {
+      const key = `synthetic-idem-key-handle-sp-${expired ? "e" : "n"}${secondInSavepoint ? "2" : "1"}`;
+      let seedId: string | undefined;
+      if (expired) {
+        await claimInTransaction(pool(), claimInput(P1, key, "synthetic-request-seed"), {
+          type: RESULT_TYPE,
+          refs: [ref(0xa10)],
+        });
+        seedId = (await recordRows(admin))[0]?.id;
+        await admin.query(
+          "UPDATE app.idempotency_records SET created_at = created_at - interval '48 hours', expires_at = expires_at - interval '48 hours' WHERE id = $1::bigint",
+          [seedId],
+        );
+      }
+      const client = await pool().connect();
+      try {
+        await client.query("BEGIN");
+        await expectUtcReadCommitted(client, "claiming transaction");
+        await client.query("SAVEPOINT first_try");
+        const rolledBack = await claimTransportIdempotency(
+          client,
+          claimInput(P1, key, "synthetic-request-rolled-back"),
+        );
+        if (rolledBack.status !== "first") throw new Error("expected first in the savepoint");
+        await client.query("ROLLBACK TO SAVEPOINT first_try");
+        if (secondInSavepoint) await client.query("SAVEPOINT second_try");
+        const retried = await claimTransportIdempotency(
+          client,
+          claimInput(P1, key, "synthetic-request-retried"),
+        );
+        if (retried.status !== "first") throw new Error("expected first after the rollback");
+        await client.query("SAVEPOINT stale");
+        await expect(
+          setTransportIdempotencyResult(client, rolledBack.handle, {
+            type: RESULT_TYPE,
+            refs: [ref(0xa11)],
+          }),
+        ).rejects.toThrow();
+        await client.query("ROLLBACK TO SAVEPOINT stale");
+        await setTransportIdempotencyResult(client, retried.handle, {
+          type: RESULT_TYPE,
+          refs: [ref(0xa12)],
+        });
+        if (secondInSavepoint) await client.query("RELEASE SAVEPOINT second_try");
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => undefined);
+        throw error;
+      } finally {
+        client.release();
+      }
+      const rows = await recordRows(admin);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        request_digest: hex(digest("synthetic-request-retried")),
+        result_ref_type: RESULT_TYPE,
+        result_refs: [ref(0xa12)],
+      });
+      if (seedId !== undefined)
+        expect(rows[0]?.id, "the expired row is reused in place").toBe(seedId);
+    });
+  }
 });
 
 // ---- TC-API-IDM-008-001 --------------------------------------------------------------------------

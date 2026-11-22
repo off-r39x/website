@@ -260,6 +260,41 @@ export function logCollector() {
  * `count` independent app_api_runtime pools (verified TLS, the production factory). The test
  * environment caps one pool at 2 connections, so N concurrent transactions use N pools.
  */
+/**
+ * SPEC-170 TST-DB-002: a connection used for setup, fixtures or the cases runs in UTC and READ COMMITTED.
+ * Throws with the observed settings (never a value of the data) when it does not.
+ */
+export async function expectUtcReadCommitted(
+  client: Client | PoolClient,
+  label: string,
+): Promise<void> {
+  const settings = (
+    await client.query<{ timezone: string; isolation: string }>(
+      "SELECT current_setting('TimeZone') AS timezone, current_setting('transaction_isolation') AS isolation",
+    )
+  ).rows[0];
+  if (settings?.timezone !== "UTC" || settings.isolation !== "read committed") {
+    throw new Error(
+      `TST-DB-002: ${label} runs in TimeZone ${settings?.timezone} and ${settings?.isolation}, not UTC and read committed`,
+    );
+  }
+}
+
+/** TST-DB-002 for runtime pools: one connection of each pool is checked; every connection shares its settings. */
+export async function expectPoolsUtcReadCommitted(
+  pools: readonly Pool[],
+  label: string,
+): Promise<void> {
+  for (const [index, pool] of pools.entries()) {
+    const client = await pool.connect();
+    try {
+      await expectUtcReadCommitted(client, `${label} ${index}`);
+    } finally {
+      client.release();
+    }
+  }
+}
+
 export async function openRuntimePools(url: string, caPath: string, count: number) {
   const ca = await readFile(caPath, "utf8");
   const opened = Array.from({ length: count }, () => {
@@ -274,12 +309,15 @@ export async function openRuntimePools(url: string, caPath: string, count: numbe
       ca,
     });
   });
-  return {
-    pools: opened.map((entry) => entry.pool) as Pool[],
-    close: async () => {
-      await Promise.all(opened.map((entry) => entry.close()));
-    },
+  const pools = opened.map((entry) => entry.pool) as Pool[];
+  const close = async () => {
+    await Promise.all(opened.map((entry) => entry.close()));
   };
+  await expectPoolsUtcReadCommitted(pools, "app_api_runtime pool").catch(async (error: unknown) => {
+    await close();
+    throw error;
+  });
+  return { pools, close };
 }
 
 // ---- test-only business transactions ----------------------------------------------------------

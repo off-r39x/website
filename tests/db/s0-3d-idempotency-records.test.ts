@@ -9,6 +9,8 @@ import {
   claimInput,
   claimInTransaction,
   digest,
+  expectPoolsUtcReadCommitted,
+  expectUtcReadCommitted,
   hex,
   insertProfile,
   installSyntheticBusiness,
@@ -67,6 +69,8 @@ const poolOf = (role: string): Pool => {
 beforeAll(async () => {
   admin = new Client({ connectionString: url });
   await admin.connect();
+  // TST-DB-002: the setup and fixture session is UTC and READ COMMITTED, checked before setup.
+  await expectUtcReadCommitted(admin, "admin session");
   await prepareFoundationDatabase(admin);
   await installSyntheticDirectory(admin);
   await installSyntheticBusiness(admin);
@@ -83,6 +87,10 @@ beforeAll(async () => {
       createDatabase({ connectionString: runtimeUrl.href, environment: "test", service, ca }),
     );
   }
+  await expectPoolsUtcReadCommitted(
+    [...pools.values()].map((opened) => opened.pool),
+    "runtime pool",
+  );
 });
 afterAll(async () => {
   for (const opened of pools.values()) await opened.close();

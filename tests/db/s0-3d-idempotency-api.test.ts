@@ -4,6 +4,7 @@ import { idempotencyStoreRig, readJson } from "../harness/api/transport-idempote
 import { prepareFoundationDatabase } from "../harness/db/foundation.ts";
 import {
   effectRows,
+  expectUtcReadCommitted,
   insertProfile,
   installSyntheticBusiness,
   openRuntimePools,
@@ -34,6 +35,8 @@ let rig: ReturnType<typeof idempotencyStoreRig>;
 beforeAll(async () => {
   admin = new Client({ connectionString: url });
   await admin.connect();
+  // TST-DB-002: the setup and fixture session is UTC and READ COMMITTED, checked before setup.
+  await expectUtcReadCommitted(admin, "admin session");
   await prepareFoundationDatabase(admin);
   await installSyntheticBusiness(admin);
   await insertProfile(admin, PROFILE);
