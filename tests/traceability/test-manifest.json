@@ -16777,7 +16777,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "The contract's app tables (excluding schema_migrations) equal exactly the twelve listed names, including idempotency_records (its constraint and index names are checked by TC-DB-IDM-001-002)",
+        "The contract's app tables (excluding schema_migrations) equal exactly the fourteen listed names, including idempotency_records (its constraint and index names are checked by TC-DB-IDM-001-002)",
         "Drizzle declaration names for business_profiles and role_assignments constraints and indexes equal schema-contract.json by name and kind",
         "Column order, SQL type, NOT NULL, identity always and default presence equal schema-contract.json; default SQL expressions (transaction_timestamp(), gen_random_uuid()) equal the pre-refactor golden and the contract",
         "CHECK expressions serialised by PgDialect equal the pre-refactor golden exactly and match the contract definitions by referenced columns, literals, numbers and NULL tests",
@@ -28204,7 +28204,7 @@
         "app_api_runtime is refused with 42501 an INSERT that supplies created_at, expires_at, both, or the identity id (OVERRIDING SYSTEM VALUE); an INSERT without them gets created_at = its transaction_timestamp() and expires_at 24 hours later (SPEC-100 section 43.1, UCR-100-005)"
       ],
       "expected_db_postconditions": [
-        "has_table_privilege: app_api_runtime has table-level SELECT and UPDATE only; app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC have none; no role has a privilege on the identity sequence; the app schema has no purge function",
+        "has_table_privilege: app_api_runtime has table-level SELECT and UPDATE only; app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC have none; no role has a privilege on the identity sequence; no function outside pg_catalog and information_schema names idempotency_records in its body, and no non-superuser role other than the owner app_migrator can DELETE or TRUNCATE the table (mechanisms for other tables, such as SPEC-180 section 22.7 app_audit_purger, are out of scope)",
         "The only column ACL entries are app_api_runtime INSERT on principal_profile_id, operation_id, key_digest, request_digest, result_ref_type and result_refs (not created_at, expires_at or id); has_column_privilege of every role and column matches; UPDATE stays table-level because DB-IDM-003 reuse updates the time columns"
       ],
       "expected_provider_postconditions": [],
