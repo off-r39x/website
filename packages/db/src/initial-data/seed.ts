@@ -805,21 +805,34 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       // migration lock, with a new execution id, only within the REL-DB-001 retry budget (SPEC-150
       // section 11, 55P03 row: 4 attempts, 5 s from the first attempt). The time of the lost COMMIT,
       // the reconnect and the re-check counts against that budget; the migration lock wait does not.
-      // The retry runs within what is left of it, and a smaller budget already applied stays.
-      budgetLimitMs = Math.min(budgetLimitMs, RETRY_POLICIES["55P03"].maxElapsedMs);
+      // Like any 55P03 retry it waits a full jitter backoff first; the wait is part of the budget, a
+      // wait that would end past it is not started, and the budget is checked again after the wait.
+      // The retry then runs within what is left of it, and a smaller budget already applied stays.
+      const uncommittedPolicy = RETRY_POLICIES["55P03"];
+      budgetLimitMs = Math.min(budgetLimitMs, uncommittedPolicy.maxElapsedMs);
       log({
         ...resolved(),
         level: "WARN",
         result: "FAILED",
         failure_class: "TEMPORARY_FAILURE",
       });
-      if (attemptNumber >= MAX_ATTEMPTS || budgetElapsedMs() >= budgetLimitMs)
-        return failedOutcome(
+      const uncommittedExhausted = () =>
+        failedOutcome(
           executionId,
           attemptNumber,
           "TEMPORARY_FAILURE",
           "DATABASE_TEMPORARY_FAILURE",
         );
+      retries += 1;
+      if (attemptNumber >= MAX_ATTEMPTS || budgetElapsedMs() >= budgetLimitMs)
+        return uncommittedExhausted();
+      const delay = retryDelay(
+        uncommittedPolicy,
+        Math.min(retries, uncommittedPolicy.maxAttempts - 1),
+      );
+      if (budgetElapsedMs() + delay >= budgetLimitMs) return uncommittedExhausted();
+      await sleep(delay);
+      if (budgetElapsedMs() >= budgetLimitMs) return uncommittedExhausted();
       client = reconnected;
     }
   } finally {

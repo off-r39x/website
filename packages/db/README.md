@@ -125,8 +125,9 @@ deadline itself too: a connection that stops answering is abandoned when the dea
 session, and the migration lock with it, ends), so the command does not hang. A run that the re-check
 finds uncommitted, and a lock timeout, are retried only within the SPEC-150 55P03 budget (4 attempts,
 5 seconds from the first attempt, not counting the migration lock wait), backoff included, else
-`FAILED` (or `UNKNOWN_RESULT` for the re-check). A retried transaction runs within what is left of that
-budget, not a new 8 seconds, and a later SQLSTATE with a longer budget (`40001` 2 s, `40P01` 3 s, `55P03`
+`FAILED` (or `UNKNOWN_RESULT` for the re-check). The retry after an uncommitted re-check waits the same
+full jitter backoff as any 55P03 retry. A retried transaction runs within what is left of that budget,
+not a new 8 seconds, and a later SQLSTATE with a longer budget (`40001` 2 s, `40P01` 3 s, `55P03`
 5 s) never extends a budget already applied. The new connection for the re-check is acquired within the
 SPEC-150 budget for a temporary connection failure (3 attempts, 3 seconds in total, each attempt bounded
 by what is left), else `UNKNOWN_RESULT`. A connection whose server stops answering at the close is
