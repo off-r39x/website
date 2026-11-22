@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-180
 title: Infrastructure and Deployment Specification
-version: 2.7.0
+version: 2.8.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -240,16 +240,18 @@ test
 
 **INF-ENV-001:** Environment名をapplication config、log field、metric label、deployment manifest、database application_nameでexactに一致させる。
 
-**INF-ENV-002:** Cloudflare Pages / Railway / Neon / Stripe / Resend / Better Stack / DB credential / QR key / correlation keyをEnvironment間共有しない。
+**INF-ENV-002:** Cloudflare Pages / Railway / Neon / Stripe / Resend / Better Stack / DB credential / QR key / correlation keyをEnvironment間共有しない。Railwayは1つのprojectの中でCanonical Environmentごとに別のRailway environmentを使い（§14）、environment、その中のservice、variable（Sealed Variablesを含む）、private network、deployment、project tokenをEnvironment間で共有しない。Railway Shared Variablesは定義したenvironmentの中だけで使い、別のenvironmentのshared variableを参照・コピーしない（`INF-RWY-006`）。
 
 ### 8.1 Environment topology
 
 | Environment | Cloudflare Pages | Railway | Neon | Stripe | Resend | Observability | Intended use |
 |---|---|---|---|---|---|---|---|
-| `production` | dedicated project | dedicated project | dedicated project | dedicated live account boundary | dedicated API key / sending identity | dedicated Production sources | real users / real money |
-| `staging` | dedicated project | dedicated project | dedicated project | dedicated test-mode account boundary | dedicated nonprod key / sender | staging sources | pre-release verification |
-| `development` | dedicated Cloudflare Pages project + local dev | dedicated Railway project for shared dev integration | dedicated project | dedicated test-mode account boundary | dedicated dev key / sink | dev sources | developer integration |
-| `test` | dedicated project used only when deployed E2E is required | dedicated project / ephemeral CI services | ephemeral PostgreSQL 17 or dedicated Neon test project where Provider contract requires | dedicated test-mode account boundary | dedicated test key / sink | test sources | automated test |
+| `production` | dedicated project | dedicated environment（§14） | dedicated project | dedicated live account boundary | dedicated API key / sending identity | dedicated Production sources | real users / real money |
+| `staging` | dedicated project | dedicated environment（§14） | dedicated project | dedicated test-mode account boundary | dedicated nonprod key / sender | staging sources | pre-release verification |
+| `development` | dedicated Cloudflare Pages project + local dev | dedicated environment for shared dev integration（§14） | dedicated project | dedicated test-mode account boundary | dedicated dev key / sink | dev sources | developer integration |
+| `test` | dedicated project used only when deployed E2E is required | ephemeral CI services。deployed E2Eが必要な場合だけdedicated environment（§14） | ephemeral PostgreSQL 17 or dedicated Neon test project where Provider contract requires | dedicated test-mode account boundary | dedicated test key / sink | test sources | automated test |
+
+Railwayの列のenvironmentは、1つのRailway projectの中のenvironmentを指す（§14）。Cloudflare Pages / Neonの列のprojectは、Environment別のprojectのままとする。
 
 **INF-ENV-003:** Cloudflare Pages native Preview deploymentは第5のCanonical Environmentではない。PR Previewは `development` data classificationとして扱い、Production / staging Secretを受け取らない。
 
@@ -297,7 +299,7 @@ STAGING_AUTH_ORIGIN
 
 **INF-VCL-001:** Production Web custom domainはCloudflare Pages Production projectだけへ向ける。
 
-**INF-RWY-001:** Production API custom domainはRailway Production `api` serviceだけへ向ける。
+**INF-RWY-001:** Production API custom domainはRailway production environment（§14）の `api` serviceだけへ向ける。
 
 WebとAPI / Auth proxyは同じ親ドメイン配下のHTTPS originとする。Auth proxy originはAPI originと同一とし `/auth/*` を使用する。実domainを捏造せず、環境のexact origin設定とする。Pages / Railwayの標準domainが別siteである構成をProductionの認証経路にしない。
 
@@ -366,11 +368,31 @@ Pagesの静的headers設定で `SPEC-140` のCSP / HSTS / cache / scanner権限�
 
 # Part V — Railway Runtime / Process Topology
 
-## 14. Railway project boundary
+## 14. Railway project / environment boundary
 
-Canonical Environmentごとに別Railway projectを使用する。
+Railwayは1つのprojectを使い、Canonical EnvironmentごとにそのprojectのRailway environmentを1つ使用する。本書の「Railway environment」はRailway projectの中のenvironmentを指し、Canonical Environmentとは別の語である。Railway environmentのservice・variable・deploymentへの変更はそのenvironmentに閉じ、private networkはenvironmentごとに独立する（§82）。Cloudflare Pages（§12）とNeon（§18）はEnvironment別のprojectのままとする。
 
-各projectに最低限次のserviceを置く。
+| Canonical Environment | Railway environment名 |
+|---|---|
+| `production` | `production` |
+| `staging` | `staging` |
+| `development` | `dev` |
+| `test` | なし（CIのephemeral services。deployed E2Eが必要になった場合だけ `test` を追加する） |
+
+**INF-RWY-006:** Railway environment名はProvider側の名前であり、`INF-ENV-001` の対象（application config、log field、metric label、deployment manifest、database application_name）ではない。`APP_ENV`（§15）には上表のCanonical Environment名を設定し、Railway environment名から導出しない。deployment manifestは上表の対応を固定する。上表にないRailway environmentをCanonical Environmentとして扱わず、そこにSecretを置かない。SecretはRailway Shared Variablesに置かず、読むserviceのSealed Variableとして置く（§25、§26のreaderをservice単位で保つ）。別のenvironmentのshared variableを参照・コピーしない（`INF-ENV-002`）。
+
+**INF-RWY-007:** Railway PR environments（Bot PR environmentsを含む）を有効にしない。PR単位の検証はCI（§72）とCloudflare Pagesのpreview（`INF-ENV-003`）で行う。
+
+**INF-RWY-008:** CI/CDが使うRailway credentialは、対象のRailway environmentに限定したproject tokenだけとし、environmentごとに対応するGitHub protected Environment Secret（§25、§42）に置く。production environmentのproject tokenはProduction deployment job（§42、§68）だけが読む。Account token・Workspace tokenは、CI/CD、GitHub Secret、runtime variableに置かない。
+
+**INF-RWY-009:** Railway environmentの複製（Duplicate Environment）では、production environmentを複製元にしない。複製したenvironmentは、staged changesを承認して最初にdeployする前に、次をすべて満たす。
+
+1. Secretを複製元から写さず、複製先で新しく発行する（`SPEC-140` §46、`SEC-KEY-004`）。Sealed Variablesは複製されない（§82）。
+2. 複製元から写ったSecretでない変数のうち、Environmentを識別・接続する値（`APP_ENV`、§9の `EXPECTED_*`、§10のorigin、許可するhost・originの一覧等）を複製先の値へ書き換え、その他の値（`RATE_LIMIT_CONFIG`、`TRUSTED_PROXY_HOPS` 等）を複製先の値として確認する。
+3. custom domainとvolumeが複製元から写っていないことを確認する（複製時の扱いは未確認。§82）。
+4. 複製先の値で、§9のidentity validationと§40のreadinessが成立することを確認する。
+
+各Railway environmentに最低限次のserviceを置く（`test` はRailway environmentを置く場合）。
 
 ```text
 api
@@ -447,7 +469,7 @@ Railwayから`SIGTERM`を受けたprocessは次を実行する。
 
 `SPEC-140` Part XIII の共有storeを次のとおり配置する。control semanticsは `SPEC-140`、store障害時のReliability behaviorは `SPEC-150` §58.1 を正とする。
 
-**INF-RLS-001:** 各Canonical EnvironmentのRailway projectに `rate-limit-redis` serviceを1つ置く。単一ノードのRedisとし、Sentinel / HA構成は採用しない。Environment間で共有しない（`INF-ENV-002`）。
+**INF-RLS-001:** 各Canonical EnvironmentのRailway environment（§14）に `rate-limit-redis` serviceを1つ置く。Railway environmentを置かない間の `test` では、CIのRedis service container（§74.1）がこれに代わる。単一ノードのRedisとし、Sentinel / HA構成は採用しない。Environment間で共有しない（`INF-ENV-002`。Railwayのprivate networkはenvironmentごとに独立する）。
 
 **INF-RLS-002:** public domain、TCP proxy、Public Accessを付与せず、Railway private networkだけで到達可能にする。接続元はAPI serviceだけとし、Email Worker / Reconciliation Worker / maintenance jobから接続しない。
 
@@ -667,7 +689,7 @@ Canonical placement:
 
 - Cloudflare Pages Web: server Secretなし。公開設定だけを静的artifactへ含める
 - Neon Auth SMTP / Google credential: 環境専用のNeon保護設定
-- Railway runtime Secret: Railway Sealed Variables
+- Railway runtime Secret: 読むserviceのRailway Sealed Variables（Shared Variablesに置かない。`INF-RWY-006`）
 - CI/CD deployment credential: GitHub Actions protected Environment Secrets
 - Human break-glass / offline recovery material: project-owner-controlled encrypted recovery vault。CI / runtimeへ常時同期しない
 
@@ -1626,7 +1648,7 @@ Production deployはdedicated GitHub Actions deployment identityを使用する�
 Credential scope:
 
 - Cloudflare Pages Production project deployのみ
-- Railway Production project deployのみ
+- Railway production environmentに限定したproject tokenによるdeployのみ（`INF-RWY-008`）。Account token・Workspace tokenを使用しない
 - GitHub Container Registry push/pull required repositoryのみ
 - no DB runtime password unless migration job
 
@@ -1641,6 +1663,9 @@ Standing human accessを最小化する。
 - Neon Dashboard Owner権限はproject-owner / approved infrastructure operatorのみ
 - Production DB write SQL consoleを通常運用に使用しない
 - Production Secret read-back可能なstoreを常用しない。Railwayはsealed、Neon Auth provider設定は保護し、Pages Webにはserver Secretを置かない
+- Railway projectのmemberはproject-owner / approved infrastructure operatorだけとし、通常の作業には必要最小のrole（Deployer等）を使う。Railwayのenvironment単位の権限（Restricted environment）を使えない間は、memberは全Railway environmentのSecretでない変数・log・設定を操作できるため、member数を最小に保つ。Sealed Variablesは読み戻せない（§82）
+- Restricted environmentを契約planで使える場合は、production environmentをRestrictedにする。使えるかは契約planに依存し、本書は確認済みとしない（§82）
+- production environmentへの新しいartifactのdeployは、§42のProduction deployment jobだけで行う。production environmentのserviceをGitHub repositoryからの自動deployに接続しない（imageはdigestで指定する。§44）。Railwayにはprotected environmentの機能がないため（§82）、承認は§42のGitHub protected Environmentで行う。Sealed Variableの変更（Secret rotation等）に伴う、稼働中と同じOCI image digestの再deployは、project-ownerがRailwayの画面で行ってよい。このときimage digestを変えない
 
 ## 70. Break-glass
 
@@ -1795,7 +1820,7 @@ approval actor ref
 |---|---|
 | `INF-ARC-*`, `INF-ENV-*` | `INV-010-01〜10`, `SEC-KEY-*`, `OBS-SEC-*`, `TST-DAT-*` |
 | `INF-RLS-*` | `SEC-ABU-*`, `SEC-API-024〜025`, `SEC-API-030`, `REL-SEC-003〜007`, `OBS-SEC-007〜009`, `TST-RLM-*` |
-| `INF-VCL-*`, `INF-RWY-*` | `SEC-WEB-*`, `SEC-AUTH-*`, `REL-GEN-*`, `REL-TMO-*`, `OBS-LOG-*` |
+| `INF-VCL-*`, `INF-RWY-*` | `SEC-WEB-*`, `SEC-AUTH-*`, `SEC-KEY-003〜005`, `REL-GEN-*`, `REL-TMO-*`, `OBS-LOG-*` |
 | `INF-DB-*` | `DB-ARC-*`, `DB-MIG-*`, `DB-TXN-*`, `SEC-DB-*`, `REL-DB-*`, `TST-DB-*` |
 | `INF-AUTH-*` | `SEC-AUTH-*`, `REL-AUTH-*`, relevant `API-AUTH-*` |
 | `INF-SEC-*` | `SEC-KEY-*`, `SEC-QR-*`, `OBS-COR-*`, `REL-TQR-*`, `API-QRY-005`, `TST-SEC-*` |
@@ -1834,7 +1859,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 
 1. Web=React SPA/Cloudflare Pages、API=Hono/Railway、DB=Neon PostgreSQL、Auth=Neon Auth、Payment=Stripe、Email=Resendを維持している。
 2. Browser / React SPAからBusiness Databaseへの直接Business mutation経路がない。
-3. `production`, `staging`, `development`, `test` がCloudflare Pages / Railway / Neon / Provider credential / observabilityで分離される。
+3. `production`, `staging`, `development`, `test` がCloudflare Pages（Environment別project）/ Railway（1つのprojectの中のEnvironment別environment。§14）/ Neon（Environment別project）/ Provider credential / observabilityで分離される。
 4. Production Secret / QR protected material / Session material / Business Dataがdevelopment/testへ流れない。
 5. Node 24.x、PostgreSQL 17、`pgcrypto`, `btree_gist`がdeployment manifest / readiness / testで一致する。
 6. runtime / migration / incident read / Audit read / Audit purge / backup / emergency recovery identityが分離される。
@@ -1880,7 +1905,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 46. Canonical Admin API operationはHono API route以外の経路・別service・別workerで露出しない。
 47. deployment registry / log / metric / Auditは `SPEC-110` Operation ID manifestをsourceとし、`SPEC-160` の `operation_id` / `operation_execution_id` correlationへwiringする。
 48. privileged Admin API operation smokeはProduction business mutation / Provider write / real PII / raw QR / raw provider bodyを発生させない。
-49. 各Environmentに `rate-limit-redis` が1つ置かれ、public domain / TCP proxyを持たず、API serviceだけが接続し、Environment間で共有されない。
+49. 各EnvironmentのRailway environment（Railway environmentを置かない間の `test` ではCIのRedis service container）に `rate-limit-redis` が1つ置かれ、public domain / TCP proxyを持たず、API serviceだけが接続し、Environment間で共有されない。
 50. `rate-limit-redis` は永続化なし、`noeviction`、固定 `maxmemory` で、Railway replicasが1である。
 51. `RATE_LIMIT_REDIS_URL` と `RATE_LIMIT_HMAC_KEY` がAPI serviceだけに配置され、他serviceやClientへ出ない。
 52. rate limit configuration不正、store接続不能、`TRUSTED_PROXY_HOPS` 未設定でAPI readinessがfalseになる。
@@ -1890,6 +1915,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 56. 初期データ（EventとEntry Ticket Offering）が、専用の運用コマンドだけで、migration jobの `app_migrator` により、schema readiness checkの後・API deployの前に投入される。入力は環境別のprotected Environment Secretから渡り、実値がsource・log・artifact・release evidenceに出ない。対象が0件のときだけ作り、再実行で行が増えず、Offeringは `SUSPENDED` で作られ、`FAILED` と `UNKNOWN_RESULT` ではdeploymentが停止し、結果不明の場合は再実行で再照合できる（`INF-SEED-001〜006`）。
 57. `LIST_CURSOR_HMAC_KEY` がAPI serviceだけに配置され、他serviceやClientへ出ず、他のSecretと共有されず、他のSecretから導出されない。鍵またはversionの欠落・形式不正でAPI readinessがfalseになり、署名しないcursorへfallbackしない（`INF-SEC-007`）。
 58. 旧artifactのreadinessが、後続releaseのmigrationが `INF-HLT-006` 4の許容範囲にある場合はReadyになり、`INF-HLT-006` の1〜4を満たさない場合（後方互換な変更であってもrequired要素の削除・属性の変更に当たるもの（既存CHECKの緩和を含む）、required tableへのNOT NULLでdefault等のない追加列、journalの先頭の不一致・不足、journalが同じ長さでの追加object）はReadyにならない。`SPEC-170` §22 項目9のTestがG2でPassする。
+59. Railwayの各Canonical Environmentが§14の表のRailway environmentに置かれ、`APP_ENV` がCanonical Environment名である。SecretがShared Variablesになく、PR environmentsが無効で、CI/CDのRailway credentialは対象environmentに限定したproject tokenだけであり、Account token・Workspace tokenがCI/CD・GitHub Secret・runtimeにない。複製したenvironmentは最初のdeployの前に `INF-RWY-009` の1〜4を満たしている（`INF-RWY-006〜009`）。
 
 ---
 
@@ -1897,7 +1923,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 
 ## 81. 上流仕様変更要求
 
-`UCR-140-003` により本書が受けた変更は §14、§16、§17.1〜§17.2、§26、§28.1〜§28.2、§40、§74.1、§77 に反映済みである。`UCR-RELSCOPE-001`（`SPEC-200 §48`）により本書が受けた変更は §44 に反映済みである。本書が起票する要求は次の4件である。
+`UCR-140-003` により本書が受けた変更は §14、§16、§17.1〜§17.2、§26、§28.1〜§28.2、§40、§74.1、§77 に反映済みである。`UCR-RELSCOPE-001`（`SPEC-200 §48`）により本書が受けた変更は §44 に反映済みである。本書が起票する要求は次の5件である。
 
 ### UCR-180-001 — INCORPORATED
 
@@ -1972,6 +1998,26 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 - **反映先:** 本書 §28.3（表、rotation、`INF-SEC-007`）。新しいState・Operation・Capability・error code・DB role・変数は追加していない。`RATE_LIMIT_HMAC_KEY_VERSION`（§28.1・§28.2）と `OBS_CORRELATION_HMAC_KEY_VERSION`（§28）には本件を及ぼしていない。
 - **決定（利用者、2026-11-21）:** 上限を仕様に明記し、実装の上限を広げる案は採らない。許容範囲は1〜2147483647、表記は10進数の正規形（`^[1-9][0-9]*$` かつ2147483647以下）とし、先頭の0・符号・空白・小数点・指数表記は形式不正とする。対象は `LIST_CURSOR_HMAC_KEY_VERSION` だけとする。Pull Request #82 のレビュー（versionの上限が仕様にない）への対応として決めた。本改訂の版はMINOR（v2.7.0）とした。受け付ける値を狭めるが、既存実装と他の仕様書に再解釈を要求しない（`SPEC-000 §7.1`）ためであり、受け付ける値を狭めた `UCR-030-001`（`SPEC-030` v2.2.0）の前例と揃える（利用者、2026-11-22。Pull Request #88 のレビューへの対応）。
 
+### UCR-180-005 — INCORPORATED
+
+- **Status:** `INCORPORATED`（本改訂 v2.8.0、`SPEC-200` v3.3.0、`SPEC-140` v2.5.1、`SPEC-170` v2.9.2）。現在の契約は本文を正とし、本記録は経緯である。
+- **対象:** SPEC-180（§8、§8.1、§10、§14、§17.1、§25、§68、§69）。`SPEC-200` §28、`SPEC-140` §101.4、`SPEC-170` §18.1 に及ぶ。
+- **現在の仕様（改訂前）:** §14 は「Canonical Environmentごとに別Railway projectを使用する」とし、§8.1 のRailwayの列は各Environmentをdedicated project、`INF-RLS-001` は「各Canonical EnvironmentのRailway project」、§68 は「Railway Production project deployのみ」とする。`SPEC-200` §28 は「4環境別project」の検証を求め、`SPEC-140` §101.4 の記録は「各環境のRailway project」にstoreを置くとする。
+- **要求する変更:**
+  1. Railwayは1つのprojectの中で、Canonical EnvironmentごとにRailway environmentを使う（§14 の対応表。`development` はRailway environment `dev`、`test` はCIのephemeral services）。
+  2. Railway environment名は `INF-ENV-001` の対象外とし、`APP_ENV` はCanonical Environment名のままとする（`INF-RWY-006`）。
+  3. SecretをShared Variablesに置かず、別のenvironmentの値を参照・コピーしない（`INF-ENV-002`、`INF-RWY-006`）。
+  4. PR environmentsを無効にする（`INF-RWY-007`）。
+  5. CI/CDのRailway credentialは、environmentに限定したproject tokenだけとする（`INF-RWY-008`、§68）。
+  6. 環境の複製の手順を定める（`INF-RWY-009`）。
+  7. 人の権限の補い方を定める（§69）。
+  8. Neon・Cloudflare Pages・Stripe・Resend・observabilityの分け方は変えない。
+- **理由:** 利用者がRailwayの1つのprojectの中にenvironment `dev`・`staging`・`production` を作り、今の契約planで実現できる方法としてこの方式を選んだ（`SPEC-000 §8` の1）。Railwayのenvironmentは、service・variable・deploymentの変更をenvironmentに閉じ、private networkをenvironmentごとに分け、Sealed Variablesを複製・PR environmentへ写さず、project tokenを1つのenvironmentに限定できる（§82）。このため、Secret・network・deploy credentialの分離はenvironment単位で保てる。一方、environment単位の人の権限（Restricted environment）はEnterprise / committed spend planに限られ、protected environmentの機能はない（§82）。このため、§69 のmemberの最小化と、§42 のGitHub protected Environmentによる承認で補う。Cloudflare Pages（§12）は1 project内のEnvironment Variable scopeだけで環境を分けることを禁じるが、Railwayのenvironmentはvariableだけでなくservice・network・deploymentを分けるため、同じ理由は当てはまらない。
+- **変更しない場合の影響:** 仕様が要求する4つのRailway projectを今の契約planで用意できず、デプロイCIとstagingの外部事実の確認（§17.2）が、仕様と食い違う構成で進む。実装者がproject token・Shared Variables・PR environmentsの扱いを推測で決めると、environmentをまたぐcredentialやSecretの共有が生じうる。
+- **影響を受ける可能性がある仕様書:** SPEC-200（§28 の検証内容の文を変更した）、SPEC-140（§101.4 の記録に注記した）、SPEC-170（`TC-STACK-010` を明確化した）。SPEC-010（§8.1.1 の「4環境は別project」はNeonの記述）、SPEC-190（`DEV-INF-001`）、SPEC-150、SPEC-160は、読んだうえで変更不要と判断した。
+- **反映先:** 本書 §8（`INF-ENV-002`）、§8.1、§10（`INF-RWY-001`）、§14（`INF-RWY-006〜009`）、§17.1（`INF-RLS-001`）、§25、§68、§69、§78、§80 項目3・49・59、§82。`SPEC-200` v3.3.0 §28、`SPEC-140` v2.5.1 §101.4、`SPEC-170` v2.9.2 §18.1。新しいState・Operation・Capability・error code・DB role・環境変数は追加していない。
+- **決定（利用者、2026-11-22）:** RailwayはRailway project `off-r39x` の中のenvironment `dev`・`staging`・`production` で運用する。ほかのProviderの分け方は変えない。Railway environment名 `dev` は対応表で吸収し、`APP_ENV=development` のままとする。`test` は今はRailway environmentを置かず、CIのephemeral servicesだけとする。権限は上記の要求する変更3〜7で補い、Sealed Variableの変更に伴う同じimage digestの再deployはproject-ownerがRailwayの画面で行ってよい。複製はproduction以外を複製元とする場合に限って許す（作成済みの3つのenvironmentは複製で作っていない）。版はMINOR（v2.8.0）とした。Railwayのprojectの分け方に依存する実装がまだなく、`APP_ENV` の値も変わらず、既存実装と他の仕様書に大きな再解釈を要求しない（`SPEC-000 §7.1`）ためである。
+
 本仕様は、Infrastructure Ownerとして明示的に委譲されたEnvironment、DB principal、Secret placement、scheduler、health、deployment、Audit access/purge、observability backend、backup / restore、Test gateの具体化だけを行っている。
 
 `UCR-130-001〜004/006`、`UCR-150-001〜002`、`UCR-170-001` はCanonical化済みであり、対応operationを既存Hono / Railway / Observability topologyへ配置する。`UCR-130-005`（Operational query index）のみ `DEFERRED_NONBLOCKING` として継承し、speculative indexを配置しない。
@@ -1982,11 +2028,16 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 
 ## 82. 非Canonical参考
 
-以下は2026-10-25の構成改定で参照した公式資料であり、外部SLAや未検証のHono proxy / account linkingを保証する根拠には使用しない。Provider capability変更時は本仕様のInfrastructure実装を再検証する。
+以下は2026-10-25の構成改定と2026-11-22の改定（`UCR-180-005`）で参照した公式資料であり、外部SLAや未検証のHono proxy / account linkingを保証する根拠には使用しない。Provider capability変更時は本仕様のInfrastructure実装を再検証する。
 
 - Railway Cron Jobs: https://docs.railway.com/cron-jobs
 - Railway Healthchecks: https://docs.railway.com/deployments/healthchecks
 - Railway Private Networking / Sealed Variables: https://docs.railway.com/networking/private-networking / https://docs.railway.com/variables
+- Railway Environments / PR environments / Duplicate Environment: https://docs.railway.com/environments（2026-11-22参照。environmentへの変更はそのenvironmentに閉じる。複製はservice・変数・設定を写し、Sealed Variablesを写さない。複製時のvolume・domainの扱いは記載がなく未確認）
+- Railway Private Networking（environmentごとのnetwork）: https://docs.railway.com/networking/private-networking/how-it-works（2026-11-22参照。別のenvironmentのserviceへはprivate networkで到達できない）
+- Railway Sealed / Shared Variables: https://docs.railway.com/variables（2026-11-22参照。Sealed Variablesは読み戻せず、複製・PR environmentへ写らない。Shared Variablesはenvironment単位で定義する。別のenvironmentのshared variableを参照できるかは記載がなく未確認）
+- Railway tokens: https://docs.railway.com/reference/public-api / https://docs.railway.com/reference/cli-api（2026-11-22参照。project tokenは1つのenvironmentに限定される。Account tokenは権限の及ぶ全resource、Workspace tokenはworkspace内に及ぶ）
+- Railway roles / Environment RBAC: https://docs.railway.com/reference/teams / https://docs.railway.com/enterprise/environment-rbac（2026-11-22参照。Restricted environmentはEnterprise / committed spend planだけ。protected environmentの機能は記載がない。現在の契約で使えるかは未確認）
 - Neon connection / restore: https://neon.com/docs/connect/connect-from-any-app / https://neon.com/docs/introduction/branch-restore
 - Neon Managed Auth / JWT / region: https://neon.com/docs/auth/about / https://neon.com/docs/auth/guides/plugins/jwt / https://neon.com/docs/introduction/regions
 - Neon Auth production / SMTP / email customization: https://neon.com/docs/auth/production-checklist / https://neon.com/docs/auth/guides/customize-emails
