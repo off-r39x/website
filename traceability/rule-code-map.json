@@ -3490,15 +3490,8 @@
     },
     {
       "rule_id": "OBS-AUD-006",
-      "code_paths": [
-        "packages/db/src/audit-events.ts",
-        "packages/db/src/initial-data/targets.ts"
-      ],
-      "test_case_ids": [
-        "TC-OBS-AUD-006-001",
-        "TC-OBS-AUD-006-002",
-        "TC-TST-SEED-004-003"
-      ],
+      "code_paths": ["packages/db/src/audit-events.ts", "packages/db/src/initial-data/targets.ts"],
+      "test_case_ids": ["TC-OBS-AUD-006-001", "TC-OBS-AUD-006-002", "TC-TST-SEED-004-003"],
       "notes": "before/after/changed_fields/safe_change_summary only from per-operation change specs (enum, public ref, integer), accepted only for the operation IDs the spec lists; the first operation spec is PROVISION.INITIAL_DATA_SEED (initial-data/targets.ts)"
     },
     {
@@ -5794,11 +5787,7 @@
         "packages/db/src/initial-data/input.ts",
         "packages/db/seed/initial-data.example.json"
       ],
-      "test_case_ids": [
-        "TC-TST-SEED-003-005",
-        "TC-TST-SEED-005-001",
-        "TC-TST-SEED-005-002"
-      ],
+      "test_case_ids": ["TC-TST-SEED-003-005", "TC-TST-SEED-005-001", "TC-TST-SEED-005-002"],
       "notes": "implementation mapping only: input from an environment variable, read only when a row has to be created; the repository holds synthetic values only"
     },
     {
@@ -5874,12 +5863,8 @@
     },
     {
       "rule_id": "INF-SEED-006",
-      "code_paths": [
-        "packages/db/README.md"
-      ],
-      "test_case_ids": [
-        "TC-TST-SEED-005-005"
-      ],
+      "code_paths": ["packages/db/README.md"],
+      "test_case_ids": ["TC-TST-SEED-005-005"],
       "notes": "implementation mapping only: README documents the order; enforcement belongs to the deploy workflow, which is not implemented yet"
     },
     {
@@ -5900,9 +5885,7 @@
     },
     {
       "rule_id": "DB-SEED-002",
-      "code_paths": [
-        "packages/db/src/initial-data/seed.ts"
-      ],
+      "code_paths": ["packages/db/src/initial-data/seed.ts"],
       "test_case_ids": [
         "TC-TST-SEED-002-005",
         "TC-TST-SEED-003-005",
@@ -5938,55 +5921,31 @@
         "packages/db/src/initial-data/input.ts",
         "packages/db/src/initial-data/targets.ts"
       ],
-      "test_case_ids": [
-        "TC-TST-SEED-001-004",
-        "TC-TST-SEED-003-001",
-        "TC-TST-SEED-003-002"
-      ],
+      "test_case_ids": ["TC-TST-SEED-001-004", "TC-TST-SEED-003-001", "TC-TST-SEED-003-002"],
       "notes": "implementation mapping only: strict input validation with the same conditions as the CHECK constraints; numbers are checked as written (a plain integer literal only, before JSON.parse rounding); no guessed values"
     },
     {
       "rule_id": "DB-SEED-004",
-      "code_paths": [
-        "packages/db/src/initial-data/targets.ts"
-      ],
-      "test_case_ids": [
-        "TC-TST-SEED-001-001"
-      ],
+      "code_paths": ["packages/db/src/initial-data/targets.ts"],
+      "test_case_ids": ["TC-TST-SEED-001-001"],
       "notes": "implementation mapping only: Offerings are created SUSPENDED with counters at 0"
     },
     {
       "rule_id": "DB-SEED-005",
-      "code_paths": [
-        "packages/db/src/initial-data/seed.ts",
-        "packages/db/src/audit-events.ts"
-      ],
-      "test_case_ids": [
-        "TC-TST-SEED-003-003",
-        "TC-TST-SEED-004-001",
-        "TC-TST-SEED-003-007"
-      ],
+      "code_paths": ["packages/db/src/initial-data/seed.ts", "packages/db/src/audit-events.ts"],
+      "test_case_ids": ["TC-TST-SEED-003-003", "TC-TST-SEED-004-001", "TC-TST-SEED-003-007"],
       "notes": "implementation mapping only: one Audit Event per created row in the same transaction"
     },
     {
       "rule_id": "DB-SEED-006",
-      "code_paths": [
-        "packages/db/seed/initial-data.example.json"
-      ],
-      "test_case_ids": [
-        "TC-TST-SEED-005-001"
-      ],
+      "code_paths": ["packages/db/seed/initial-data.example.json"],
+      "test_case_ids": ["TC-TST-SEED-005-001"],
       "notes": "implementation mapping only: synthetic example only"
     },
     {
       "rule_id": "DB-SEED-007",
-      "code_paths": [
-        "packages/db/src/initial-data/targets.ts"
-      ],
-      "test_case_ids": [
-        "TC-TST-SEED-005-003",
-        "TC-TST-SEED-005-004"
-      ],
+      "code_paths": ["packages/db/src/initial-data/targets.ts"],
+      "test_case_ids": ["TC-TST-SEED-005-003", "TC-TST-SEED-005-004"],
       "notes": "implementation mapping only: no schema change; targets are table definitions only"
     },
     {
