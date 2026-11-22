@@ -730,7 +730,7 @@ describe("TC-DB-IDM-003-001 runtime privileges on app.idempotency_records (real 
     expect(deviations).toEqual([]);
   });
 
-  it("TC-DB-IDM-003-001 no role has a privilege on the identity sequence (identity needs none), and no purge function, job or role exists in the app schema (DB-IDM-003)", async () => {
+  it("TC-DB-IDM-003-001 no role has a privilege on the identity sequence (identity needs none), no function names this table, and no role but its owner can DELETE or TRUNCATE it (DB-IDM-003)", async () => {
     for (const role of ROLES) {
       expect(
         (
@@ -742,19 +742,30 @@ describe("TC-DB-IDM-003-001 runtime privileges on app.idempotency_records (real 
         `${role} sequence`,
       ).toBe(false);
     }
+    // Scoped to this table: other retention mechanisms the specifications define (SPEC-180 section 22.7,
+    // app_audit_purger and app.purge_expired_audit_events() for app.audit_events) are not DB-IDM-003's.
     const functions = (
       await admin.query(
-        `SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-          WHERE n.nspname = 'app' AND p.proname ~* '(purge|prune|clean|expire|reap|idempot|delete)'`,
+        `SELECT n.nspname, p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+            AND p.prosrc ~* 'idempotency_records'`,
       )
     ).rows;
-    expect(functions, "purge-like functions in app").toEqual([]);
-    const roles = (
+    expect(functions, "functions whose body names idempotency_records").toEqual([]);
+    // Predefined pg_* roles (pg_write_all_data) are excluded; a role granted one of them is still listed.
+    const deleters = (
       await admin.query(
-        "SELECT rolname FROM pg_roles WHERE rolname ~* '(purge|prune|clean|idempot)'",
+        `SELECT r.rolname FROM pg_roles r, pg_class c
+          WHERE c.oid = $1::regclass AND NOT r.rolsuper AND r.oid <> c.relowner
+            AND r.rolname !~ '^pg_'
+            AND (has_table_privilege(r.oid, c.oid, 'DELETE') OR has_table_privilege(r.oid, c.oid, 'TRUNCATE'))
+          ORDER BY r.rolname`,
+        [T],
       )
     ).rows;
-    expect(roles, "purge-like roles").toEqual([]);
+    expect(deleters, "roles other than the owner that can DELETE or TRUNCATE the table").toEqual(
+      [],
+    );
   });
 
   it("TC-DB-IDM-003-001 app_api_runtime can INSERT, SELECT and UPDATE a record in a transaction it rolls back, and is refused DELETE and TRUNCATE with 42501", async () => {
