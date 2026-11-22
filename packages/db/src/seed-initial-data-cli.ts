@@ -25,8 +25,9 @@ import {
 
 // Initial data seeding command (SPEC-180 section 45.3, INF-SEED-001..006). It runs as app_migrator on a
 // direct TLS connection under the migration lock. stdout carries exactly one JSON line (the business
-// specific result); stderr carries the common log lines. No exception message or stack, no input value,
-// no connection string and no SQLSTATE is ever written (INF-SEED-005, INF-SEC-001, OBS-LOG-005).
+// specific result); stderr carries the common log lines. No exception message or stack, no input value
+// and no connection string is ever written (INF-SEED-005, INF-SEC-001, OBS-LOG-005). A SQLSTATE is
+// written only as the cause of a retry (40001, 40P01 or 55P03 on the retry events: OBS-DB-002/003).
 // Exit codes: 0 CREATED / NOOP, 2 FAILED, 3 UNKNOWN_RESULT. Node itself exits 1 on a crash, which is
 // treated like UNKNOWN_RESULT: run the command again.
 

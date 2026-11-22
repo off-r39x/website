@@ -147,7 +147,12 @@ or a migration lock whose success arrives after its deadline is closed, not used
 the credentials (SQLSTATE class 28, such as `28P01`) is not retried: the first connection ends as
 `FAILED` (`PERMANENT_FAILURE`, `DATABASE_AUTHENTICATION_FAILED`), the re-check as `UNKNOWN_RESULT`.
 When a retry budget runs out (by attempts or by elapsed time, for the connection, the seed transaction
-or the re-check), `reliability.retry.exhausted` is logged (SPEC-160 §22) before the result. A
+or the re-check), `reliability.retry.exhausted` is logged (SPEC-160 §22) before the result. Every retry
+of these three logs `reliability.retry.attempted` as it starts. Both events carry the cause
+(SPEC-160 OBS-DB-003): `query_name` names what is retried (`initial_data.connect`,
+`initial_data.seed` or `initial_data.recheck`), and `sqlstate` the retryable SQLSTATE that caused a
+transaction retry (`40001`, `40P01` or `55P03`). A connection retry has no `sqlstate`, and neither has
+the seed retry after the re-check found the run uncommitted. No other output carries a SQLSTATE. A
 connection whose server stops answering at the close is destroyed after 3 seconds, so the command
 still exits.
 

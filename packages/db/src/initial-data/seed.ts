@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { LogEvent } from "@off-r39x/observability";
-import { isDatabaseRetryable, RETRY_POLICIES, retryDelay, TIMEOUTS } from "@off-r39x/reliability";
+import {
+  type DatabaseRetryState,
+  isDatabaseRetryable,
+  RETRY_POLICIES,
+  retryDelay,
+  TIMEOUTS,
+} from "@off-r39x/reliability";
 import type { Client } from "pg";
 import { insertAuditEventReturningId } from "../audit-events.ts";
 import { isSqlstate, sqlState } from "../errors.ts";
@@ -354,32 +360,77 @@ const isAuthenticationRejection = (error: unknown): boolean => {
 };
 
 /**
- * SPEC-160 section 22 `reliability.retry.exhausted`: a retry budget of SPEC-150 section 11 ran out, by
- * the number of attempts or by the elapsed time. The run then ends in its own outcome (FAILED, or
- * UNKNOWN_RESULT for a re-check); this event says why. Like every output of the command, it carries
- * no SQLSTATE. Logging is not business authority.
+ * What a retry repeats, as a stable source-controlled `query_name` (SPEC-160 section 23): the
+ * connection (a DB that cannot be reached), the seed transaction or the re-check transaction.
  */
-function logRetryExhausted(
+const RETRY_UNITS = {
+  connection: "initial_data.connect",
+  seed: "initial_data.seed",
+  recheck: "initial_data.recheck",
+} as const;
+
+/**
+ * The cause of a retry (OBS-DB-003): the unit retried and, for a transaction, the retryable SQLSTATE
+ * that caused it (`40001`, `40P01` or `55P03`, a bounded code: OBS-DB-002). A connection retry has
+ * none, and neither has the seed retry after a re-check found the run uncommitted (no lock timeout
+ * caused it, although it uses the 55P03 budget).
+ */
+type RetryCause = {
+  readonly unit: keyof typeof RETRY_UNITS;
+  readonly sqlstate?: DatabaseRetryState | undefined;
+};
+
+/**
+ * SPEC-160 section 22 `reliability.retry.attempted` (a retry starts) and `reliability.retry.exhausted`
+ * (a retry budget of SPEC-150 section 11 ran out, by the number of attempts or by the elapsed time;
+ * the run then ends in its own outcome, FAILED, or UNKNOWN_RESULT for a re-check). Both carry the
+ * cause, so that lock timeouts, serialization failures, deadlocks and an unreachable DB are counted
+ * apart (OBS-DB-003). No other output of the command carries a SQLSTATE. Logging is not business
+ * authority.
+ */
+function logRetry(
   logger: SeedOptions["logger"],
-  fields: { executionId: string; attemptNumber: number },
+  kind: "attempted" | "exhausted",
+  fields: { executionId: string; attemptNumber: number; cause: RetryCause },
 ): void {
+  const { sqlstate } = fields.cause;
+  const common = {
+    is_retry: fields.attemptNumber > 1,
+    operation_id: SEED_OPERATION_ID,
+    operation_execution_id: fields.executionId,
+    attempt_number: fields.attemptNumber,
+    provider: "NEON_DB",
+    query_name: RETRY_UNITS[fields.cause.unit],
+    ...(sqlstate === undefined ? {} : { sqlstate }),
+  } as const;
   try {
-    logger?.log({
-      event_name: "reliability.retry.exhausted",
-      level: "ERROR",
-      result: "FAILED",
-      failure_class: "TEMPORARY_FAILURE",
-      error_code: "DATABASE_TEMPORARY_FAILURE",
-      is_retry: fields.attemptNumber > 1,
-      operation_id: SEED_OPERATION_ID,
-      operation_execution_id: fields.executionId,
-      attempt_number: fields.attemptNumber,
-      provider: "NEON_DB",
-    });
+    logger?.log(
+      kind === "attempted"
+        ? { ...common, event_name: "reliability.retry.attempted", level: "INFO", result: "PENDING" }
+        : {
+            ...common,
+            event_name: "reliability.retry.exhausted",
+            level: "ERROR",
+            result: "FAILED",
+            failure_class: "TEMPORARY_FAILURE",
+            error_code: "DATABASE_TEMPORARY_FAILURE",
+          },
+    );
   } catch {
     // Logging is not business authority.
   }
 }
+
+/** The connection budget's retries and exhaustion, logged for one run (`logRetry`). */
+const connectionRetryLog = (logger: SeedOptions["logger"], executionId: string) => {
+  const cause: RetryCause = { unit: "connection" };
+  return {
+    onRetry: (attemptNumber: number) =>
+      logRetry(logger, "attempted", { executionId, attemptNumber, cause }),
+    onExhausted: (attemptNumber: number) =>
+      logRetry(logger, "exhausted", { executionId, attemptNumber, cause }),
+  };
+};
 
 /**
  * SPEC-150 section 11 "temporary DB connection acquisition": 3 attempts within 3 seconds in total,
@@ -388,11 +439,15 @@ function logRetryExhausted(
  * used. No attempt starts after the budget. Used for the command's first connection and for the
  * re-check connection. Resolves undefined when the budget runs out (`onExhausted` is told after how
  * many attempts); rejects with DatabaseAuthenticationRejected, without a further attempt, when the
- * server refuses the credentials.
+ * server refuses the credentials. `onRetry` is told the number of each attempt after the first, as it
+ * starts.
  */
 export async function connectWithinBudget(
   connect: SeedOptions["connect"],
-  options: { readonly onExhausted?: (attempts: number) => void } = {},
+  options: {
+    readonly onRetry?: (attempt: number) => void;
+    readonly onExhausted?: (attempts: number) => void;
+  } = {},
 ): Promise<Client | undefined> {
   const policy = RETRY_POLICIES.databaseConnection;
   const startedAt = performance.now();
@@ -402,6 +457,7 @@ export async function connectWithinBudget(
     const timeoutMs = leftMs();
     if (timeoutMs <= 0) break;
     attempts = n;
+    if (n > 1) options.onRetry?.(n);
     let connecting: Promise<Client>;
     try {
       connecting = connect({ timeoutMs: Math.ceil(timeoutMs) });
@@ -463,10 +519,7 @@ export async function openSeedConnection(
   const { executionId, logger } = options;
   let client: Client | undefined;
   try {
-    client = await connectWithinBudget(connect, {
-      onExhausted: (attempts) =>
-        logRetryExhausted(logger, { executionId, attemptNumber: attempts }),
-    });
+    client = await connectWithinBudget(connect, connectionRetryLog(logger, executionId));
   } catch (error) {
     if (!(error instanceof DatabaseAuthenticationRejected)) throw error;
     return {
@@ -700,10 +753,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
   // A connection refused for its credentials, or none within the budget: the re-check cannot run.
   const reconnect = async (executionId: string): Promise<Client | undefined> => {
     try {
-      return await connectWithinBudget(connect, {
-        onExhausted: (attempts) =>
-          logRetryExhausted(options.logger, { executionId, attemptNumber: attempts }),
-      });
+      return await connectWithinBudget(connect, connectionRetryLog(options.logger, executionId));
     } catch {
       return undefined;
     }
@@ -721,7 +771,15 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     const startedAt = performance.now();
     const elapsed = () => performance.now() - startedAt;
     let budgetLimitMs = Number.POSITIVE_INFINITY;
+    // The SQLSTATE of the latest retry: the cause of the next attempt and of an exhaustion.
+    let sqlstate: DatabaseRetryState | undefined;
     for (let n = 1; n <= MAX_ATTEMPTS; n += 1) {
+      if (n > 1)
+        logRetry(options.logger, "attempted", {
+          executionId,
+          attemptNumber: n,
+          cause: { unit: "recheck", sqlstate },
+        });
       // A retried re-check whose wall clock is what is left of the budget: reaching it is exhaustion.
       const budgetBound = budgetLimitMs - elapsed() < recheckDeadlineMs;
       const deadline = transactionDeadline(
@@ -730,7 +788,11 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       );
       const { within } = deadline;
       const exhausted = () => {
-        logRetryExhausted(options.logger, { executionId, attemptNumber: n });
+        logRetry(options.logger, "exhausted", {
+          executionId,
+          attemptNumber: n,
+          cause: { unit: "recheck", sqlstate },
+        });
         return undefined;
       };
       try {
@@ -784,6 +846,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         }
         if (error instanceof DeadlineExceeded) return budgetBound ? exhausted() : undefined;
         if (!isDatabaseRetryable(error)) return undefined;
+        sqlstate = error.code;
         if (n >= MAX_ATTEMPTS) return exhausted();
         const policy = RETRY_POLICIES[error.code];
         budgetLimitMs = Math.min(budgetLimitMs, policy.maxElapsedMs);
@@ -812,20 +875,13 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     // The smallest elapsed budget of the retry classes applied so far (SPEC-150 section 11): a later
     // SQLSTATE with a longer budget does not extend it. No limit until the first retry.
     let budgetLimitMs = Number.POSITIVE_INFINITY;
+    // The cause of the latest retry: its SQLSTATE, or none after an uncommitted re-check.
+    let cause: RetryCause = { unit: "seed" };
     for (;;) {
       attemptNumber += 1;
       const executionId = randomUUID();
       if (attemptNumber > 1)
-        log({
-          event_name: "reliability.retry.attempted",
-          level: "INFO",
-          result: "PENDING",
-          is_retry: true,
-          operation_id: SEED_OPERATION_ID,
-          operation_execution_id: executionId,
-          attempt_number: attemptNumber,
-          provider: "NEON_DB",
-        });
+        logRetry(options.logger, "attempted", { executionId, attemptNumber, cause });
       // A retry whose wall clock is what is left of the budget: reaching it is exhaustion.
       const budgetBound = budgetLimitMs - budgetElapsedMs() < deadlineMs;
       const attempt = await attemptOnce(
@@ -835,15 +891,16 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       );
       if (attempt.kind === "done") {
         if (budgetBound && attempt.deadlineHit)
-          logRetryExhausted(options.logger, { executionId, attemptNumber });
+          logRetry(options.logger, "exhausted", { executionId, attemptNumber, cause });
         return attempt.outcome;
       }
 
       if (attempt.kind === "retry") {
         retries += 1;
+        cause = { unit: "seed", sqlstate: attempt.code };
         const policy = RETRY_POLICIES[attempt.code];
         const exhausted = () => {
-          logRetryExhausted(options.logger, { executionId, attemptNumber });
+          logRetry(options.logger, "exhausted", { executionId, attemptNumber, cause });
           return failedOutcome(
             executionId,
             attemptNumber,
@@ -950,8 +1007,9 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         result: "FAILED",
         failure_class: "TEMPORARY_FAILURE",
       });
+      cause = { unit: "seed" };
       const uncommittedExhausted = () => {
-        logRetryExhausted(options.logger, { executionId, attemptNumber });
+        logRetry(options.logger, "exhausted", { executionId, attemptNumber, cause });
         return failedOutcome(
           executionId,
           attemptNumber,
