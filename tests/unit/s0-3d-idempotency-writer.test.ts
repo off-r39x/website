@@ -26,7 +26,7 @@ const VALID_RESULT = { type: "SYNTHETIC_EFFECT", refs: [uuid(0xb1)] };
 type Sent = { sql: string; params: unknown[] };
 function fake() {
   const query = vi.fn(async (_config: unknown, _params?: unknown[]) => ({
-    rows: [{ id: "1", xact: "100" }],
+    rows: [{ id: "1", version: "100", xact: "100" }],
     rowCount: 1,
   }));
   const client = { query } as unknown as PoolClient;
