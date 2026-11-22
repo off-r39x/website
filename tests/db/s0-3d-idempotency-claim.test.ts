@@ -22,6 +22,7 @@ import {
   digest,
   type EffectInput,
   effectRows,
+  expectPoolsUtcReadCommitted,
   expectUtcReadCommitted,
   hex,
   insertProfile,
@@ -809,6 +810,7 @@ describe("TC-API-IDM-009-001 N concurrent requests are serialised by the unique 
     const collector = logCollector();
     const holder = new Client({ connectionString: url });
     await holder.connect();
+    await expectUtcReadCommitted(holder, "lock holder session");
     let attempts = 0;
     try {
       await holder.query("BEGIN");
@@ -902,6 +904,10 @@ describe("TC-DB-IDM-002-001 the claim is placed after the Profile lock, so no de
   it("TC-DB-IDM-002-001 control: two raw sessions that INSERT the record first and lock the Profile afterwards do deadlock (40P01), which is why the claim follows the Profile lock", async () => {
     const sessions = [new Client({ connectionString: url }), new Client({ connectionString: url })];
     await Promise.all(sessions.map((session) => session.connect()));
+    // TST-DB-002: both raw sessions run in UTC and READ COMMITTED, checked before the deadlock.
+    for (const [index, session] of sessions.entries()) {
+      await expectUtcReadCommitted(session, `deadlock control session ${index}`);
+    }
     const [a, b] = sessions as [Client, Client];
     const lockProfile = "SELECT id FROM app.business_profiles WHERE id = $1::bigint FOR UPDATE";
     const finish = async (session: Client, pending: Promise<unknown>) => {
@@ -1031,6 +1037,7 @@ describe("TC-API-IDM-004-001 the record is written in the business transaction a
     rig.use({ position: "no-profile-lock" });
     const holder = new Client({ connectionString: url });
     await holder.connect();
+    await expectUtcReadCommitted(holder, "lock holder session");
     try {
       await holder.query("BEGIN");
       await holder.query(
@@ -1055,6 +1062,7 @@ describe("TC-API-IDM-004-001 the record is written in the business transaction a
     target.password = "";
     const proxy = await startCommitAcknowledgementDropProxy(target);
     const lossy = new Pool({ connectionString: proxy.url, ssl: false, max: 1 });
+    await expectPoolsUtcReadCommitted([lossy], "lossy pool");
     const key = "synthetic-idem-key-atomic-e-0001";
     const cause = ref(0xc41);
     const rig = idempotencyStoreRig({ pool: lossy, principalProfileRef: P1 });
@@ -1160,6 +1168,7 @@ describe("TC-API-IDM-004-002 the minimal transaction records an Operation that s
     target.password = "";
     const proxy = await startCommitAcknowledgementDropProxy(target);
     const lossy = new Pool({ connectionString: proxy.url, ssl: false, max: 1 });
+    await expectPoolsUtcReadCommitted([lossy], "lossy pool");
     const input = claimInput(P1, "synthetic-idem-key-noop-0003", "synthetic-request-noop");
     try {
       expect(await recordTransportIdempotencyWithoutBusinessUpdate(lossy, input, result)).toEqual({
