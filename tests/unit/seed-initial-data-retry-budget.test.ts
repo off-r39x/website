@@ -1,8 +1,17 @@
 import { performance } from "node:perf_hooks";
 import type { Client } from "pg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { connectWithinBudget, seedInitialData } from "../../packages/db/src/initial-data/seed.ts";
-import { acquireMigrationLock } from "../../packages/db/src/migration-lock.ts";
+import {
+  connectWithinBudget,
+  DatabaseAuthenticationRejected,
+  openSeedConnection,
+  seedInitialData,
+} from "../../packages/db/src/initial-data/seed.ts";
+import {
+  acquireMigrationLock,
+  MigrationLockTimeoutError,
+} from "../../packages/db/src/migration-lock.ts";
+import { createLogger } from "../../packages/observability/src/index.ts";
 import { buildInitialDataInput, SEED_ACTOR_REF } from "../harness/db/initial-data.ts";
 
 // PR-SEED: the retry budget includes the backoff wait (SPEC-150 section 11, 55P03 row: 4 attempts, 5 s
@@ -96,15 +105,48 @@ const loweredTimeouts = (statements: string[]) =>
     return match ? [Number(match[1])] : [];
   });
 
-async function seedWith(main: Client, connect: () => Promise<Client>) {
+async function seedWith(
+  main: Client,
+  connect: () => Promise<Client>,
+  logger?: { log(event: Parameters<ReturnType<typeof createLogger>["log"]>[0]): void },
+) {
   const lock = await acquireMigrationLock(main);
   return await seedInitialData({
     lock,
     connect,
     readInput: () => JSON.stringify(buildInitialDataInput()),
     actorRef: SEED_ACTOR_REF,
+    ...(logger === undefined ? {} : { logger }),
   });
 }
+
+const collected: Record<string, unknown>[] = [];
+/** A schema-checking logger (the one the command uses) whose records are collected. */
+function collectingLogger() {
+  const records: Record<string, unknown>[] = [];
+  const logger = createLogger(
+    {
+      service: "RECOVERY",
+      environment: "test",
+      actor_type: "INFRASTRUCTURE_OPERATOR",
+      actor_ref: SEED_ACTOR_REF,
+    },
+    (line) => {
+      const record = JSON.parse(line) as Record<string, unknown>;
+      records.push(record);
+      collected.push(record);
+    },
+  );
+  const named = (name: string) => records.filter((record) => record.event_name === name);
+  return { logger, records, named };
+}
+const EXHAUSTED = "reliability.retry.exhausted";
+
+afterEach(() => {
+  // Like every output of the command, no record carries a SQLSTATE (seed-initial-data-cli.ts).
+  for (const record of collected) expect(record).not.toHaveProperty("sqlstate");
+  collected.length = 0;
+});
 
 beforeEach(() => {
   clock.now = 0;
@@ -345,5 +387,281 @@ describe("TC-TST-SEED-003-014 the first connection of the command is retried wit
     expect(client).toBeUndefined();
     expect(calls).toBe(1);
     expect(clock.sleeps).toEqual([]);
+  });
+});
+
+/** A connection double that counts how often it was ended. */
+function trackedClient(lockAdvanceMs = 0) {
+  const state = { ended: 0 };
+  const client = {
+    on: () => client,
+    end: async () => {
+      state.ended += 1;
+    },
+    query: async (query: Query) => {
+      const text = textOf(query);
+      if (/current_user/i.test(text)) return { rows: [{ role: "app_migrator" }] };
+      if (/pg_advisory_lock\(/i.test(text)) clock.now += lockAdvanceMs;
+      return { rows: [] };
+    },
+  };
+  return { client: client as unknown as Client, state };
+}
+const authenticationRejected = (code: "28P01" | "28000") =>
+  Object.assign(new Error("synthetic authentication failure"), { code });
+const EXECUTION_ID = "00000000-0000-4000-8000-0000000000a1";
+
+describe("TC-TST-SEED-003-015 a connection or a migration lock that arrives after its deadline is not used (REL-DB-011, SPEC-150 section 11, SPEC-180 section 24)", () => {
+  it("TC-TST-SEED-003-015 (a) a connection that succeeds at 3001 ms is ended, not returned: no client, no further attempt", async () => {
+    const late = trackedClient();
+    let calls = 0;
+    const client = await connectWithinBudget(async () => {
+      calls += 1;
+      clock.now += 3001;
+      return late.client;
+    });
+    expect(client).toBeUndefined();
+    expect(calls).toBe(1);
+    expect(late.state.ended).toBe(1);
+    expect(clock.sleeps).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-015 (b) a migration lock granted after its deadline is refused: MigrationLockTimeoutError, the connection is ended", async () => {
+    const late = trackedClient(1001);
+    await expect(acquireMigrationLock(late.client, { deadlineMs: 1000 })).rejects.toBeInstanceOf(
+      MigrationLockTimeoutError,
+    );
+    expect(late.state.ended).toBe(1);
+  });
+
+  it("TC-TST-SEED-003-015 (c) a migration lock granted within its deadline is held: the connection is not ended", async () => {
+    const inTime = trackedClient(999);
+    const lock = await acquireMigrationLock(inTime.client, { deadlineMs: 1000 });
+    expect(lock.client).toBe(inTime.client);
+    expect(inTime.state.ended).toBe(0);
+  });
+});
+
+describe("TC-TST-SEED-003-016 an authentication rejection is a permanent failure and is not retried (SPEC-150 sections 8 and 11, INF-SEED-005)", () => {
+  it.each(["28P01", "28000"] as const)(
+    "TC-TST-SEED-003-016 (a) SQLSTATE %s on the first attempt: rejected at once, no second attempt, no backoff",
+    async (code) => {
+      let calls = 0;
+      await expect(
+        connectWithinBudget(async () => {
+          calls += 1;
+          throw authenticationRejected(code);
+        }),
+      ).rejects.toBeInstanceOf(DatabaseAuthenticationRejected);
+      expect(calls).toBe(1);
+      expect(clock.sleeps).toEqual([]);
+    },
+  );
+
+  it("TC-TST-SEED-003-016 (b) the command's first connection: FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED), no retry exhaustion", async () => {
+    const { logger, named } = collectingLogger();
+    let calls = 0;
+    const opened = await openSeedConnection(
+      async () => {
+        calls += 1;
+        throw authenticationRejected("28P01");
+      },
+      { executionId: EXECUTION_ID, logger },
+    );
+    expect(opened).toEqual({
+      kind: "failed",
+      outcome: {
+        outcome: "FAILED",
+        operationExecutionId: EXECUTION_ID,
+        attemptNumber: 1,
+        failureClass: "PERMANENT_FAILURE",
+        errorCode: "DATABASE_AUTHENTICATION_FAILED",
+      },
+    });
+    expect(calls).toBe(1);
+    expect(named(EXHAUSTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-016 (c) the re-check connection after a lost COMMIT is rejected: UNKNOWN_RESULT after one attempt", async () => {
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    let calls = 0;
+    const outcome = await seedWith(main.client, async () => {
+      calls += 1;
+      throw authenticationRejected("28P01");
+    });
+    expect(outcome).toMatchObject({
+      outcome: "UNKNOWN_RESULT",
+      errorCode: "COMMIT_RESULT_UNKNOWN",
+    });
+    expect(calls).toBe(1);
+    expect(clock.sleeps).toEqual([]);
+  });
+});
+
+describe("TC-TST-SEED-003-017 an exhausted retry budget emits reliability.retry.exhausted (SPEC-160 section 22, OBS-DB-003, SPEC-150 section 11)", () => {
+  const common = {
+    level: "ERROR",
+    result: "FAILED",
+    failure_class: "TEMPORARY_FAILURE",
+    operation_id: "PROVISION.INITIAL_DATA_SEED",
+    provider: "NEON_DB",
+  };
+  const noRecheck = async (): Promise<Client> => {
+    throw new Error("no re-check expected");
+  };
+
+  it("TC-TST-SEED-003-017 (a) the seed transaction's 55P03 budget runs out by elapsed time: one event at attempt 3 with SQLSTATE 55P03, then FAILED", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "timeout" });
+    const outcome = await seedWith(main.client, noRecheck, logger);
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      attemptNumber: 3,
+      errorCode: "DATABASE_TEMPORARY_FAILURE",
+    });
+    expect(named(EXHAUSTED)).toEqual([
+      expect.objectContaining({
+        ...common,
+        attempt_number: 3,
+        is_retry: true,
+        error_code: "DATABASE_TEMPORARY_FAILURE",
+        operation_execution_id: outcome.operationExecutionId,
+      }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-017 (b) the 40001 budget runs out by count: one event at attempt 4 with SQLSTATE 40001, then FAILED", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: Array.from({ length: 4 }, () => ({ advanceMs: 10, code: "40001" as const })),
+    });
+    const outcome = await seedWith(main.client, noRecheck, logger);
+    expect(outcome).toMatchObject({ outcome: "FAILED", attemptNumber: 4 });
+    expect(clock.sleeps).toEqual([49.5, 99, 198]);
+    expect(named(EXHAUSTED)).toEqual([
+      expect.objectContaining({ ...common, attempt_number: 4, is_retry: true }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-017 (c) the command's first connection fails three times: one event at attempt 3, then FAILED(TEMPORARY_FAILURE)", async () => {
+    const { logger, named } = collectingLogger();
+    const opened = await openSeedConnection(
+      async () => {
+        throw new Error("synthetic connection failure");
+      },
+      { executionId: EXECUTION_ID, logger },
+    );
+    expect(opened).toMatchObject({
+      kind: "failed",
+      outcome: {
+        outcome: "FAILED",
+        failureClass: "TEMPORARY_FAILURE",
+        errorCode: "DATABASE_TEMPORARY_FAILURE",
+      },
+    });
+    expect(named(EXHAUSTED)).toEqual([
+      expect.objectContaining({
+        ...common,
+        attempt_number: 3,
+        is_retry: true,
+        error_code: "DATABASE_TEMPORARY_FAILURE",
+        operation_execution_id: EXECUTION_ID,
+      }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-017 (d) the retry after an uncommitted re-check cannot start within the budget: one event, then FAILED", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      commit: "lost",
+      xactLocks: [{ advanceMs: 4970 }],
+    });
+    const recheck = scriptedClient({ xactLock: "grant" });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "FAILED", attemptNumber: 1 });
+    expect(named(EXHAUSTED)).toEqual([
+      expect.objectContaining({
+        ...common,
+        attempt_number: 1,
+        operation_execution_id: outcome.operationExecutionId,
+      }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-017 (e) the re-check's 55P03 budget runs out: one event at re-check attempt 3, the result stays UNKNOWN_RESULT", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({ xactLock: "timeout" });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT" });
+    expect(named(EXHAUSTED)).toEqual([
+      expect.objectContaining({
+        ...common,
+        attempt_number: 3,
+        is_retry: true,
+        operation_execution_id: outcome.operationExecutionId,
+      }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-017 (g) a retry cut off by what is left of the budget: one event at attempt 2, then FAILED", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }, { advanceMs: 200 }],
+    });
+    const outcome = await seedWith(main.client, noRecheck, logger);
+    expect(outcome).toMatchObject({ outcome: "FAILED", attemptNumber: 2 });
+    expect(named(EXHAUSTED)).toEqual([
+      expect.objectContaining({
+        ...common,
+        attempt_number: 2,
+        is_retry: true,
+        operation_execution_id: outcome.operationExecutionId,
+      }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-017 (h) a re-check retry cut off by what is left of its budget: one event at re-check attempt 2, UNKNOWN_RESULT", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }, { advanceMs: 200 }],
+    });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT" });
+    expect(named(EXHAUSTED)).toEqual([
+      expect.objectContaining({ ...common, attempt_number: 2, is_retry: true }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-017 (i) a first attempt that reaches the 8 second transaction deadline is not retry exhaustion", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", xactLocks: [{ advanceMs: 8001 }] });
+    const outcome = await seedWith(main.client, noRecheck, logger);
+    expect(outcome).toMatchObject({ outcome: "FAILED", attemptNumber: 1 });
+    expect(named(EXHAUSTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-017 (f) runs that succeed after a retry emit no exhaustion event", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({ xactLock: "grant" });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 2 });
+    let calls = 0;
+    const opened = await openSeedConnection(
+      async () => {
+        calls += 1;
+        if (calls < 3) throw new Error("synthetic connection failure");
+        return trackedClient().client;
+      },
+      { executionId: EXECUTION_ID, logger },
+    );
+    expect(opened.kind).toBe("connected");
+    expect(named(EXHAUSTED)).toEqual([]);
   });
 });
