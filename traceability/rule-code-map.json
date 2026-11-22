@@ -3576,7 +3576,8 @@
         "TC-TST-SEED-003-013",
         "TC-TST-SEED-006-015",
         "TC-TST-SEED-006-016",
-        "TC-TST-SEED-006-017"
+        "TC-TST-SEED-006-017",
+        "TC-TST-SEED-006-018"
       ],
       "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits"
     },
@@ -3643,9 +3644,10 @@
         "TC-TST-SEED-003-013",
         "TC-TST-SEED-006-015",
         "TC-TST-SEED-006-016",
-        "TC-TST-SEED-006-017"
+        "TC-TST-SEED-006-017",
+        "TC-TST-SEED-006-018"
       ],
-      "notes": "implementation mapping only: transaction advisory lock before the count; re-check on a new connection, under the migration lock, after an unknown COMMIT result, each re-check transaction within the transaction deadline, kept on the client too (a connection that stops answering is abandoned); the reconnect stays within 3 attempts and 3 seconds in total, each attempt bounded by what is left; the retries of the seed and of the re-check, and the retry after an uncommitted re-check, stay within the attempts and elapsed budget, backoff included, each retried transaction running within what is left of the budget and a later SQLSTATE never extending a budget already applied"
+      "notes": "implementation mapping only: transaction advisory lock before the count; re-check on a new connection, under the migration lock, after an unknown COMMIT result, each re-check transaction within the transaction deadline, kept on the client too (a connection that stops answering is abandoned); the reconnect stays within 3 attempts and 3 seconds in total, each attempt bounded by what is left; the retries of the seed and of the re-check, and the retry after an uncommitted re-check (after a full jitter 55P03 backoff), stay within the attempts and elapsed budget, backoff included, each retried transaction running within what is left of the budget and a later SQLSTATE never extending a budget already applied"
     },
     {
       "rule_id": "DB-SEED-003",
