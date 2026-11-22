@@ -386,12 +386,12 @@ Railwayは1つのprojectを使い、Canonical Environmentごとに、そのproje
 
 **INF-RWY-008:** CI/CDが使うRailway credentialは、対象のRailway environmentに限定したproject tokenだけとし、environmentごとに対応するGitHub protected Environment Secret（§25、§42）に置く。Railwayのproduction environmentのproject tokenはProduction deployment job（§42、§68）だけが読む。Account token・Workspace tokenは、CI/CD、GitHub Secret、runtime variableに置かない。
 
-**INF-RWY-009:** Railway environmentの複製（Duplicate Environment）では、Railwayのproduction environmentを複製元にしない。複製したenvironmentは、staged changesを承認して最初にdeployする前に、次をすべて満たす。
+**INF-RWY-009:** Railway environmentの複製（Duplicate Environment）では、Railwayのproduction environmentを複製元にしない。複製したenvironmentは、staged changesを承認して最初にdeployする前に次の1〜3を満たし、最初のdeployの後、利用を始める前に4を満たす。
 
 1. Secretを複製元から写さず、複製先で新しく発行する（`SPEC-140` §46、`SEC-KEY-004`）。Sealed Variablesは複製されない（§82）。
 2. 複製元から写ったSecretでない変数のうち、Environmentを識別・接続する値（`APP_ENV`、§9の `EXPECTED_*`、§10のorigin、許可するhost・originの一覧等）を複製先の値へ書き換え、その他の値（`RATE_LIMIT_CONFIG`、`TRUSTED_PROXY_HOPS` 等）を複製先の値として確認する。
 3. custom domainとvolumeが複製元から写っていないことを確認する（複製時の扱いは未確認。§82）。
-4. 複製先の値で、§9のidentity validationと§40のreadinessが成立することを確認する。
+4. 最初のdeployの後、複製先の値で、§9のidentity validation（server processの起動時の照合）と§40のreadinessが成立することを確認する。成立するまで、そのenvironmentにcustom domainを割り当てず、利用を始めない。
 
 各Railway environmentに最低限次のserviceを置く（`test` はRailway environmentを置く場合）。
 
@@ -1922,7 +1922,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 56. 初期データ（EventとEntry Ticket Offering）が、専用の運用コマンドだけで、migration jobの `app_migrator` により、schema readiness checkの後・API deployの前に投入される。入力は環境別のprotected Environment Secretから渡り、実値がsource・log・artifact・release evidenceに出ない。対象が0件のときだけ作り、再実行で行が増えず、Offeringは `SUSPENDED` で作られ、`FAILED` と `UNKNOWN_RESULT` ではdeploymentが停止し、結果不明の場合は再実行で再照合できる（`INF-SEED-001〜006`）。
 57. `LIST_CURSOR_HMAC_KEY` がAPI serviceだけに配置され、他serviceやClientへ出ず、他のSecretと共有されず、他のSecretから導出されない。鍵またはversionの欠落・形式不正でAPI readinessがfalseになり、署名しないcursorへfallbackしない（`INF-SEC-007`）。
 58. 旧artifactのreadinessが、後続releaseのmigrationが `INF-HLT-006` 4の許容範囲にある場合はReadyになり、`INF-HLT-006` の1〜4を満たさない場合（後方互換な変更であってもrequired要素の削除・属性の変更に当たるもの（既存CHECKの緩和を含む）、required tableへのNOT NULLでdefault等のない追加列、journalの先頭の不一致・不足、journalが同じ長さでの追加object）はReadyにならない。`SPEC-170` §22 項目9のTestがG2でPassする。
-59. Railwayの各Canonical Environmentが§14の表のRailway environmentに置かれ、`APP_ENV` がCanonical Environment名である。SecretがShared Variablesになく、PR environmentsが無効で、CI/CDのRailway credentialは対象environmentに限定したproject tokenだけであり、Account token・Workspace tokenがCI/CD・GitHub Secret・runtimeにない。複製したenvironmentは最初のdeployの前に `INF-RWY-009` の1〜4を満たしている（`INF-RWY-006〜009`）。
+59. Railwayの各Canonical Environment（`test` はRailway environmentを置く場合だけ。置かない場合は§74.1のCIのephemeral services）が§14の表のRailway environmentに置かれ、`APP_ENV` がCanonical Environment名である。SecretがShared Variablesになく、PR environmentsが無効で、CI/CDのRailway credentialは対象environmentに限定したproject tokenだけであり、Account token・Workspace tokenがCI/CD・GitHub Secret・runtimeにない。複製したenvironmentは、最初のdeployの前に `INF-RWY-009` の1〜3を、利用を始める前に4を満たしている（`INF-RWY-006〜009`）。
 
 ---
 
