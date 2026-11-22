@@ -28372,11 +28372,17 @@
       "test_case_id": "TC-DB-IDM-001-004",
       "level": "DB",
       "suite": "db",
-      "upstream_rule_ids": ["SPEC-100-43.1", "DB-IDM-001", "API-IDM-004", "API-IDM-007"],
+      "upstream_rule_ids": [
+        "SPEC-100-43.1",
+        "DB-IDM-001",
+        "API-IDM-004",
+        "API-IDM-007",
+        "TST-DB-002"
+      ],
       "system_invariant_ids": ["INV-010-10"],
       "api_operation_ids": [],
       "db_constraint_names": ["ck_idempotency_records_result_ref"],
-      "preconditions": "Independent real PostgreSQL 17 database (TLS) migrated with 0001 to the idempotency_records migration; synthetic Business Profiles; runtime connections as app_api_runtime; synthetic values only",
+      "preconditions": "Independent real PostgreSQL 17 database (TLS) migrated with 0001 to the idempotency_records migration; synthetic Business Profiles; runtime connections as app_api_runtime; the admin session, each runtime pool and every transaction the cases BEGIN directly are verified UTC and read committed (TST-DB-002); synthetic values only",
       "fixture_ids": [],
       "clock_instant": "DB time: transaction_timestamp(); an expired row is made by moving created_at and expires_at back 48 hours as the admin",
       "concurrency_seed": null,
@@ -28384,12 +28390,14 @@
       "expected_http": null,
       "expected_domain_postconditions": [
         "A first claim's handle sets the result only in the transaction that claimed it (SPEC-100 section 43.1): from a later transaction on the same connection, or from another connection, it is refused",
-        "After an expired row is reused by a new first claim, the old handle cannot fill the new request's result; the new handle sets it"
+        "After an expired row is reused by a new first claim, the old handle cannot fill the new request's result; the new handle sets it",
+        "After a claim is rolled back to a savepoint and the same key is claimed again in the same transaction (an expired row reused after the rollback or in a second savepoint, or a new row inserted again), the rolled-back claim's handle cannot set the result; the new claim's handle sets it"
       ],
       "expected_db_postconditions": [
         "A claim committed without a result keeps result_ref_type NULL and result_refs empty after the refused call",
         "No statement is sent for a handle on another connection; the claiming transaction still sets its result",
-        "The reused row keeps its id and holds the new request digest and only the new handle's references"
+        "The reused row keeps its id and holds the new request digest and only the new handle's references",
+        "After the savepoint cases one row remains, with the retried request digest and only the new handle's references; an expired row keeps its id"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
