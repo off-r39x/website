@@ -168,6 +168,16 @@ describe("TC-TST-SEED-003-004 exit codes and the CREATED / NOOP distinction (INF
       "a percent-encoded pooler host",
       { MIGRATION_DATABASE_URL: "postgresql://app_migrator@db%2Dpooler.invalid:5432/example" },
     ],
+    [
+      // Without a database name pg would read PGDATABASE (or fall back to the user name), so the
+      // target would depend on the environment rather than on the checked URL.
+      "a URL without a database name",
+      { MIGRATION_DATABASE_URL: "postgresql://app_migrator@db.invalid:5432" },
+    ],
+    [
+      "a URL with an empty database name",
+      { MIGRATION_DATABASE_URL: "postgresql://app_migrator@db.invalid:5432/" },
+    ],
     ["no MIGRATION_DATABASE_URL", { MIGRATION_DATABASE_URL: undefined }],
     [
       "no actor ref",
@@ -225,6 +235,16 @@ describe("TC-TST-SEED-003-004 exit codes and the CREATED / NOOP distinction (INF
     expect(noPort.port).toBe("");
     const run = await runSeedCli(
       baseEnv(buildInitialDataInput(), { MIGRATION_DATABASE_URL: noPort.href, PGPORT: "1" }),
+    );
+    expect(run.code).toBe(0);
+    expect(resultLine(run.stdout)).toMatchObject({ outcome: "CREATED", error_code: null });
+    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: 3 });
+  });
+
+  it("TC-TST-SEED-003-004 the database named in the URL is used even when PGDATABASE names another one", async () => {
+    // pg reads PGDATABASE only when it is given no database; the command always gives the URL's one.
+    const run = await runSeedCli(
+      baseEnv(buildInitialDataInput(), { PGDATABASE: "r39x_not_the_target" }),
     );
     expect(run.code).toBe(0);
     expect(resultLine(run.stdout)).toMatchObject({ outcome: "CREATED", error_code: null });
