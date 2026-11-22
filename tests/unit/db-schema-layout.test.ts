@@ -117,7 +117,7 @@ const EXPECTED_ROOT_EXPORTS = [
 ];
 
 describe("TC-DEV-DB-001-001 db package public surface", () => {
-  it("TC-DEV-DB-001-001 @off-r39x/db/schema exports exactly app and the twelve table declarations by name", async () => {
+  it("TC-DEV-DB-001-001 @off-r39x/db/schema exports exactly app and the fourteen table declarations by name", async () => {
     const schemaModule = await import("@off-r39x/db/schema");
 
     // (1) no helper or extra name leaks through the barrel (DEV-DB-001).
@@ -132,7 +132,9 @@ describe("TC-DEV-DB-001-001 db package public surface", () => {
       "goods",
       "goodsInventory",
       "idempotencyRecords",
+      "karaokeExclusiveScopes",
       "karaokeSalesConfigurations",
+      "karaokeSlots",
       "roleAssignments",
       "sponsorLogos",
     ]);
@@ -590,7 +592,9 @@ describe("TC-DB-ARC-007-001 Drizzle declarations match schema-contract.json", ()
       "goods",
       "goods_inventory",
       "idempotency_records",
+      "karaoke_exclusive_scopes",
       "karaoke_sales_configurations",
+      "karaoke_slots",
       "role_assignments",
       "sponsor_logos",
     ]);

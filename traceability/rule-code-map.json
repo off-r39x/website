@@ -2429,7 +2429,8 @@
         "apps/web/src/features/karaoke/karaoke-purchase-flow.ts",
         "apps/web/src/features/karaoke/use-karaoke-purchase.ts",
         "apps/web/src/features/karaoke/karaoke-slot-page.tsx",
-        "apps/web/src/features/public/route-params.ts"
+        "apps/web/src/features/public/route-params.ts",
+        "packages/db/migrations/0004_karaoke_scopes_slots.sql"
       ],
       "test_case_ids": [
         "TC-PG-KRK-002-601",
@@ -2439,9 +2440,11 @@
         "TC-PG-KRK-003-614",
         "TC-PG-KRK-003-642",
         "TC-PG-KRK-003-662",
-        "TC-PG-KRK-003-615"
+        "TC-PG-KRK-003-615",
+        "TC-INV-010-04-001",
+        "TC-CON-001-001"
       ],
-      "notes": "implementation mapping only: S4 public pages (UI mock, not API/DB/provider coverage)"
+      "notes": "implementation mapping only: two separate mappings. (1) S4 public pages: UI mock code paths, not API/DB/provider coverage. (2) DB: ex_karaoke_slots_scope_occupancy in migration 0004 (PR-GK-1), verified on real PostgreSQL. The Hold / Reservation side is PR-GK-2"
     },
     {
       "rule_id": "INV-010-10",
@@ -2877,6 +2880,7 @@
         "packages/db/src/schema",
         "packages/db/migrations/0001_foundation.sql",
         "packages/db/migrations/0003_public_content_sales.sql",
+        "packages/db/migrations/0004_karaoke_scopes_slots.sql",
         "packages/db/migrations/0005_idempotency_records.sql"
       ],
       "test_case_ids": [
@@ -2885,6 +2889,8 @@
         "TC-DB-ARC-007-001",
         "TC-DB-ARC-007-003",
         "TC-DB-ARC-007-004",
+        "TC-DB-ARC-007-005",
+        "TC-DB-ARC-007-006",
         "TC-DB-IDM-001-001",
         "TC-DB-IDM-001-002"
       ],
@@ -2898,19 +2904,24 @@
     },
     {
       "rule_id": "DB-MIG-001",
-      "code_paths": ["packages/db/migrations/0001_foundation.sql"],
-      "test_case_ids": ["TC-DB-FOUNDATION-001"],
-      "notes": "Required pgcrypto/btree_gist extensions"
+      "code_paths": [
+        "packages/db/migrations/0001_foundation.sql",
+        "packages/db/migrations/0004_karaoke_scopes_slots.sql"
+      ],
+      "test_case_ids": ["TC-DB-FOUNDATION-001", "TC-DB-ARC-007-006"],
+      "notes": "Required pgcrypto/btree_gist extensions; the 0004 exclusion depends on btree_gist"
     },
     {
       "rule_id": "DB-STA-002",
       "code_paths": [
         "packages/db/migrations/0003_public_content_sales.sql",
         "packages/db/src/schema/public-content.ts",
-        "packages/db/src/schema/sales.ts"
+        "packages/db/src/schema/sales.ts",
+        "packages/db/migrations/0004_karaoke_scopes_slots.sql",
+        "packages/db/src/schema/karaoke.ts"
       ],
-      "test_case_ids": ["TC-DB-STA-002-001", "TC-DB-ARC-007-003"],
-      "notes": "implementation mapping only: CHECK constraints allow the Publication State (DRAFT, PUBLISHED, ARCHIVED) and Sale Control State (ENABLED, SUSPENDED) values only"
+      "test_case_ids": ["TC-DB-STA-002-001", "TC-DB-ARC-007-003", "TC-DB-STA-002-002"],
+      "notes": "implementation mapping only: CHECK constraints allow the Publication State (DRAFT, PUBLISHED, ARCHIVED) and Sale Control State (ENABLED, SUSPENDED) values only; Karaoke Slot State allows AVAILABLE, HELD, SOLD and SALES_STOPPED only"
     },
     {
       "rule_id": "DB-TIM-001",
@@ -2918,24 +2929,34 @@
         "packages/db/migrations/0003_public_content_sales.sql",
         "packages/db/src/schema/public-content.ts",
         "packages/db/src/schema/sales.ts",
-        "packages/db/src/schema/goods.ts"
+        "packages/db/src/schema/goods.ts",
+        "packages/db/migrations/0004_karaoke_scopes_slots.sql",
+        "packages/db/src/schema/karaoke.ts"
       ],
-      "test_case_ids": ["TC-DB-TIM-001-001", "TC-DB-ARC-007-004"],
-      "notes": "implementation mapping only: every time column of the public content and sales tables is timestamptz"
+      "test_case_ids": [
+        "TC-DB-TIM-001-001",
+        "TC-DB-ARC-007-004",
+        "TC-KRK-001-001",
+        "TC-DB-ARC-007-006"
+      ],
+      "notes": "implementation mapping only: every time column of the public content and sales tables (0003) and the Karaoke Exclusive Scope and Slot tables (0004) is timestamptz"
     },
     {
       "rule_id": "DB-TIM-002",
       "code_paths": [
         "packages/db/migrations/0003_public_content_sales.sql",
-        "packages/db/migrations/0005_idempotency_records.sql",
         "packages/db/src/schema/public-content.ts",
         "packages/db/src/schema/sales.ts",
         "packages/db/src/schema/goods.ts",
+        "packages/db/migrations/0004_karaoke_scopes_slots.sql",
+        "packages/db/src/schema/karaoke.ts",
+        "packages/db/migrations/0005_idempotency_records.sql",
         "packages/db/src/idempotency-records.ts"
       ],
       "test_case_ids": [
         "TC-DB-TIM-001-001",
         "TC-DB-ARC-007-004",
+        "TC-KRK-001-001",
         "TC-API-IDM-008-001",
         "TC-API-IDM-008-002",
         "TC-DB-IDM-003-001"
@@ -2957,10 +2978,12 @@
         "packages/db/migrations/0003_public_content_sales.sql",
         "packages/db/src/schema/public-content.ts",
         "packages/db/src/schema/sales.ts",
-        "packages/db/src/schema/goods.ts"
+        "packages/db/src/schema/goods.ts",
+        "packages/db/migrations/0004_karaoke_scopes_slots.sql",
+        "packages/db/src/schema/karaoke.ts"
       ],
-      "test_case_ids": ["TC-DB-FK-002-001"],
-      "notes": "implementation mapping only: Event and Goods foreign keys are ON DELETE RESTRICT, never cascade"
+      "test_case_ids": ["TC-DB-FK-002-001", "TC-DB-FK-002-002"],
+      "notes": "implementation mapping only: Event and Goods foreign keys (0003) and the Karaoke foreign keys fk_karaoke_exclusive_scopes_event, fk_karaoke_slots_exclusive_scope and fk_karaoke_slots_sales_configuration (0004) are ON DELETE RESTRICT, never cascade"
     },
     {
       "rule_id": "DB-GDS-001",
@@ -3002,10 +3025,29 @@
       "rule_id": "SEC-DB-001",
       "code_paths": [
         "packages/db/migrations/0003_public_content_sales.sql",
+        "packages/db/migrations/0004_karaoke_scopes_slots.sql",
         "packages/db/migrations/0005_idempotency_records.sql"
       ],
-      "test_case_ids": ["TC-SEC-DB-001-001", "TC-DB-IDM-003-001"],
-      "notes": "implementation mapping only: runtime role grants on the eight 0003 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role)"
+      "test_case_ids": ["TC-SEC-DB-001-001", "TC-SEC-DB-001-002", "TC-DB-IDM-003-001"],
+      "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role)"
+    },
+    {
+      "rule_id": "DB-KRK-001",
+      "code_paths": ["packages/db/migrations/0004_karaoke_scopes_slots.sql"],
+      "test_case_ids": ["TC-CON-001-001", "TC-INV-010-04-001"],
+      "notes": "implementation mapping only: overlap is refused by ex_karaoke_slots_scope_occupancy, not by an application pre-check; no write path exists yet"
+    },
+    {
+      "rule_id": "DB-KRK-002",
+      "code_paths": ["packages/db/migrations/0004_karaoke_scopes_slots.sql"],
+      "test_case_ids": ["TC-INV-010-04-001"],
+      "notes": "implementation mapping only: tstzrange(usage_start, cycle_end, '[)'): cycle_end == next.usage_start is accepted"
+    },
+    {
+      "rule_id": "DB-KRK-003",
+      "code_paths": ["packages/db/migrations/0004_karaoke_scopes_slots.sql"],
+      "test_case_ids": ["TC-KRK-001-002", "TC-DB-ARC-007-006"],
+      "notes": "implementation mapping only: the exclusion has no predicate; every Slot State stays in it"
     },
     {
       "rule_id": "INF-DB-008",
@@ -3116,7 +3158,13 @@
         "tests/vitest.backend.config.mts",
         "tests/harness/db/isolated-database.ts"
       ],
-      "test_case_ids": ["TC-DB-FOUNDATION-006", "TC-STARTUP-AUDIT-001"],
+      "test_case_ids": [
+        "TC-DB-FOUNDATION-006",
+        "TC-STARTUP-AUDIT-001",
+        "TC-INF-SEC-007-002",
+        "TC-INF-SEC-007-003",
+        "TC-INF-SEC-007-006"
+      ],
       "notes": "Missing deployment mapping/schema/extension/hash/grant not ready"
     },
     {
@@ -3383,13 +3431,18 @@
     {
       "rule_id": "INF-SEC-003",
       "code_paths": ["packages/config/src/index.ts"],
-      "test_case_ids": ["TC-COMMON-007", "TC-RLM-006-106"],
+      "test_case_ids": ["TC-COMMON-007", "TC-RLM-006-106", "TC-INF-SEC-007-005"],
       "notes": "Per-process secret reader boundary"
     },
     {
       "rule_id": "DEV-SEC-001",
       "code_paths": ["packages/config/src/index.ts"],
-      "test_case_ids": ["TC-COMMON-006"],
+      "test_case_ids": [
+        "TC-COMMON-006",
+        "TC-INF-SEC-007-001",
+        "TC-INF-SEC-007-002",
+        "TC-INF-SEC-007-003"
+      ],
       "notes": "Fail-closed server environment schema"
     },
     {
@@ -3400,7 +3453,10 @@
         "TC-COMMON-006",
         "TC-COMMON-007",
         "TC-COMMON-011",
-        "TC-COMMON-012"
+        "TC-COMMON-012",
+        "TC-INF-SEC-007-002",
+        "TC-INF-SEC-007-003",
+        "TC-INF-SEC-007-006"
       ],
       "notes": "No warning-only invalid security configuration"
     },
@@ -5467,7 +5523,7 @@
         "TC-API-QRY-004-004",
         "TC-API-QRY-001-002"
       ],
-      "notes": "Signed opaque cursor bound to Operation, mode and filters; key injected by caller (secret placement pending UCR)"
+      "notes": "Signed opaque cursor bound to Operation, mode and filters; key from LIST_CURSOR_HMAC_KEY via bootstrap (API-QRY-005)"
     },
     {
       "rule_id": "SEC-API-018",
@@ -5652,6 +5708,55 @@
       "code_paths": ["packages/db/src/idempotency-records.ts"],
       "test_case_ids": ["TC-API-IDM-006-001", "TC-API-IDM-009-001", "TC-API-IDM-010-001"],
       "notes": "implementation mapping only: Transport layer cases only; the other layers are each Operation's PR"
+    },
+    {
+      "rule_id": "INF-SEC-007",
+      "code_paths": [
+        "packages/config/src/index.ts",
+        "apps/api/src/bootstrap/index.ts",
+        "apps/api/src/api/app.ts",
+        "apps/api/src/api/pagination.ts"
+      ],
+      "test_case_ids": [
+        "TC-INF-SEC-007-001",
+        "TC-INF-SEC-007-002",
+        "TC-INF-SEC-007-003",
+        "TC-INF-SEC-007-004",
+        "TC-INF-SEC-007-005",
+        "TC-INF-SEC-007-006",
+        "TC-INF-SEC-007-007",
+        "TC-API-QRY-005-001"
+      ],
+      "notes": "LIST_CURSOR_HMAC_KEY(_VERSION): API-only startup validation, injected by bootstrap; list routes fail closed without it"
+    },
+    {
+      "rule_id": "API-QRY-005",
+      "code_paths": [
+        "apps/api/src/api/pagination.ts",
+        "packages/config/src/index.ts",
+        "apps/api/src/bootstrap/index.ts"
+      ],
+      "test_case_ids": [
+        "TC-INF-SEC-007-001",
+        "TC-INF-SEC-007-007",
+        "TC-API-QRY-005-001",
+        "TC-API-QRY-004-001",
+        "TC-API-QRY-004-003",
+        "TC-API-QRY-001-002"
+      ],
+      "notes": "Cursor signed with LIST_CURSOR_HMAC_KEY and carrying its version (codec from S0-3b); no list Operation is mounted yet"
+    },
+    {
+      "rule_id": "SEC-KEY-006",
+      "code_paths": ["packages/config/src/index.ts", "apps/api/src/bootstrap/index.ts"],
+      "test_case_ids": ["TC-INF-SEC-007-002", "TC-INF-SEC-007-003", "TC-INF-SEC-007-006"],
+      "notes": "Missing or malformed list cursor key/version fails startup"
+    },
+    {
+      "rule_id": "SEC-KEY-003",
+      "code_paths": ["packages/config/src/index.ts"],
+      "test_case_ids": ["TC-INF-SEC-007-005"],
+      "notes": "Workers refuse the list cursor key"
     }
   ]
 }

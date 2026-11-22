@@ -16,6 +16,8 @@ bigint-mode tables; reviewed SQL lives in `migrations/`.
 - `src/schema/sales.ts`: `entry_ticket_offerings`, `karaoke_sales_configurations` and `goods` (SPEC-100 §15.1–15.3).
 - `src/schema/goods.ts`: `goods_inventory`. It is in its own file because SPEC-100 Part IX (§38) owns it; it
   references `goods` from `sales.ts`.
+- `src/schema/karaoke.ts`: `karaoke_exclusive_scopes` and `karaoke_slots` (SPEC-100 §27–28). The Scope overlap
+  exclusion `ex_karaoke_slots_scope_occupancy` is SQL-only (§57) and is not declared in Drizzle.
 - `src/schema/cross-functional.ts`: `idempotency_records` (SPEC-100 §43.1, Part X). Its `bytea` columns use a
   file-local `customType` (`Uint8Array`) so that `common.ts` stays helpers for the shared column kinds only.
   The file name is a repository decision (DEV-AI-003): SPEC-100 §55 names Part X Cross-functional.
