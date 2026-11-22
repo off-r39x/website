@@ -26,7 +26,7 @@ const VALID_RESULT = { type: "SYNTHETIC_EFFECT", refs: [uuid(0xb1)] };
 type Sent = { sql: string; params: unknown[] };
 function fake() {
   const query = vi.fn(async (_config: unknown, _params?: unknown[]) => ({
-    rows: [{ id: "1" }],
+    rows: [{ id: "1", xact: "100" }],
     rowCount: 1,
   }));
   const client = { query } as unknown as PoolClient;
@@ -149,21 +149,45 @@ describe("TC-DB-IDM-001-003 the claim primitive validates its input before any q
 });
 
 describe("TC-DB-IDM-001-003 setTransportIdempotencyResult validates the result before any query", () => {
-  // The handle is opaque and comes from a first claim: the fake database answers the claim's INSERT with
-  // one row, which the primitive reads as `first`.
-  let handle: Parameters<typeof setTransportIdempotencyResult>[1];
+  // The handle is opaque and comes from a first claim on the same client: the fake database answers the
+  // claim's INSERT with one row, which the primitive reads as `first`. `claimed()` forgets the claim's
+  // queries, so `sent()` shows only what setTransportIdempotencyResult sends.
+  type Handle = Parameters<typeof setTransportIdempotencyResult>[1];
+  async function claimed() {
+    const db = fake();
+    const claim = await claimTransportIdempotency(db.client, VALID_INPUT);
+    if (claim.status !== "first") throw new Error("the fake claim must be first");
+    (db.client.query as unknown as ReturnType<typeof vi.fn>).mockClear();
+    return { ...db, handle: claim.handle as Handle };
+  }
+  let handle: Handle;
+  let shared: Awaited<ReturnType<typeof claimed>>;
   beforeAll(async () => {
-    const claimed = await claimTransportIdempotency(fake().client, VALID_INPUT);
-    if (claimed.status !== "first") throw new Error("the fake claim must be first");
-    handle = claimed.handle;
+    shared = await claimed();
+    handle = shared.handle;
   });
-  const set = (client: PoolClient, result: unknown) =>
+  const set = (client: PoolClient, result: unknown, using: Handle = handle) =>
     setTransportIdempotencyResult(
       client,
-      handle,
+      using,
       result as Parameters<typeof setTransportIdempotencyResult>[2],
     );
+  /** A fresh fake with its own first claim, so a refusal is about `result`, not about the handle. */
+  const fresh = async () => {
+    const db = await claimed();
+    return {
+      client: db.client,
+      sent: db.sent,
+      run: (result: unknown) => set(db.client, result, db.handle),
+    };
+  };
 
+  // Arrays with holes: `every` skips a hole, and a hole spreads to undefined, which pg binds as NULL.
+  const oneHole = new Array<string>(1);
+  const validThenHole = [uuid(0xb1)];
+  validThenHole.length = 2;
+  // biome-ignore lint/suspicious/noSparseArray: a hole before a valid reference is the case under test
+  const holeThenValid = [, uuid(0xb1)];
   const RESULT_CASES: [label: string, value: unknown][] = [
     ["an empty refs array", { type: "SYNTHETIC_EFFECT", refs: [] }],
     ["a non UUID ref", { type: "SYNTHETIC_EFFECT", refs: ["synthetic-not-a-uuid"] }],
@@ -171,6 +195,11 @@ describe("TC-DB-IDM-001-003 setTransportIdempotencyResult validates the result b
     ["one bad ref among good ones", { type: "SYNTHETIC_EFFECT", refs: [uuid(0xb1), "bad"] }],
     ["a numeric ref", { type: "SYNTHETIC_EFFECT", refs: [42] }],
     ["refs that is not an array", { type: "SYNTHETIC_EFFECT", refs: uuid(0xb1) }],
+    ["a refs array of one hole", { type: "SYNTHETIC_EFFECT", refs: oneHole }],
+    ["a valid ref followed by a hole", { type: "SYNTHETIC_EFFECT", refs: validThenHole }],
+    ["a hole followed by a valid ref", { type: "SYNTHETIC_EFFECT", refs: holeThenValid }],
+    ["an undefined ref", { type: "SYNTHETIC_EFFECT", refs: [uuid(0xb1), undefined] }],
+    ["a null ref", { type: "SYNTHETIC_EFFECT", refs: [null] }],
     ["a lower case type", { type: "synthetic_effect", refs: [uuid(0xb1)] }],
     ["an empty type", { type: "", refs: [uuid(0xb1)] }],
     ["a type starting with a digit", { type: "1SYNTHETIC", refs: [uuid(0xb1)] }],
@@ -183,27 +212,77 @@ describe("TC-DB-IDM-001-003 setTransportIdempotencyResult validates the result b
   ];
   for (const [label, value] of RESULT_CASES) {
     it(`TC-DB-IDM-001-003 setResult: ${label} is refused with no query sent`, async () => {
-      const { client, sent } = fake();
-      await expect(set(client, value)).rejects.toThrow();
-      expect(sent(), "queries sent").toHaveLength(0);
+      const db = await fresh();
+      await expect(db.run(value)).rejects.toThrow("Invalid transport idempotency field: result");
+      expect(db.sent(), "queries sent").toHaveLength(0);
     });
   }
 
-  it("TC-DB-IDM-001-003 setResult: a type of exactly 64 characters is not refused by validation, and the refusal messages are value independent", async () => {
-    const { client, sent } = fake();
-    await set(client, { type: `A${"B".repeat(63)}`, refs: [uuid(0xb1)] }).catch(() => undefined);
-    expect(sent().length, "a valid result reaches the database").toBeGreaterThan(0);
+  it("TC-DB-IDM-001-003 setResult: the refs are read once; the copy that was checked is the one bound, so a ref that changes on a second read never reaches the database", async () => {
+    const db = await fresh();
+    let reads = 0;
+    const refs: string[] = [];
+    Object.defineProperty(refs, 0, {
+      enumerable: true,
+      get: () => (reads++ === 0 ? uuid(0xb1) : "synthetic-changed-after-check"),
+    });
+    await db.run({ type: "SYNTHETIC_EFFECT", refs }).catch(() => undefined);
+    const bound = db
+      .sent()
+      .flatMap((q) => q.params)
+      .flat();
+    expect(bound, "the checked value is bound").toContain(uuid(0xb1));
+    expect(bound).not.toContain("synthetic-changed-after-check");
+    expect(bound).not.toContain(undefined);
+    expect(reads, "each element is read exactly once").toBe(1);
+  });
 
-    const refused = fake();
-    const one = await messageOf(() => set(refused.client, { type: "bad-one", refs: [uuid(0xb1)] }));
-    const two = await messageOf(() => set(refused.client, { type: "bad-two", refs: [uuid(0xb1)] }));
+  it("TC-DB-IDM-001-003 setResult: a valid result binds exactly the checked references, in order, with no undefined or null", async () => {
+    const db = await fresh();
+    const refs = [uuid(0xb1), uuid(0xb2), uuid(0xb3)];
+    await db.run({ type: "SYNTHETIC_EFFECT", refs }).catch(() => undefined);
+    const arrays = db
+      .sent()
+      .flatMap((q) => q.params)
+      .filter((p): p is unknown[] => Array.isArray(p));
+    expect(arrays).toEqual([refs]);
+    expect(arrays[0], "a copy, not the caller's array").not.toBe(refs);
+  });
+
+  it("TC-DB-IDM-001-003 setResult: a handle used on another client is refused with no query sent (SPEC-100 section 43.1: the same transaction)", async () => {
+    const other = fake();
+    await expect(set(other.client, VALID_RESULT, handle)).rejects.toThrow(
+      "Invalid transport idempotency field: handle",
+    );
+    expect(other.sent()).toHaveLength(0);
+    expect(shared.sent()).toHaveLength(0);
+  });
+
+  it("TC-DB-IDM-001-003 setResult: a handle that did not come from a first claim is refused with no query sent", async () => {
+    const db = fake();
+    for (const forged of [{}, Object.freeze({}), null, "1", { id: "1" }]) {
+      await expect(set(db.client, VALID_RESULT, forged as unknown as Handle)).rejects.toThrow(
+        "Invalid transport idempotency field: handle",
+      );
+    }
+    expect(db.sent()).toHaveLength(0);
+  });
+
+  it("TC-DB-IDM-001-003 setResult: a type of exactly 64 characters is not refused by validation, and the refusal messages are value independent", async () => {
+    const valid = await fresh();
+    await valid.run({ type: `A${"B".repeat(63)}`, refs: [uuid(0xb1)] }).catch(() => undefined);
+    expect(valid.sent().length, "a valid result reaches the database").toBeGreaterThan(0);
+
+    const refused = await fresh();
+    const one = await messageOf(() => refused.run({ type: "bad-one", refs: [uuid(0xb1)] }));
+    const two = await messageOf(() => refused.run({ type: "bad-two", refs: [uuid(0xb1)] }));
     expect(one).toBe(two);
     expect(one).not.toContain("bad-one");
     const refOne = await messageOf(() =>
-      set(refused.client, { type: "SYNTHETIC_EFFECT", refs: ["synthetic-bad-ref-one"] }),
+      refused.run({ type: "SYNTHETIC_EFFECT", refs: ["synthetic-bad-ref-one"] }),
     );
     const refTwo = await messageOf(() =>
-      set(refused.client, { type: "SYNTHETIC_EFFECT", refs: ["synthetic-bad-ref-two"] }),
+      refused.run({ type: "SYNTHETIC_EFFECT", refs: ["synthetic-bad-ref-two"] }),
     );
     expect(refOne).toBe(refTwo);
     expect(refOne).not.toContain("synthetic-bad-ref");
@@ -211,9 +290,9 @@ describe("TC-DB-IDM-001-003 setTransportIdempotencyResult validates the result b
   });
 
   it("TC-DB-IDM-001-003 setResult: refs are bound as parameters, never written into the SQL text", async () => {
-    const { client, sent } = fake();
-    await set(client, VALID_RESULT).catch(() => undefined);
-    const queries = sent();
+    const db = await fresh();
+    await db.run(VALID_RESULT).catch(() => undefined);
+    const queries = db.sent();
     expect(queries.length).toBeGreaterThan(0);
     expect(queries.map((q) => q.sql).join("\n")).not.toContain(VALID_RESULT.refs[0]);
     expect(queries.flatMap((q) => q.params).flat()).toContain(VALID_RESULT.refs[0]);

@@ -219,6 +219,128 @@ describe("TC-API-IDM-006-001 the three decisions of the claim primitive (real Po
   });
 });
 
+// ---- TC-DB-IDM-001-004 ---------------------------------------------------------------------------
+
+describe("TC-DB-IDM-001-004 a first claim's handle sets the result only in the transaction that claimed it (SPEC-100 section 43.1, real PostgreSQL 17)", () => {
+  /** Claims `input` in its own transaction on `client`, commits without a result, and returns the handle. */
+  async function claimAndCommitWithoutResult(
+    client: PoolClient,
+    input: ReturnType<typeof claimInput>,
+  ) {
+    await client.query("BEGIN");
+    const claim = await claimTransportIdempotency(client, input);
+    if (claim.status !== "first") throw new Error("expected first");
+    await client.query("COMMIT");
+    return claim.handle;
+  }
+
+  it("TC-DB-IDM-001-004 a handle whose transaction committed without a result cannot set it from a later transaction on the same connection; the record keeps no result", async () => {
+    const input = claimInput(P1, "synthetic-idem-key-handle-0001", "synthetic-request-handle");
+    const client = await pool().connect();
+    try {
+      const handle = await claimAndCommitWithoutResult(client, input);
+      await client.query("BEGIN");
+      await expect(
+        setTransportIdempotencyResult(client, handle, { type: RESULT_TYPE, refs: [ref(0xa01)] }),
+      ).rejects.toThrow();
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+    const rows = await recordRows(admin);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ result_ref_type: null, result_refs: [] });
+  });
+
+  it("TC-DB-IDM-001-004 a handle cannot be used on another connection, even inside that connection's own transaction, and nothing is sent for it", async () => {
+    const input = claimInput(P1, "synthetic-idem-key-handle-0002", "synthetic-request-handle");
+    const claimer = await pool().connect();
+    const other = await pool().connect();
+    try {
+      await claimer.query("BEGIN");
+      const claim = await claimTransportIdempotency(claimer, input);
+      if (claim.status !== "first") throw new Error("expected first");
+      await other.query("BEGIN");
+      const sent = vi.spyOn(other, "query");
+      await expect(
+        setTransportIdempotencyResult(other, claim.handle, {
+          type: RESULT_TYPE,
+          refs: [ref(0xa02)],
+        }),
+      ).rejects.toThrow();
+      expect(
+        sent,
+        "no statement is sent for a handle of another connection",
+      ).not.toHaveBeenCalled();
+      sent.mockRestore();
+      await other.query("ROLLBACK");
+      // The claiming transaction itself still sets the result.
+      await setTransportIdempotencyResult(claimer, claim.handle, {
+        type: RESULT_TYPE,
+        refs: [ref(0xa03)],
+      });
+      await claimer.query("COMMIT");
+    } catch (error) {
+      await other.query("ROLLBACK").catch(() => undefined);
+      await claimer.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      other.release();
+      claimer.release();
+    }
+    expect((await recordRows(admin))[0]).toMatchObject({
+      result_ref_type: RESULT_TYPE,
+      result_refs: [ref(0xa03)],
+    });
+  });
+
+  it("TC-DB-IDM-001-004 after an expired row is reused, the old handle cannot fill the new request's result; the new handle can", async () => {
+    const key = "synthetic-idem-key-handle-0003";
+    const client = await pool().connect();
+    try {
+      const oldHandle = await claimAndCommitWithoutResult(
+        client,
+        claimInput(P1, key, "synthetic-request-old"),
+      );
+      const [seed] = await recordRows(admin);
+      await admin.query(
+        "UPDATE app.idempotency_records SET created_at = created_at - interval '48 hours', expires_at = expires_at - interval '48 hours' WHERE id = $1::bigint",
+        [seed?.id],
+      );
+      await client.query("BEGIN");
+      const reuse = await claimTransportIdempotency(
+        client,
+        claimInput(P1, key, "synthetic-request-new"),
+      );
+      if (reuse.status !== "first") throw new Error("expected the expired row to be reused");
+      await expect(
+        setTransportIdempotencyResult(client, oldHandle, { type: RESULT_TYPE, refs: [ref(0xa04)] }),
+      ).rejects.toThrow();
+      await setTransportIdempotencyResult(client, reuse.handle, {
+        type: RESULT_TYPE,
+        refs: [ref(0xa05)],
+      });
+      await client.query("COMMIT");
+      const rows = await recordRows(admin);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        id: seed?.id,
+        request_digest: hex(digest("synthetic-request-new")),
+        result_ref_type: RESULT_TYPE,
+        result_refs: [ref(0xa05)],
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+});
+
 // ---- TC-API-IDM-008-001 --------------------------------------------------------------------------
 
 describe("TC-API-IDM-008-001 a record lives 24 hours and an expired row is reused in place (real PostgreSQL 17)", () => {
