@@ -2881,7 +2881,8 @@
         "packages/db/migrations/0001_foundation.sql",
         "packages/db/migrations/0003_public_content_sales.sql",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/migrations/0005_idempotency_records.sql"
+        "packages/db/migrations/0005_idempotency_records.sql",
+        "packages/db/migrations/0006_orders_payments.sql"
       ],
       "test_case_ids": [
         "TC-DB-FOUNDATION-001",
@@ -2892,7 +2893,9 @@
         "TC-DB-ARC-007-005",
         "TC-DB-ARC-007-006",
         "TC-DB-IDM-001-001",
-        "TC-DB-IDM-001-002"
+        "TC-DB-IDM-001-002",
+        "TC-DB-ARC-007-007",
+        "TC-DB-ARC-007-008"
       ],
       "notes": "Explicit named constraints and lossless bigint schema"
     },
@@ -2918,10 +2921,18 @@
         "packages/db/src/schema/public-content.ts",
         "packages/db/src/schema/sales.ts",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/src/schema/karaoke.ts"
+        "packages/db/src/schema/karaoke.ts",
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts",
+        "packages/db/src/schema/payments.ts"
       ],
-      "test_case_ids": ["TC-DB-STA-002-001", "TC-DB-ARC-007-003", "TC-DB-STA-002-002"],
-      "notes": "implementation mapping only: CHECK constraints allow the Publication State (DRAFT, PUBLISHED, ARCHIVED) and Sale Control State (ENABLED, SUSPENDED) values only; Karaoke Slot State allows AVAILABLE, HELD, SOLD and SALES_STOPPED only"
+      "test_case_ids": [
+        "TC-DB-STA-002-001",
+        "TC-DB-ARC-007-003",
+        "TC-DB-STA-002-002",
+        "TC-DB-STA-002-003"
+      ],
+      "notes": "implementation mapping only: CHECK constraints allow the Publication State (DRAFT, PUBLISHED, ARCHIVED) and Sale Control State (ENABLED, SUSPENDED) values only; Karaoke Slot State allows AVAILABLE, HELD, SOLD and SALES_STOPPED only; Order State and Purpose, Allocation State, Checkout creation result, Webhook processing state and Refund State allow the SPEC-030 / SPEC-070 values only (0006)"
     },
     {
       "rule_id": "DB-TIM-001",
@@ -2931,15 +2942,19 @@
         "packages/db/src/schema/sales.ts",
         "packages/db/src/schema/goods.ts",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/src/schema/karaoke.ts"
+        "packages/db/src/schema/karaoke.ts",
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts",
+        "packages/db/src/schema/payments.ts"
       ],
       "test_case_ids": [
         "TC-DB-TIM-001-001",
         "TC-DB-ARC-007-004",
         "TC-KRK-001-001",
-        "TC-DB-ARC-007-006"
+        "TC-DB-ARC-007-006",
+        "TC-DB-ARC-007-007"
       ],
-      "notes": "implementation mapping only: every time column of the public content and sales tables (0003) and the Karaoke Exclusive Scope and Slot tables (0004) is timestamptz"
+      "notes": "implementation mapping only: every time column of the public content and sales tables (0003) and the Karaoke Exclusive Scope and Slot tables (0004) is timestamptz; every time column of the seven Order / payment tables (0006) is timestamptz"
     },
     {
       "rule_id": "DB-TIM-002",
@@ -2980,10 +2995,13 @@
         "packages/db/src/schema/sales.ts",
         "packages/db/src/schema/goods.ts",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/src/schema/karaoke.ts"
+        "packages/db/src/schema/karaoke.ts",
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts",
+        "packages/db/src/schema/payments.ts"
       ],
-      "test_case_ids": ["TC-DB-FK-002-001", "TC-DB-FK-002-002"],
-      "notes": "implementation mapping only: Event and Goods foreign keys (0003) and the Karaoke foreign keys fk_karaoke_exclusive_scopes_event, fk_karaoke_slots_exclusive_scope and fk_karaoke_slots_sales_configuration (0004) are ON DELETE RESTRICT, never cascade"
+      "test_case_ids": ["TC-DB-FK-002-001", "TC-DB-FK-002-002", "TC-DB-FK-002-003"],
+      "notes": "implementation mapping only: Event and Goods foreign keys (0003) and the Karaoke foreign keys fk_karaoke_exclusive_scopes_event, fk_karaoke_slots_exclusive_scope and fk_karaoke_slots_sales_configuration (0004) are ON DELETE RESTRICT, never cascade; the twelve Order / payment foreign keys of 0006 are ON DELETE RESTRICT"
     },
     {
       "rule_id": "DB-GDS-001",
@@ -3026,10 +3044,16 @@
       "code_paths": [
         "packages/db/migrations/0003_public_content_sales.sql",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/migrations/0005_idempotency_records.sql"
+        "packages/db/migrations/0005_idempotency_records.sql",
+        "packages/db/migrations/0006_orders_payments.sql"
       ],
-      "test_case_ids": ["TC-SEC-DB-001-001", "TC-SEC-DB-001-002", "TC-DB-IDM-003-001"],
-      "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role)"
+      "test_case_ids": [
+        "TC-SEC-DB-001-001",
+        "TC-SEC-DB-001-002",
+        "TC-DB-IDM-003-001",
+        "TC-SEC-DB-001-003"
+      ],
+      "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role); 0006 revokes every runtime privilege on the seven Order / payment tables and grants none (plan U-4)"
     },
     {
       "rule_id": "DB-KRK-001",
@@ -3179,7 +3203,8 @@
         "TC-INF-HLT-006-006",
         "TC-INF-HLT-006-007",
         "TC-INF-HLT-006-008",
-        "TC-INF-HLT-006-009"
+        "TC-INF-HLT-006-009",
+        "TC-INF-HLT-006-011"
       ],
       "notes": "Backward-compatible readiness: journal, catalog, journal read outside a transaction within the SPEC-150 55P03 budget; bundled migration set (byte order) is a prefix of the journal; required catalog contained in the live catalog only when the journal is ahead, exact otherwise; a required constraint validated after NOT VALID is accepted (UCR-180-003)"
     },
@@ -5765,6 +5790,97 @@
       "code_paths": ["packages/config/src/index.ts"],
       "test_case_ids": ["TC-INF-SEC-007-005"],
       "notes": "Workers refuse the list cursor key"
+    },
+    {
+      "rule_id": "DB-ORD-001",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ORD-001-001", "TC-DB-ORD-003-001"],
+      "notes": "implementation mapping only (no repository code yet): the Order timestamps follow the state; purpose and currency cannot change under an Order Item (composite foreign key)"
+    },
+    {
+      "rule_id": "DB-ORD-002",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ORD-002-001"],
+      "notes": "implementation mapping only (no repository code yet): ck_order_items_source fixes a Karaoke item to one Slot and quantity 1; the one-item count is a purchase transaction precondition"
+    },
+    {
+      "rule_id": "DB-ORD-003",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ORD-003-001"],
+      "notes": "implementation mapping only (no repository code yet): generated line totals and purpose / currency equality by the composite foreign key; Order-wide totals are transaction preconditions"
+    },
+    {
+      "rule_id": "DB-ORD-004",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ORD-002-001", "TC-DB-ORD-003-001"],
+      "notes": "implementation mapping only (no repository code yet): each item repeats its Order's purpose; Entry / Goods sources are exclusive"
+    },
+    {
+      "rule_id": "DB-ENT-001",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ENT-001-001"],
+      "notes": "implementation mapping only (no repository code yet): HELD / COMMITTED / RELEASED with their timestamps; the no-return-to-HELD transition is a repository conditional update"
+    },
+    {
+      "rule_id": "DB-MNY-001",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-MNY-001-001", "TC-DB-ORD-003-001"],
+      "notes": "implementation mapping only (no repository code yet): bigint amounts, currency CHECKs and generated line totals"
+    },
+    {
+      "rule_id": "DB-PAY-001",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-PAY-001-001"],
+      "notes": "implementation mapping only (no repository code yet): one Stripe idempotency key per Checkout Attempt and attempt numbers unique per Order"
+    },
+    {
+      "rule_id": "DB-PAY-002",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-PAY-002-001"],
+      "notes": "implementation mapping only (no repository code yet): Session, PaymentIntent and Charge IDs are UNIQUE and an Attempt binds once to its own Order"
+    },
+    {
+      "rule_id": "DB-PAY-003",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-PAY-003-001", "TC-DB-PAY-003-002", "TC-CON-001-002"],
+      "notes": "implementation mapping only (no repository code yet): ux_payment_bindings_order_active and the generated 30 minute payment deadline"
+    },
+    {
+      "rule_id": "DB-PAY-005",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-PAY-005-001"],
+      "notes": "implementation mapping only (no repository code yet): uq_webhook_receipts_stripe_event_id dedupes redelivered Events; the same-transaction commit is the Webhook handler's job (PR-L1-3)"
     },
     {
       "rule_id": "INF-SEED-001",
