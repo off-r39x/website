@@ -3,6 +3,8 @@
     ["announcements", "r", "app_migrator", false],
     ["audit_events", "r", "app_migrator", false],
     ["business_profiles", "r", "app_migrator", false],
+    ["checkout_attempts", "r", "app_migrator", false],
+    ["entry_sales_allocations", "r", "app_migrator", false],
     ["entry_ticket_offerings", "r", "app_migrator", false],
     ["events", "r", "app_migrator", false],
     ["faq_items", "r", "app_migrator", false],
@@ -12,9 +14,14 @@
     ["karaoke_exclusive_scopes", "r", "app_migrator", false],
     ["karaoke_sales_configurations", "r", "app_migrator", false],
     ["karaoke_slots", "r", "app_migrator", false],
+    ["order_items", "r", "app_migrator", false],
+    ["orders", "r", "app_migrator", false],
+    ["payment_bindings", "r", "app_migrator", false],
+    ["refund_records", "r", "app_migrator", false],
     ["role_assignments", "r", "app_migrator", false],
     ["schema_migrations", "r", "app_migrator", false],
-    ["sponsor_logos", "r", "app_migrator", false]
+    ["sponsor_logos", "r", "app_migrator", false],
+    ["webhook_receipts", "r", "app_migrator", false]
   ],
   "columns": [
     ["announcements", "id", "bigint", true, "a", "", null],
@@ -110,6 +117,59 @@
       "",
       "transaction_timestamp()"
     ],
+    ["checkout_attempts", "id", "bigint", true, "a", "", null],
+    ["checkout_attempts", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
+    ["checkout_attempts", "order_id", "bigint", true, "", "", null],
+    ["checkout_attempts", "attempt_no", "integer", true, "", "", null],
+    ["checkout_attempts", "stripe_idempotency_key", "text", true, "", "", null],
+    ["checkout_attempts", "creation_result", "text", true, "", "", null],
+    [
+      "checkout_attempts",
+      "provider_request_started_at",
+      "timestamp with time zone",
+      false,
+      "",
+      "",
+      null
+    ],
+    ["checkout_attempts", "provider_response_at", "timestamp with time zone", false, "", "", null],
+    ["checkout_attempts", "last_error_code", "text", false, "", "", null],
+    [
+      "checkout_attempts",
+      "created_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "checkout_attempts",
+      "updated_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["entry_sales_allocations", "id", "bigint", true, "a", "", null],
+    ["entry_sales_allocations", "order_item_id", "bigint", true, "", "", null],
+    ["entry_sales_allocations", "order_id", "bigint", true, "", "", null],
+    ["entry_sales_allocations", "purpose", "text", true, "", "", null],
+    ["entry_sales_allocations", "offering_id", "bigint", true, "", "", null],
+    ["entry_sales_allocations", "quantity", "integer", true, "", "", null],
+    ["entry_sales_allocations", "state", "text", true, "", "", null],
+    [
+      "entry_sales_allocations",
+      "held_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["entry_sales_allocations", "committed_at", "timestamp with time zone", false, "", "", null],
+    ["entry_sales_allocations", "released_at", "timestamp with time zone", false, "", "", null],
     ["entry_ticket_offerings", "id", "bigint", true, "a", "", null],
     ["entry_ticket_offerings", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
     ["entry_ticket_offerings", "event_id", "bigint", true, "", "", null],
@@ -339,6 +399,117 @@
       "",
       "transaction_timestamp()"
     ],
+    ["order_items", "id", "bigint", true, "a", "", null],
+    ["order_items", "order_id", "bigint", true, "", "", null],
+    ["order_items", "purpose", "text", true, "", "", null],
+    ["order_items", "line_no", "integer", true, "", "", null],
+    ["order_items", "quantity", "integer", true, "", "", null],
+    ["order_items", "unit_amount", "bigint", true, "", "", null],
+    ["order_items", "currency", "text", true, "", "", null],
+    [
+      "order_items",
+      "line_total_amount",
+      "bigint",
+      false,
+      "",
+      "s",
+      "(unit_amount * (quantity)::bigint)"
+    ],
+    ["order_items", "item_name_snapshot", "text", true, "", "", null],
+    ["order_items", "entry_offering_id", "bigint", false, "", "", null],
+    ["order_items", "karaoke_slot_id", "bigint", false, "", "", null],
+    ["order_items", "goods_id", "bigint", false, "", "", null],
+    [
+      "order_items",
+      "created_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["orders", "id", "bigint", true, "a", "", null],
+    ["orders", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
+    ["orders", "purchase_cause_key", "uuid", true, "", "", null],
+    ["orders", "customer_profile_id", "bigint", true, "", "", null],
+    ["orders", "purpose", "text", true, "", "", null],
+    ["orders", "state", "text", true, "", "", null],
+    ["orders", "currency", "text", true, "", "", null],
+    ["orders", "total_amount", "bigint", true, "", "", null],
+    ["orders", "confirmed_at", "timestamp with time zone", false, "", "", null],
+    ["orders", "terminal_at", "timestamp with time zone", false, "", "", null],
+    ["orders", "created_at", "timestamp with time zone", true, "", "", "transaction_timestamp()"],
+    ["orders", "updated_at", "timestamp with time zone", true, "", "", "transaction_timestamp()"],
+    ["payment_bindings", "id", "bigint", true, "a", "", null],
+    ["payment_bindings", "order_id", "bigint", true, "", "", null],
+    ["payment_bindings", "checkout_attempt_id", "bigint", true, "", "", null],
+    ["payment_bindings", "stripe_checkout_session_id", "text", true, "", "", null],
+    ["payment_bindings", "stripe_payment_intent_id", "text", false, "", "", null],
+    ["payment_bindings", "stripe_charge_id", "text", false, "", "", null],
+    [
+      "payment_bindings",
+      "checkout_session_created_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      null
+    ],
+    [
+      "payment_bindings",
+      "payment_deadline_at",
+      "timestamp with time zone",
+      false,
+      "",
+      "s",
+      "(((checkout_session_created_at AT TIME ZONE 'UTC'::text) + '00:30:00'::interval) AT TIME ZONE 'UTC'::text)"
+    ],
+    ["payment_bindings", "payment_completed_at", "timestamp with time zone", false, "", "", null],
+    ["payment_bindings", "amount_total", "bigint", true, "", "", null],
+    ["payment_bindings", "currency", "text", true, "", "", null],
+    ["payment_bindings", "is_active", "boolean", true, "", "", "true"],
+    [
+      "payment_bindings",
+      "bound_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["payment_bindings", "deactivated_at", "timestamp with time zone", false, "", "", null],
+    ["payment_bindings", "stripe_receipt_url", "text", false, "", "", null],
+    ["refund_records", "id", "bigint", true, "a", "", null],
+    ["refund_records", "order_id", "bigint", true, "", "", null],
+    ["refund_records", "business_cause_key", "uuid", true, "", "", null],
+    ["refund_records", "stripe_idempotency_key", "text", true, "", "", null],
+    ["refund_records", "stripe_refund_id", "text", false, "", "", null],
+    ["refund_records", "state", "text", true, "", "", null],
+    ["refund_records", "requested_amount", "bigint", true, "", "", null],
+    ["refund_records", "currency", "text", true, "", "", null],
+    ["refund_records", "is_full_refund", "boolean", true, "", "", null],
+    ["refund_records", "requested_by_profile_id", "bigint", true, "", "", null],
+    [
+      "refund_records",
+      "requested_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["refund_records", "provider_updated_at", "timestamp with time zone", false, "", "", null],
+    ["refund_records", "succeeded_at", "timestamp with time zone", false, "", "", null],
+    ["refund_records", "failed_at", "timestamp with time zone", false, "", "", null],
+    [
+      "refund_records",
+      "updated_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
     ["role_assignments", "id", "bigint", true, "a", "", null],
     ["role_assignments", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
     ["role_assignments", "profile_id", "bigint", true, "", "", null],
@@ -396,6 +567,35 @@
     ],
     [
       "sponsor_logos",
+      "updated_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["webhook_receipts", "id", "bigint", true, "a", "", null],
+    ["webhook_receipts", "stripe_event_id", "text", true, "", "", null],
+    ["webhook_receipts", "event_type", "text", true, "", "", null],
+    ["webhook_receipts", "stripe_object_id", "text", false, "", "", null],
+    ["webhook_receipts", "stripe_account_id", "text", false, "", "", null],
+    ["webhook_receipts", "livemode", "boolean", true, "", "", null],
+    ["webhook_receipts", "processing_state", "text", true, "", "", null],
+    ["webhook_receipts", "payload_sha256", "bytea", true, "", "", null],
+    ["webhook_receipts", "canonical_snapshot", "jsonb", true, "", "", null],
+    [
+      "webhook_receipts",
+      "received_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["webhook_receipts", "processed_at", "timestamp with time zone", false, "", "", null],
+    ["webhook_receipts", "last_error_code", "text", false, "", "", null],
+    [
+      "webhook_receipts",
       "updated_at",
       "timestamp with time zone",
       true,
@@ -506,6 +706,69 @@
     [
       "business_profiles",
       "CREATE UNIQUE INDEX uq_business_profiles_public_ref ON app.business_profiles USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
+      "checkout_attempts",
+      "CREATE INDEX ix_checkout_attempts_order_attempt ON app.checkout_attempts USING btree (order_id, attempt_no DESC)",
+      true,
+      true,
+      true
+    ],
+    [
+      "checkout_attempts",
+      "CREATE UNIQUE INDEX pk_checkout_attempts ON app.checkout_attempts USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "checkout_attempts",
+      "CREATE UNIQUE INDEX uq_checkout_attempts_id_order_id ON app.checkout_attempts USING btree (id, order_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "checkout_attempts",
+      "CREATE UNIQUE INDEX uq_checkout_attempts_order_id_attempt_no ON app.checkout_attempts USING btree (order_id, attempt_no)",
+      true,
+      true,
+      true
+    ],
+    [
+      "checkout_attempts",
+      "CREATE UNIQUE INDEX uq_checkout_attempts_public_ref ON app.checkout_attempts USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
+      "checkout_attempts",
+      "CREATE UNIQUE INDEX uq_checkout_attempts_stripe_idempotency_key ON app.checkout_attempts USING btree (stripe_idempotency_key)",
+      true,
+      true,
+      true
+    ],
+    [
+      "entry_sales_allocations",
+      "CREATE INDEX ix_entry_allocations_offering_state ON app.entry_sales_allocations USING btree (offering_id, state)",
+      true,
+      true,
+      true
+    ],
+    [
+      "entry_sales_allocations",
+      "CREATE UNIQUE INDEX pk_entry_sales_allocations ON app.entry_sales_allocations USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "entry_sales_allocations",
+      "CREATE UNIQUE INDEX uq_entry_sales_allocations_order_item_id ON app.entry_sales_allocations USING btree (order_item_id)",
       true,
       true,
       true
@@ -660,6 +923,203 @@
       true
     ],
     [
+      "order_items",
+      "CREATE UNIQUE INDEX pk_order_items ON app.order_items USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "order_items",
+      "CREATE UNIQUE INDEX uq_order_items_id_entry_offering_id ON app.order_items USING btree (id, entry_offering_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "order_items",
+      "CREATE UNIQUE INDEX uq_order_items_id_goods_id ON app.order_items USING btree (id, goods_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "order_items",
+      "CREATE UNIQUE INDEX uq_order_items_id_order_id ON app.order_items USING btree (id, order_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "order_items",
+      "CREATE UNIQUE INDEX uq_order_items_id_order_id_purpose ON app.order_items USING btree (id, order_id, purpose)",
+      true,
+      true,
+      true
+    ],
+    [
+      "order_items",
+      "CREATE UNIQUE INDEX uq_order_items_id_order_id_purpose_karaoke_slot_id ON app.order_items USING btree (id, order_id, purpose, karaoke_slot_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "order_items",
+      "CREATE UNIQUE INDEX uq_order_items_id_purpose ON app.order_items USING btree (id, purpose)",
+      true,
+      true,
+      true
+    ],
+    [
+      "order_items",
+      "CREATE UNIQUE INDEX uq_order_items_order_id_line_no ON app.order_items USING btree (order_id, line_no)",
+      true,
+      true,
+      true
+    ],
+    [
+      "orders",
+      "CREATE INDEX ix_orders_admin_purpose_created ON app.orders USING btree (purpose, created_at DESC)",
+      true,
+      true,
+      true
+    ],
+    [
+      "orders",
+      "CREATE INDEX ix_orders_admin_state_created ON app.orders USING btree (state, created_at DESC)",
+      true,
+      true,
+      true
+    ],
+    [
+      "orders",
+      "CREATE INDEX ix_orders_customer_created ON app.orders USING btree (customer_profile_id, created_at DESC)",
+      true,
+      true,
+      true
+    ],
+    ["orders", "CREATE UNIQUE INDEX pk_orders ON app.orders USING btree (id)", true, true, true],
+    [
+      "orders",
+      "CREATE UNIQUE INDEX uq_orders_id_customer_profile_id ON app.orders USING btree (id, customer_profile_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "orders",
+      "CREATE UNIQUE INDEX uq_orders_id_purpose ON app.orders USING btree (id, purpose)",
+      true,
+      true,
+      true
+    ],
+    [
+      "orders",
+      "CREATE UNIQUE INDEX uq_orders_id_purpose_currency ON app.orders USING btree (id, purpose, currency)",
+      true,
+      true,
+      true
+    ],
+    [
+      "orders",
+      "CREATE UNIQUE INDEX uq_orders_public_ref ON app.orders USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
+      "orders",
+      "CREATE UNIQUE INDEX uq_orders_purchase_cause_key ON app.orders USING btree (purchase_cause_key)",
+      true,
+      true,
+      true
+    ],
+    [
+      "payment_bindings",
+      "CREATE INDEX ix_payment_bindings_order_bound ON app.payment_bindings USING btree (order_id, bound_at DESC)",
+      true,
+      true,
+      true
+    ],
+    [
+      "payment_bindings",
+      "CREATE UNIQUE INDEX pk_payment_bindings ON app.payment_bindings USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "payment_bindings",
+      "CREATE UNIQUE INDEX uq_payment_bindings_checkout_attempt_id ON app.payment_bindings USING btree (checkout_attempt_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "payment_bindings",
+      "CREATE UNIQUE INDEX uq_payment_bindings_stripe_charge_id ON app.payment_bindings USING btree (stripe_charge_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "payment_bindings",
+      "CREATE UNIQUE INDEX uq_payment_bindings_stripe_checkout_session_id ON app.payment_bindings USING btree (stripe_checkout_session_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "payment_bindings",
+      "CREATE UNIQUE INDEX uq_payment_bindings_stripe_payment_intent_id ON app.payment_bindings USING btree (stripe_payment_intent_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "payment_bindings",
+      "CREATE UNIQUE INDEX ux_payment_bindings_order_active ON app.payment_bindings USING btree (order_id) WHERE is_active",
+      true,
+      true,
+      true
+    ],
+    [
+      "refund_records",
+      "CREATE UNIQUE INDEX pk_refund_records ON app.refund_records USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "refund_records",
+      "CREATE UNIQUE INDEX uq_refund_records_business_cause_key ON app.refund_records USING btree (business_cause_key)",
+      true,
+      true,
+      true
+    ],
+    [
+      "refund_records",
+      "CREATE UNIQUE INDEX uq_refund_records_stripe_idempotency_key ON app.refund_records USING btree (stripe_idempotency_key)",
+      true,
+      true,
+      true
+    ],
+    [
+      "refund_records",
+      "CREATE UNIQUE INDEX uq_refund_records_stripe_refund_id ON app.refund_records USING btree (stripe_refund_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "refund_records",
+      "CREATE UNIQUE INDEX ux_refund_records_order_live_full ON app.refund_records USING btree (order_id) WHERE (is_full_refund AND (state = ANY (ARRAY['REQUESTED'::text, 'PENDING'::text, 'SUCCEEDED'::text, 'REVIEW_REQUIRED'::text])))",
+      true,
+      true,
+      true
+    ],
+    [
       "role_assignments",
       "CREATE UNIQUE INDEX pk_role_assignments ON app.role_assignments USING btree (id)",
       true,
@@ -707,6 +1167,27 @@
       true,
       true,
       true
+    ],
+    [
+      "webhook_receipts",
+      "CREATE INDEX ix_webhook_receipts_retry ON app.webhook_receipts USING btree (received_at) WHERE (processing_state = ANY (ARRAY['FAILED_RETRYABLE'::text, 'REVIEW_REQUIRED'::text]))",
+      true,
+      true,
+      true
+    ],
+    [
+      "webhook_receipts",
+      "CREATE UNIQUE INDEX pk_webhook_receipts ON app.webhook_receipts USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "webhook_receipts",
+      "CREATE UNIQUE INDEX uq_webhook_receipts_stripe_event_id ON app.webhook_receipts USING btree (stripe_event_id)",
+      true,
+      true,
+      true
     ]
   ],
   "schemas": [["app", "app_migrator"], ["auth_read", "app_migrator"]],
@@ -714,6 +1195,8 @@
     ["announcements_id_seq", "bigint", "app_migrator"],
     ["audit_events_id_seq", "bigint", "app_migrator"],
     ["business_profiles_id_seq", "bigint", "app_migrator"],
+    ["checkout_attempts_id_seq", "bigint", "app_migrator"],
+    ["entry_sales_allocations_id_seq", "bigint", "app_migrator"],
     ["entry_ticket_offerings_id_seq", "bigint", "app_migrator"],
     ["events_id_seq", "bigint", "app_migrator"],
     ["faq_items_id_seq", "bigint", "app_migrator"],
@@ -722,8 +1205,13 @@
     ["karaoke_exclusive_scopes_id_seq", "bigint", "app_migrator"],
     ["karaoke_sales_configurations_id_seq", "bigint", "app_migrator"],
     ["karaoke_slots_id_seq", "bigint", "app_migrator"],
+    ["order_items_id_seq", "bigint", "app_migrator"],
+    ["orders_id_seq", "bigint", "app_migrator"],
+    ["payment_bindings_id_seq", "bigint", "app_migrator"],
+    ["refund_records_id_seq", "bigint", "app_migrator"],
     ["role_assignments_id_seq", "bigint", "app_migrator"],
-    ["sponsor_logos_id_seq", "bigint", "app_migrator"]
+    ["sponsor_logos_id_seq", "bigint", "app_migrator"],
+    ["webhook_receipts_id_seq", "bigint", "app_migrator"]
   ],
   "constraints": [
     [
@@ -824,6 +1312,142 @@
       "uq_business_profiles_public_ref",
       "u",
       "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
+      "checkout_attempts",
+      "ck_checkout_attempts_attempt_no",
+      "c",
+      "CHECK ((attempt_no > 0))",
+      true,
+      false,
+      false
+    ],
+    [
+      "checkout_attempts",
+      "ck_checkout_attempts_creation_result",
+      "c",
+      "CHECK ((creation_result = ANY (ARRAY['PENDING'::text, 'SUCCEEDED'::text, 'FAILED'::text, 'UNKNOWN'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "checkout_attempts",
+      "fk_checkout_attempts_order",
+      "f",
+      "FOREIGN KEY (order_id) REFERENCES app.orders(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["checkout_attempts", "pk_checkout_attempts", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "checkout_attempts",
+      "uq_checkout_attempts_id_order_id",
+      "u",
+      "UNIQUE (id, order_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "checkout_attempts",
+      "uq_checkout_attempts_order_id_attempt_no",
+      "u",
+      "UNIQUE (order_id, attempt_no)",
+      true,
+      false,
+      false
+    ],
+    [
+      "checkout_attempts",
+      "uq_checkout_attempts_public_ref",
+      "u",
+      "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
+      "checkout_attempts",
+      "uq_checkout_attempts_stripe_idempotency_key",
+      "u",
+      "UNIQUE (stripe_idempotency_key)",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_sales_allocations",
+      "ck_entry_sales_allocations_purpose",
+      "c",
+      "CHECK ((purpose = ANY (ARRAY['ENTRY_TICKET_PURCHASE'::text, 'ENTRY_GOODS_PURCHASE'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_sales_allocations",
+      "ck_entry_sales_allocations_quantity",
+      "c",
+      "CHECK ((quantity > 0))",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_sales_allocations",
+      "ck_entry_sales_allocations_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['HELD'::text, 'COMMITTED'::text, 'RELEASED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_sales_allocations",
+      "ck_entry_sales_allocations_state_times",
+      "c",
+      "CHECK ((((state = 'HELD'::text) AND (committed_at IS NULL) AND (released_at IS NULL)) OR ((state = 'COMMITTED'::text) AND (committed_at IS NOT NULL) AND (released_at IS NULL)) OR ((state = 'RELEASED'::text) AND (released_at IS NOT NULL) AND (committed_at IS NULL))))",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_sales_allocations",
+      "fk_entry_sales_allocations_offering",
+      "f",
+      "FOREIGN KEY (order_item_id, offering_id) REFERENCES app.order_items(id, entry_offering_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_sales_allocations",
+      "fk_entry_sales_allocations_order_item",
+      "f",
+      "FOREIGN KEY (order_item_id, order_id, purpose) REFERENCES app.order_items(id, order_id, purpose) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_sales_allocations",
+      "pk_entry_sales_allocations",
+      "p",
+      "PRIMARY KEY (id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_sales_allocations",
+      "uq_entry_sales_allocations_order_item_id",
+      "u",
+      "UNIQUE (order_item_id)",
       true,
       false,
       false
@@ -1319,6 +1943,351 @@
       false
     ],
     [
+      "order_items",
+      "ck_order_items_currency",
+      "c",
+      "CHECK (((currency = upper(currency)) AND (currency ~ '^[A-Z]{3}$'::text)))",
+      true,
+      false,
+      false
+    ],
+    ["order_items", "ck_order_items_line_no", "c", "CHECK ((line_no > 0))", true, false, false],
+    ["order_items", "ck_order_items_quantity", "c", "CHECK ((quantity > 0))", true, false, false],
+    [
+      "order_items",
+      "ck_order_items_source",
+      "c",
+      "CHECK ((((purpose = 'ENTRY_TICKET_PURCHASE'::text) AND (entry_offering_id IS NOT NULL) AND (karaoke_slot_id IS NULL) AND (goods_id IS NULL)) OR ((purpose = 'KARAOKE_PURCHASE'::text) AND (entry_offering_id IS NULL) AND (karaoke_slot_id IS NOT NULL) AND (goods_id IS NULL) AND (quantity = 1)) OR ((purpose = 'GOODS_PURCHASE'::text) AND (entry_offering_id IS NULL) AND (karaoke_slot_id IS NULL) AND (goods_id IS NOT NULL)) OR ((purpose = 'ENTRY_GOODS_PURCHASE'::text) AND (karaoke_slot_id IS NULL) AND (((entry_offering_id IS NOT NULL) AND (goods_id IS NULL)) OR ((entry_offering_id IS NULL) AND (goods_id IS NOT NULL))))))",
+      true,
+      false,
+      false
+    ],
+    [
+      "order_items",
+      "ck_order_items_unit_amount",
+      "c",
+      "CHECK ((unit_amount >= 0))",
+      true,
+      false,
+      false
+    ],
+    [
+      "order_items",
+      "fk_order_items_entry_offering",
+      "f",
+      "FOREIGN KEY (entry_offering_id) REFERENCES app.entry_ticket_offerings(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "order_items",
+      "fk_order_items_goods",
+      "f",
+      "FOREIGN KEY (goods_id) REFERENCES app.goods(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "order_items",
+      "fk_order_items_karaoke_slot",
+      "f",
+      "FOREIGN KEY (karaoke_slot_id) REFERENCES app.karaoke_slots(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "order_items",
+      "fk_order_items_order",
+      "f",
+      "FOREIGN KEY (order_id, purpose, currency) REFERENCES app.orders(id, purpose, currency) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["order_items", "pk_order_items", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "order_items",
+      "uq_order_items_id_entry_offering_id",
+      "u",
+      "UNIQUE (id, entry_offering_id)",
+      true,
+      false,
+      false
+    ],
+    ["order_items", "uq_order_items_id_goods_id", "u", "UNIQUE (id, goods_id)", true, false, false],
+    ["order_items", "uq_order_items_id_order_id", "u", "UNIQUE (id, order_id)", true, false, false],
+    [
+      "order_items",
+      "uq_order_items_id_order_id_purpose",
+      "u",
+      "UNIQUE (id, order_id, purpose)",
+      true,
+      false,
+      false
+    ],
+    [
+      "order_items",
+      "uq_order_items_id_order_id_purpose_karaoke_slot_id",
+      "u",
+      "UNIQUE (id, order_id, purpose, karaoke_slot_id)",
+      true,
+      false,
+      false
+    ],
+    ["order_items", "uq_order_items_id_purpose", "u", "UNIQUE (id, purpose)", true, false, false],
+    [
+      "order_items",
+      "uq_order_items_order_id_line_no",
+      "u",
+      "UNIQUE (order_id, line_no)",
+      true,
+      false,
+      false
+    ],
+    [
+      "orders",
+      "ck_orders_confirmed_at",
+      "c",
+      "CHECK (((state = 'CONFIRMED'::text) = (confirmed_at IS NOT NULL)))",
+      true,
+      false,
+      false
+    ],
+    [
+      "orders",
+      "ck_orders_currency",
+      "c",
+      "CHECK (((currency = upper(currency)) AND (currency ~ '^[A-Z]{3}$'::text)))",
+      true,
+      false,
+      false
+    ],
+    [
+      "orders",
+      "ck_orders_purpose",
+      "c",
+      "CHECK ((purpose = ANY (ARRAY['ENTRY_TICKET_PURCHASE'::text, 'KARAOKE_PURCHASE'::text, 'GOODS_PURCHASE'::text, 'ENTRY_GOODS_PURCHASE'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "orders",
+      "ck_orders_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['PREPARED'::text, 'AWAITING_PAYMENT'::text, 'CONFIRMED'::text, 'PAYMENT_FAILED'::text, 'CANCELED'::text, 'EXPIRED'::text, 'REVIEW_REQUIRED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "orders",
+      "ck_orders_terminal_at",
+      "c",
+      "CHECK (((state <> ALL (ARRAY['PAYMENT_FAILED'::text, 'CANCELED'::text, 'EXPIRED'::text])) OR (terminal_at IS NOT NULL)))",
+      true,
+      false,
+      false
+    ],
+    ["orders", "ck_orders_total_amount", "c", "CHECK ((total_amount >= 0))", true, false, false],
+    [
+      "orders",
+      "fk_orders_customer_profile",
+      "f",
+      "FOREIGN KEY (customer_profile_id) REFERENCES app.business_profiles(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["orders", "pk_orders", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "orders",
+      "uq_orders_id_customer_profile_id",
+      "u",
+      "UNIQUE (id, customer_profile_id)",
+      true,
+      false,
+      false
+    ],
+    ["orders", "uq_orders_id_purpose", "u", "UNIQUE (id, purpose)", true, false, false],
+    [
+      "orders",
+      "uq_orders_id_purpose_currency",
+      "u",
+      "UNIQUE (id, purpose, currency)",
+      true,
+      false,
+      false
+    ],
+    ["orders", "uq_orders_public_ref", "u", "UNIQUE (public_ref)", true, false, false],
+    [
+      "orders",
+      "uq_orders_purchase_cause_key",
+      "u",
+      "UNIQUE (purchase_cause_key)",
+      true,
+      false,
+      false
+    ],
+    [
+      "payment_bindings",
+      "ck_payment_bindings_active",
+      "c",
+      "CHECK ((is_active = (deactivated_at IS NULL)))",
+      true,
+      false,
+      false
+    ],
+    [
+      "payment_bindings",
+      "ck_payment_bindings_amount_total",
+      "c",
+      "CHECK ((amount_total >= 0))",
+      true,
+      false,
+      false
+    ],
+    [
+      "payment_bindings",
+      "ck_payment_bindings_currency",
+      "c",
+      "CHECK (((currency = upper(currency)) AND (currency ~ '^[A-Z]{3}$'::text)))",
+      true,
+      false,
+      false
+    ],
+    [
+      "payment_bindings",
+      "fk_payment_bindings_checkout_attempt",
+      "f",
+      "FOREIGN KEY (checkout_attempt_id, order_id) REFERENCES app.checkout_attempts(id, order_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "payment_bindings",
+      "fk_payment_bindings_order",
+      "f",
+      "FOREIGN KEY (order_id) REFERENCES app.orders(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["payment_bindings", "pk_payment_bindings", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "payment_bindings",
+      "uq_payment_bindings_checkout_attempt_id",
+      "u",
+      "UNIQUE (checkout_attempt_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "payment_bindings",
+      "uq_payment_bindings_stripe_charge_id",
+      "u",
+      "UNIQUE (stripe_charge_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "payment_bindings",
+      "uq_payment_bindings_stripe_checkout_session_id",
+      "u",
+      "UNIQUE (stripe_checkout_session_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "payment_bindings",
+      "uq_payment_bindings_stripe_payment_intent_id",
+      "u",
+      "UNIQUE (stripe_payment_intent_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "refund_records",
+      "ck_refund_records_currency",
+      "c",
+      "CHECK (((currency = upper(currency)) AND (currency ~ '^[A-Z]{3}$'::text)))",
+      true,
+      false,
+      false
+    ],
+    [
+      "refund_records",
+      "ck_refund_records_requested_amount",
+      "c",
+      "CHECK ((requested_amount > 0))",
+      true,
+      false,
+      false
+    ],
+    [
+      "refund_records",
+      "ck_refund_records_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['REQUESTED'::text, 'PENDING'::text, 'SUCCEEDED'::text, 'FAILED'::text, 'REVIEW_REQUIRED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "refund_records",
+      "fk_refund_records_order",
+      "f",
+      "FOREIGN KEY (order_id) REFERENCES app.orders(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "refund_records",
+      "fk_refund_records_requested_by_profile",
+      "f",
+      "FOREIGN KEY (requested_by_profile_id) REFERENCES app.business_profiles(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["refund_records", "pk_refund_records", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "refund_records",
+      "uq_refund_records_business_cause_key",
+      "u",
+      "UNIQUE (business_cause_key)",
+      true,
+      false,
+      false
+    ],
+    [
+      "refund_records",
+      "uq_refund_records_stripe_idempotency_key",
+      "u",
+      "UNIQUE (stripe_idempotency_key)",
+      true,
+      false,
+      false
+    ],
+    [
+      "refund_records",
+      "uq_refund_records_stripe_refund_id",
+      "u",
+      "UNIQUE (stripe_refund_id)",
+      true,
+      false,
+      false
+    ],
+    [
       "role_assignments",
       "ck_role_assignments_revocation",
       "c",
@@ -1456,6 +2425,42 @@
       false
     ],
     ["sponsor_logos", "pk_sponsor_logos", "p", "PRIMARY KEY (id)", true, false, false],
-    ["sponsor_logos", "uq_sponsor_logos_public_ref", "u", "UNIQUE (public_ref)", true, false, false]
+    [
+      "sponsor_logos",
+      "uq_sponsor_logos_public_ref",
+      "u",
+      "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
+      "webhook_receipts",
+      "ck_webhook_receipts_payload_sha256",
+      "c",
+      "CHECK ((octet_length(payload_sha256) = 32))",
+      true,
+      false,
+      false
+    ],
+    [
+      "webhook_receipts",
+      "ck_webhook_receipts_processing_state",
+      "c",
+      "CHECK ((processing_state = ANY (ARRAY['RECEIVED'::text, 'PROCESSED'::text, 'IGNORED'::text, 'FAILED_RETRYABLE'::text, 'REVIEW_REQUIRED'::text])))",
+      true,
+      false,
+      false
+    ],
+    ["webhook_receipts", "pk_webhook_receipts", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "webhook_receipts",
+      "uq_webhook_receipts_stripe_event_id",
+      "u",
+      "UNIQUE (stripe_event_id)",
+      true,
+      false,
+      false
+    ]
   ]
 }
