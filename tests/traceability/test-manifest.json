@@ -18711,6 +18711,105 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-003-015",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: connectWithinBudget and acquireMigrationLock over connection doubles whose success advances a controlled clock (performance.now mocked) before it is seen, so the success is handled before the deadline timer callback; (a) a connection that succeeds at 3001 ms; (b) a migration lock granted 1001 ms into a 1000 ms deadline; (c) one granted at 999 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) the late connection is ended and not returned, and no further attempt starts; (b) MigrationLockTimeoutError and the connection is ended, so the session and its lock end; (c) the lock is held and the connection is not ended"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-016",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: connectWithinBudget, openSeedConnection (the command's first connection) and seedInitialData after a lost COMMIT, over connect callbacks that reject with SQLSTATE 28P01 or 28000 (an authentication rejection); controlled clock",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) DatabaseAuthenticationRejected after one attempt, no backoff, for 28P01 and 28000; (b) the first connection ends as FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED) at attempt 1 after one attempt; (c) the re-check connection is not retried and the result stays UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN)"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(b) no reliability.retry.exhausted event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-017",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "OBS-DB-003",
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-160-22",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData and openSeedConnection with the schema-checking logger of @off-r39x/observability collecting its records; scripted connection doubles and a controlled clock (Math.random 0.99); (a) 55P03 until the 5 s budget; (b) 40001 four times; (c) every connection attempt fails; (d) the retry after an uncommitted re-check cannot start within the budget; (e) the re-check gets 55P03 until its budget; (f) a retry and a connection that succeed; (g) a seed retry and (h) a re-check retry cut off by what is left of the budget; (i) a first attempt past the 8 s deadline",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) FAILED at attempt 3; (b) FAILED at attempt 4 after 49.5, 99 and 198 ms; (c) FAILED(TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE); (d) FAILED at attempt 1; (e) UNKNOWN_RESULT; (f) CREATED at attempt 2 and a connection; (g) FAILED at attempt 2; (h) UNKNOWN_RESULT; (i) FAILED at attempt 1"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "Exactly one reliability.retry.exhausted (level ERROR, result FAILED, failure_class TEMPORARY_FAILURE, operation_id PROVISION.INITIAL_DATA_SEED, provider NEON_DB, the attempt's operation_execution_id and attempt_number, no sqlstate, as no output of the command carries one) in (a) attempt 3, (b) attempt 4, (c) attempt 3, (d) attempt 1, (e) re-check attempt 3, (g) attempt 2, (h) re-check attempt 2; none in (f) and (i)"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-DB-ARC-007-003",
       "level": "Unit",
       "suite": "unit",

@@ -3983,7 +3983,8 @@
         "packages/observability/src/index.ts",
         "apps/api/src/bootstrap/index.ts",
         "apps/email-worker/src/main.ts",
-        "apps/reconciliation-worker/src/main.ts"
+        "apps/reconciliation-worker/src/main.ts",
+        "packages/db/src/initial-data/seed.ts"
       ],
       "test_case_ids": [
         "TC-OBS-AUDIT-001",
@@ -3992,9 +3993,10 @@
         "TC-DB-RETRY-002",
         "TC-DB-RETRY-004",
         "TC-DB-RETRY-005",
-        "TC-DB-RETRY-006"
+        "TC-DB-RETRY-006",
+        "TC-TST-SEED-003-017"
       ],
-      "notes": "Foundation audit repair; local synthetic evidence does not assert live-provider or release readiness"
+      "notes": "Foundation audit repair; local synthetic evidence does not assert live-provider or release readiness; the initial data seed command logs reliability.retry.exhausted when its connection, seed transaction or re-check retry budget runs out"
     },
     {
       "rule_id": "OBS-DB-004",
@@ -5804,9 +5806,10 @@
         "TC-TST-SEED-006-009",
         "TC-TST-SEED-003-011",
         "TC-TST-SEED-006-014",
-        "TC-TST-SEED-003-004"
+        "TC-TST-SEED-003-004",
+        "TC-TST-SEED-003-015"
       ],
-      "notes": "implementation mapping only: runs as app_migrator under the migration lock handle, and takes the migration lock again on the new connection before the re-check after an unknown COMMIT result; the lock acquisition is bounded to 60 seconds on the client too (a connection that stops answering is abandoned); the command connects only to the direct endpoint it checked (decoded host, no -pooler host in any case, port fixed to 5432, database name required so that PGDATABASE cannot choose it, no host with a slash, which pg would take as a Unix socket without TLS); SQL limited to the target tables, audit_events, lock and session settings"
+      "notes": "implementation mapping only: runs as app_migrator under the migration lock handle, and takes the migration lock again on the new connection before the re-check after an unknown COMMIT result; the lock acquisition is bounded to 60 seconds on the client too (a connection that stops answering is abandoned); the command connects only to the direct endpoint it checked (decoded host, no -pooler host in any case, port fixed to 5432, database name required so that PGDATABASE cannot choose it, no host with a slash, which pg would take as a Unix socket without TLS); SQL limited to the target tables, audit_events, lock and session settings; a lock granted after its deadline is not used (the client is ended)"
     },
     {
       "rule_id": "INF-SEED-004",
@@ -5843,9 +5846,12 @@
         "TC-TST-SEED-006-016",
         "TC-TST-SEED-006-017",
         "TC-TST-SEED-006-018",
-        "TC-TST-SEED-003-014"
+        "TC-TST-SEED-003-014",
+        "TC-TST-SEED-003-015",
+        "TC-TST-SEED-003-016",
+        "TC-TST-SEED-003-017"
       ],
-      "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits; the first connection is acquired within the SPEC-150 temporary connection budget (3 attempts, 3 seconds, backoff included), else FAILED"
+      "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits; the first connection is acquired within the SPEC-150 temporary connection budget (3 attempts, 3 seconds, backoff included), else FAILED; a connection that succeeds after the budget is ended, not used; an authentication rejection (SQLSTATE class 28) is not retried"
     },
     {
       "rule_id": "INF-SEED-005",
@@ -5857,9 +5863,11 @@
         "TC-TST-SEED-005-002",
         "TC-TST-SEED-005-006",
         "TC-TST-SEED-005-007",
-        "TC-TST-SEED-003-008"
+        "TC-TST-SEED-003-008",
+        "TC-TST-SEED-003-016",
+        "TC-TST-SEED-003-017"
       ],
-      "notes": "implementation mapping only: result line on stdout, common log fields on stderr, no input value, connection string or exception message"
+      "notes": "implementation mapping only: result line on stdout, common log fields on stderr, no input value, connection string or exception message; a refused authentication is FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED)"
     },
     {
       "rule_id": "INF-SEED-006",
