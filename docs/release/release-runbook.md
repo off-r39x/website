@@ -282,7 +282,7 @@ Secret でない識別子は、起動時の環境 identity 検証（`EXPECTED_*`
 | Stripe                      | 環境ごとのアカウント、Webhook の endpoint、API バージョン、本番審査の提出日・完了日                                                      |
 | ドメイン                    | ホスト名の一覧（Web、API / Auth、staging）、更新期限                                                                                     |
 | Cloudflare / Neon           | プロジェクト名と ID、Access の対象、保護の検証結果                                                                                       |
-| Railway                     | project 名と ID、environment 名（`SPEC-180 §14` の対応表）、workspace の member と role、project token の対象 environment と発行日（token の値は書かない）、PR environments が無効であることの確認日。production environment の variable の変更と画面からの deploy（再 deploy・rollback）の記録: deployment ID、image digest、変更した変数の名前（値は書かない）、理由、実施者、日時（`SPEC-180 §69`） |
+| Railway                     | project 名と ID、environment 名（`SPEC-180 §14` の対応表）、workspace の member と role、project token の対象 environment と発行日（token の値は書かない）、PR environments が無効であることの確認日。人が画面または CLI で行った production environment の variable の変更と、画面からの deploy（再 deploy・rollback）の記録: deployment ID、image digest、変更した変数の名前（値は書かない）、理由、実施者、日時（`SPEC-180 §69`） |
 | 決定                        | D-2、D-3、R-7、M-1〜M-6 の決定日と選択                                                                                                   |
 
 Railway ingress と Redis の外部事実（#42・#45）の記録項目（`TRUSTED_PROXY_HOPS` の値と `X-Forwarded-For` の扱い、`maxmemory` の値と根拠、確認日と deployment ID）と、書かない値は [staging-checks-42-45.md](staging-checks-42-45.md) の §8 を参照。記録先は各 Issue。
