@@ -472,7 +472,7 @@ Railwayから`SIGTERM`を受けたprocessは次を実行する。
 
 `SPEC-140` Part XIII の共有storeを次のとおり配置する。control semanticsは `SPEC-140`、store障害時のReliability behaviorは `SPEC-150` §58.1 を正とする。
 
-**INF-RLS-001:** 各Canonical EnvironmentのRailway environment（§14）に `rate-limit-redis` serviceを1つ置く。Railway environmentを置かない間の `test` では、§74.1 のCIのRedis service containerを使う。このcontainerには、`INF-RLS-002`・`INF-RLS-005` と§80 項目49・50のRailway固有の条件（private network、public domain / TCP proxy、API serviceだけの接続、Railway replicas）を適用せず、永続化・`maxmemory-policy`・major version（`INF-RLS-003`・`INF-RLS-004`・`INF-RLS-006`）は§74.1 と `SPEC-170` のrate limitのTest（`TST-RLM-*`）が必要とする設定に従う。単一ノードのRedisとし、Sentinel / HA構成は採用しない。Environment間で共有しない（`INF-ENV-002`。Railwayのprivate networkはenvironmentごとに独立する）。
+**INF-RLS-001:** 各Canonical EnvironmentのRailway environment（§14。`test` はRailway environmentを置く場合）に `rate-limit-redis` serviceを1つ置く。Railway environmentを置かない間の `test` では、§74.1 のCIのRedis service containerを使う。このcontainerには、`INF-RLS-002`・`INF-RLS-005` と§80 項目49・50のRailway固有の条件（private network、public domain / TCP proxy、API serviceだけの接続、Railway replicas）を適用せず、永続化・`maxmemory-policy`・major version（`INF-RLS-003`・`INF-RLS-004`・`INF-RLS-006`）は§74.1 と `SPEC-170` のrate limitのTest（`TST-RLM-*`）が必要とする設定に従う。単一ノードのRedisとし、Sentinel / HA構成は採用しない。Environment間で共有しない（`INF-ENV-002`。Railwayのprivate networkはenvironmentごとに独立する）。
 
 **INF-RLS-002:** public domain、TCP proxy、Public Accessを付与せず、Railway private networkだけで到達可能にする。接続元はAPI serviceだけとし、Email Worker / Reconciliation Worker / maintenance jobから接続しない。
 
@@ -1912,7 +1912,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 46. Canonical Admin API operationはHono API route以外の経路・別service・別workerで露出しない。
 47. deployment registry / log / metric / Auditは `SPEC-110` Operation ID manifestをsourceとし、`SPEC-160` の `operation_id` / `operation_execution_id` correlationへwiringする。
 48. privileged Admin API operation smokeはProduction business mutation / Provider write / real PII / raw QR / raw provider bodyを発生させない。
-49. 各Canonical EnvironmentのRailway environmentに `rate-limit-redis` が1つ置かれ、public domain / TCP proxyを持たず、API serviceだけが接続する。`rate-limit-redis`（Railway environmentを置かない間の `test` ではCIのRedis service container）はEnvironment間で共有されない。
+49. 各Canonical EnvironmentのRailway environment（`test` はRailway environmentを置く場合だけ。置かない場合は `INF-RLS-001` のCIのRedis service containerを使い、この項目の配置・接続の条件を適用しない）に `rate-limit-redis` が1つ置かれ、public domain / TCP proxyを持たず、API serviceだけが接続する。`rate-limit-redis`（Railway environmentを置かない間の `test` ではCIのRedis service container）はEnvironment間で共有されない。
 50. `rate-limit-redis` は永続化なし、`noeviction`、固定 `maxmemory` で、Railway replicasが1である。Railway environmentを置かない間の `test` のCIのRedis service containerは `INF-RLS-001` に従う。
 51. `RATE_LIMIT_REDIS_URL` と `RATE_LIMIT_HMAC_KEY` がAPI serviceだけに配置され、他serviceやClientへ出ない。
 52. rate limit configuration不正、store接続不能、`TRUSTED_PROXY_HOPS` 未設定でAPI readinessがfalseになる。
