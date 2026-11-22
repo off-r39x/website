@@ -28159,14 +28159,16 @@
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "A fake client counts the queries the primitive sends; it proves validation order and message content only, never a DB constraint; synthetic values only",
+      "preconditions": "A fake client counts the queries the primitive sends; it proves validation order, the bound values and message content only, never a DB constraint; each result case claims on its own fake client; synthetic values only",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "A digest that is not a 32 byte Uint8Array, a Principal or result reference that is not a lowercase UUID, an empty refs array, a result type that is not a token and an Operation ID outside the API-* form are refused before any query is sent",
+        "A digest that is not a 32 byte Uint8Array, a Principal or result reference that is not a lowercase UUID, an empty refs array, a refs array with a hole, an undefined or null reference, a result type that is not a token and an Operation ID outside the API-* form are refused before any query is sent",
+        "The references are read once; the checked copy, in order, is what is bound, never the caller's array or a value read again after the check",
+        "A handle used on another client than the claiming one, or one that no first claim returned, is refused before any query is sent",
         "Refusal messages are fixed per field and do not contain the offending value; a valid input binds its values as parameters and sends no DELETE"
       ],
       "expected_db_postconditions": [],
@@ -28360,6 +28362,34 @@
       ],
       "expected_db_postconditions": [
         "One row; created_at = T, expires_at = T + 24 hours, created_at earlier than the checking transaction's now(); ck_idempotency_records_expiry holds"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-IDM-001-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": ["SPEC-100-43.1", "DB-IDM-001", "API-IDM-004", "API-IDM-007"],
+      "system_invariant_ids": ["INV-010-10"],
+      "api_operation_ids": [],
+      "db_constraint_names": ["ck_idempotency_records_result_ref"],
+      "preconditions": "Independent real PostgreSQL 17 database (TLS) migrated with 0001 to the idempotency_records migration; synthetic Business Profiles; runtime connections as app_api_runtime; synthetic values only",
+      "fixture_ids": [],
+      "clock_instant": "DB time: transaction_timestamp(); an expired row is made by moving created_at and expires_at back 48 hours as the admin",
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A first claim's handle sets the result only in the transaction that claimed it (SPEC-100 section 43.1): from a later transaction on the same connection, or from another connection, it is refused",
+        "After an expired row is reused by a new first claim, the old handle cannot fill the new request's result; the new handle sets it"
+      ],
+      "expected_db_postconditions": [
+        "A claim committed without a result keeps result_ref_type NULL and result_refs empty after the refused call",
+        "No statement is sent for a handle on another connection; the claiming transaction still sets its result",
+        "The reused row keeps its id and holds the new request digest and only the new handle's references"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],

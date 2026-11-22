@@ -5619,7 +5619,8 @@
         "TC-DB-IDM-001-001",
         "TC-DB-IDM-001-002",
         "TC-DB-IDM-001-003",
-        "TC-API-IDM-007-001"
+        "TC-API-IDM-007-001",
+        "TC-DB-IDM-001-004"
       ],
       "notes": "implementation mapping only: only digests and references are stored; no raw key, body, URL, Session ID or Email column"
     },
@@ -5662,7 +5663,7 @@
         "packages/db/src/idempotency-records.ts",
         "packages/db/src/transactions/idempotency.ts"
       ],
-      "test_case_ids": ["TC-API-IDM-004-001", "TC-API-IDM-004-002"],
+      "test_case_ids": ["TC-API-IDM-004-001", "TC-API-IDM-004-002", "TC-DB-IDM-001-004"],
       "notes": "implementation mapping only: replay record primitives exist in packages/db; no business Operation mounts them yet; the minimal transaction is for an Operation that succeeds without a business update"
     },
     {
@@ -5680,7 +5681,12 @@
     {
       "rule_id": "API-IDM-007",
       "code_paths": ["packages/db/src/idempotency-records.ts"],
-      "test_case_ids": ["TC-API-IDM-006-001", "TC-API-IDM-007-001", "TC-DB-IDM-001-003"],
+      "test_case_ids": [
+        "TC-API-IDM-006-001",
+        "TC-API-IDM-007-001",
+        "TC-DB-IDM-001-003",
+        "TC-DB-IDM-001-004"
+      ],
       "notes": "implementation mapping only: replay record primitives exist in packages/db; no business Operation mounts them yet; only a result type and references are stored"
     },
     {
