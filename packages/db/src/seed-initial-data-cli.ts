@@ -6,9 +6,9 @@ import { createLogger, type LogEvent } from "@off-r39x/observability";
 import { TIMEOUTS } from "@off-r39x/reliability";
 import { Client } from "pg";
 import {
-  connectWithinBudget,
   endConnection,
   failedOutcome,
+  openSeedConnection,
   outcomeExitCode,
   outcomeLogFields,
   SEED_OPERATION_ID,
@@ -230,10 +230,14 @@ async function execute(
   };
 
   // SPEC-150 section 11 "temporary DB connection acquisition": the first connection gets the same 3
-  // attempts within 3 seconds, backoff included, as the re-check connection.
-  const client = await connectWithinBudget(open);
-  if (client === undefined)
-    return failedBeforeSeed(executionId, "TEMPORARY_FAILURE", "DATABASE_TEMPORARY_FAILURE");
+  // attempts within 3 seconds, backoff included, as the re-check connection. A refused authentication
+  // is not retried: FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED).
+  const opened = await openSeedConnection(open, {
+    executionId,
+    ...(logger === undefined ? {} : { logger }),
+  });
+  if (opened.kind === "failed") return opened.outcome;
+  const client = opened.client;
   let lock: MigrationLock | undefined;
   try {
     try {

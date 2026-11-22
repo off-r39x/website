@@ -1,3 +1,4 @@
+import { performance } from "node:perf_hooks";
 import type { Client } from "pg";
 import { sqlState } from "./errors.ts";
 
@@ -59,13 +60,13 @@ export async function acquireMigrationLock(
   options: { readonly deadlineMs?: number } = {},
 ): Promise<MigrationLock> {
   let abandoned = false;
-  const timer = setTimeout(
-    () => {
-      abandoned = true;
-      void client.end().catch(() => {});
-    },
-    Math.max(options.deadlineMs ?? MIGRATION_LOCK_ACQUIRE_MS, 0),
-  );
+  const abandon = () => {
+    abandoned = true;
+    void client.end().catch(() => {});
+  };
+  const deadlineMs = Math.max(options.deadlineMs ?? MIGRATION_LOCK_ACQUIRE_MS, 0);
+  const startedAt = performance.now();
+  const timer = setTimeout(abandon, deadlineMs);
   timer.unref();
   try {
     const role = (await client.query("SELECT current_user AS role")).rows[0]?.role;
@@ -74,6 +75,9 @@ export async function acquireMigrationLock(
     await client.query("SET statement_timeout = '65s'");
     await client.query("SET timezone = 'UTC'");
     await client.query("SELECT pg_advisory_lock(hashtext('r39x:schema-migration'))");
+    // The grant can be seen before the timer callback runs: the deadline is checked on the clock. A
+    // lock granted after it is not used; ending the client ends the session, and the lock with it.
+    if (!abandoned && performance.now() - startedAt >= deadlineMs) abandon();
     if (abandoned) throw new MigrationLockTimeoutError();
   } catch (error) {
     if (abandoned || sqlState(error) === "55P03") throw new MigrationLockTimeoutError();

@@ -139,8 +139,14 @@ not a new 8 seconds, and a later SQLSTATE with a longer budget (`40001` 2 s, `40
 5 s) never extends a budget already applied. The first connection and the new connection for the
 re-check are both acquired within the SPEC-150 budget for a temporary connection failure (3 attempts,
 3 seconds in total, backoff included, each attempt bounded by what is left), else `FAILED`
-(`DATABASE_TEMPORARY_FAILURE`) for the first one and `UNKNOWN_RESULT` for the re-check. A connection whose server stops answering at the close is
-destroyed after 3 seconds, so the command still exits.
+(`DATABASE_TEMPORARY_FAILURE`) for the first one and `UNKNOWN_RESULT` for the re-check. A connection
+or a migration lock whose success arrives after its deadline is closed, not used. A server that refuses
+the credentials (SQLSTATE class 28, such as `28P01`) is not retried: the first connection ends as
+`FAILED` (`PERMANENT_FAILURE`, `DATABASE_AUTHENTICATION_FAILED`), the re-check as `UNKNOWN_RESULT`.
+When a retry budget runs out (by attempts or by elapsed time, for the connection, the seed transaction
+or the re-check), `reliability.retry.exhausted` is logged (SPEC-160 §22) before the result. A
+connection whose server stops answering at the close is destroyed after 3 seconds, so the command
+still exits.
 
 Environment variables (an `app_migrator` direct URL on port 5432 over TLS, as for `db:migrate`):
 
