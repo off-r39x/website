@@ -158,6 +158,16 @@ describe("TC-TST-SEED-003-004 exit codes and the CREATED / NOOP distinction (INF
       "a pooler host",
       { MIGRATION_DATABASE_URL: "postgresql://app_migrator@db-pooler.invalid:5432/example" },
     ],
+    [
+      // pg connects to the host as written, whatever its case: the check is case-insensitive.
+      "a pooler host in upper case",
+      { MIGRATION_DATABASE_URL: "postgresql://app_migrator@db-POOLER.invalid:5432/example" },
+    ],
+    [
+      // pg percent-decodes the host before it connects, so the check sees the decoded host.
+      "a percent-encoded pooler host",
+      { MIGRATION_DATABASE_URL: "postgresql://app_migrator@db%2Dpooler.invalid:5432/example" },
+    ],
     ["no MIGRATION_DATABASE_URL", { MIGRATION_DATABASE_URL: undefined }],
     [
       "no actor ref",
@@ -206,6 +216,20 @@ describe("TC-TST-SEED-003-004 exit codes and the CREATED / NOOP distinction (INF
       expect(await counts()).toEqual(EMPTY);
     });
   }
+
+  it("TC-TST-SEED-003-004 a URL without a port connects to 5432 even when PGPORT names another port", async () => {
+    // pg falls back to PGPORT for a URL without a port; the command fixes the port to 5432 instead.
+    const noPort = migratorUrl();
+    expect(noPort.port).toBe("5432");
+    noPort.port = "";
+    expect(noPort.port).toBe("");
+    const run = await runSeedCli(
+      baseEnv(buildInitialDataInput(), { MIGRATION_DATABASE_URL: noPort.href, PGPORT: "1" }),
+    );
+    expect(run.code).toBe(0);
+    expect(resultLine(run.stdout)).toMatchObject({ outcome: "CREATED", error_code: null });
+    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: 3 });
+  });
 
   it("TC-TST-SEED-003-004 an unknown APP_ENV: exit 2, one result line, nothing created", async () => {
     const run = await runSeedCli(baseEnv(buildInitialDataInput(), { APP_ENV: "prod" }));

@@ -31,8 +31,14 @@ const lockTimeout = () => Object.assign(new Error("synthetic lock timeout"), { c
  * A scripted stand-in for a pg Client. `xactLock` decides what the seed xact lock does; every other
  * statement succeeds with the rows the seed expects (no Event yet, inserted rows, Audit Event ids).
  */
-function scriptedClient(options: { xactLock: "timeout" | "grant"; commit?: "lost" | "ok" }) {
+function scriptedClient(options: {
+  xactLock: "timeout" | "grant";
+  commit?: "lost" | "ok";
+  /** Consumed in order before `xactLock` applies: how long each xact lock takes, and its SQLSTATE. */
+  xactLocks?: { advanceMs: number; code?: "40001" | "55P03" }[];
+}) {
   const statements: string[] = [];
+  const script = [...(options.xactLocks ?? [])];
   let inserted = 0;
   const client = {
     on: () => client,
@@ -42,6 +48,13 @@ function scriptedClient(options: { xactLock: "timeout" | "grant"; commit?: "lost
       statements.push(text);
       if (/current_user/i.test(text)) return { rows: [{ role: "app_migrator" }] };
       if (XACT_LOCK.test(text)) {
+        const step = script.shift();
+        if (step) {
+          clock.now += step.advanceMs;
+          if (step.code)
+            throw Object.assign(new Error("synthetic retryable failure"), { code: step.code });
+          return { rows: [] };
+        }
         if (options.xactLock === "timeout") {
           clock.now += LOCK_WAIT_MS;
           throw lockTimeout();
@@ -74,6 +87,14 @@ function scriptedClient(options: { xactLock: "timeout" | "grant"; commit?: "lost
 }
 
 const xactLocks = (statements: string[]) => statements.filter((text) => XACT_LOCK.test(text));
+const commits = (statements: string[]) => statements.filter((text) => /^\s*COMMIT/i.test(text));
+const AUDIT_RECHECK = /from app\.audit_events where operation_id/i;
+/** The statement timeouts (ms) the deadline lowered, in order. */
+const loweredTimeouts = (statements: string[]) =>
+  statements.flatMap((text) => {
+    const match = /^SET LOCAL statement_timeout = '(\d+)ms'$/.exec(text);
+    return match ? [Number(match[1])] : [];
+  });
 
 async function seedWith(main: Client, connect: () => Promise<Client>) {
   const lock = await acquireMigrationLock(main);
@@ -157,5 +178,76 @@ describe("TC-TST-SEED-006-013 the 55P03 retry of the re-check stays within its b
     });
     expect(xactLocks(recheck.statements)).toHaveLength(1);
     expect(clock.sleeps).toEqual([49.5]);
+  });
+});
+
+describe("TC-TST-SEED-003-013 a retry of the seed transaction runs within what is left of the budget (REL-DB-011, SPEC-150 section 11)", () => {
+  it("TC-TST-SEED-003-013 (a) a retry started 4.85 s in has 150 ms, not a new 8 s: its xact lock ends past the budget, FAILED, no COMMIT", async () => {
+    // Attempt 1 times out at 4800 ms; the 49.5 ms backoff ends at 4849.5 ms, within the 5 s budget.
+    // Attempt 2 is granted its xact lock only at 5049.5 ms, past the budget.
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }, { advanceMs: 200 }],
+    });
+    const outcome = await seedWith(main.client, async () => {
+      throw new Error("no re-check expected");
+    });
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      attemptNumber: 2,
+      failureClass: "TEMPORARY_FAILURE",
+      errorCode: "DATABASE_TEMPORARY_FAILURE",
+    });
+    expect(clock.sleeps).toEqual([49.5]);
+    expect(xactLocks(main.statements)).toHaveLength(2);
+    // The second transaction's statement timeout is lowered to what is left of the 5 s budget.
+    expect(Math.max(...loweredTimeouts(main.statements))).toBeLessThanOrEqual(151);
+    expect(commits(main.statements)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-013 (b) a later SQLSTATE does not extend the budget already applied: 40001 (2 s) then 55P03 (5 s) stops at 2 s", async () => {
+    // Attempt 1: 40001 at 1500 ms (2 s budget); backoff 49.5 ms. Attempt 2: 55P03 at 1949.5 ms; its
+    // 99 ms backoff would end at 2048.5 ms, past the 2 s budget that already applies.
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [
+        { advanceMs: 1500, code: "40001" },
+        { advanceMs: 400, code: "55P03" },
+      ],
+    });
+    const outcome = await seedWith(main.client, async () => {
+      throw new Error("no re-check expected");
+    });
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      attemptNumber: 2,
+      failureClass: "TEMPORARY_FAILURE",
+      errorCode: "DATABASE_TEMPORARY_FAILURE",
+    });
+    expect(clock.sleeps).toEqual([49.5]);
+    expect(xactLocks(main.statements)).toHaveLength(2);
+    expect(commits(main.statements)).toEqual([]);
+  });
+});
+
+describe("TC-TST-SEED-006-016 a retry of the re-check transaction runs within what is left of its budget (DB-SEED-002 (4), REL-DB-011, SPEC-150 section 11)", () => {
+  it("TC-TST-SEED-006-016 a re-check retried 4.85 s in has 150 ms: its xact lock ends past the budget, UNKNOWN_RESULT, nothing read", async () => {
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }, { advanceMs: 200 }],
+    });
+    const outcome = await seedWith(main.client, async () => recheck.client);
+    expect(outcome).toMatchObject({
+      outcome: "UNKNOWN_RESULT",
+      attemptNumber: 1,
+      errorCode: "COMMIT_RESULT_UNKNOWN",
+    });
+    expect(clock.sleeps).toEqual([49.5]);
+    expect(xactLocks(recheck.statements)).toHaveLength(2);
+    expect(Math.max(...loweredTimeouts(recheck.statements))).toBeLessThanOrEqual(151);
+    // The late second re-check decides nothing: no Audit Event read, no retry of the seed.
+    expect(recheck.statements.some((text) => AUDIT_RECHECK.test(text))).toBe(false);
+    expect(commits(recheck.statements)).toEqual([]);
   });
 });

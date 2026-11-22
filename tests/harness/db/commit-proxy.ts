@@ -21,7 +21,10 @@ import { createConnection, createServer, type Socket } from "node:net";
  *   stay open: the network stops answering. The upstream backend stays inside its transaction until
  *   the caller's socket closes (then the proxy closes the upstream one too). With `forwardStalled`,
  *   the matching statement itself is still sent upstream (PostgreSQL runs it, for example grants a
- *   lock) and only its answer and everything after it are lost.
+ *   lock) and only its answer and everything after it are lost. With `stallOnTerminate`, the stall
+ *   starts at the caller's Terminate message instead (every answer before it arrives): the Terminate
+ *   is not sent upstream and the caller's half-close (FIN) is never answered, so a graceful
+ *   `client.end()` waits for a close that never comes.
  */
 export type CommitProxyMode =
   | "drop_ack"
@@ -48,17 +51,19 @@ export async function startCommitAcknowledgementDropProxy(
     delayMs?: number;
     stallOn?: RegExp;
     forwardStalled?: boolean;
+    stallOnTerminate?: boolean;
   } = {},
 ) {
   const mode = options.mode ?? "drop_ack";
-  if (mode === "stall_statement" && options.stallOn === undefined)
-    throw new Error("stall_statement requires stallOn");
+  if (mode === "stall_statement" && options.stallOn === undefined && !options.stallOnTerminate)
+    throw new Error("stall_statement requires stallOn or stallOnTerminate");
   const delayMs = options.delayMs ?? 3000;
   const flushers = new Set<() => void>();
   const sockets = new Set<Socket>();
   let fired = 0;
   const heldCommits: Array<() => Promise<void>> = [];
-  const server = createServer((downstream) => {
+  // stall_statement keeps the caller's half-closed socket open (a stalled peer answers no FIN).
+  const server = createServer({ allowHalfOpen: mode === "stall_statement" }, (downstream) => {
     const upstream = createConnection({ host: target.hostname, port: Number(target.port || 5432) });
     sockets.add(downstream);
     sockets.add(upstream);
@@ -91,6 +96,12 @@ export async function startCommitAcknowledgementDropProxy(
         incoming = incoming.subarray(size);
         const isCommit =
           !startup && frame[0] === 81 && /^COMMIT\s*;?\s*\0$/i.test(frame.subarray(5).toString());
+        // Terminate ('X'): with stallOnTerminate it is swallowed and the network stops answering.
+        if (mode === "stall_statement" && !startup && frame[0] === 88 && options.stallOnTerminate) {
+          fired += 1;
+          stalled = true;
+          return;
+        }
         // Simple Query ('Q') or Parse ('P') carrying a statement text that matches `stallOn`.
         if (
           mode === "stall_statement" &&
@@ -184,6 +195,13 @@ export async function startCommitAcknowledgementDropProxy(
     upstream.on("close", () => {
       sockets.delete(upstream);
       downstream.destroy();
+    });
+    // Only with allowHalfOpen (stall_statement): the caller half-closed its socket. A stalled peer
+    // never answers; otherwise the close is passed on as without allowHalfOpen.
+    downstream.on("end", () => {
+      if (stalled) return;
+      downstream.end();
+      upstream.end();
     });
     downstream.on("error", () => {
       if (!detached) upstream.destroy();

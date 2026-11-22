@@ -305,6 +305,25 @@ describe("TC-TST-SEED-003-001 input validation (DB-SEED-003: strict, same condit
     expectRejected(raw, INVALID, sensitiveValues(base));
   });
 
+  // JSON.parse rounds a number before any check sees it: 1000.00000000000001 becomes 1000 and
+  // -1e-400 becomes -0. The number is checked in the form it was written (DB-SEED-003: strict, no
+  // guessed value), so only a plain integer literal is accepted.
+  const numberSpellings: [string, string][] = [
+    ["a fraction too small for a double", "1000.00000000000001"],
+    ["a negative value that underflows to zero", "-1e-400"],
+    ["an exponent form of an integer", "1e3"],
+    ["an integer with a zero fraction", "1000.0"],
+    ["a negative zero", "-0"],
+  ];
+  for (const [label, spelling] of numberSpellings) {
+    it(`TC-TST-SEED-003-001 rejects ${label} (${spelling}) as written, not as JSON.parse rounds it`, () => {
+      const base = buildInitialDataInput();
+      const raw = JSON.stringify(base).replace(/"unit_amount":\d+/, `"unit_amount":${spelling}`);
+      expect(raw).toContain(`"unit_amount":${spelling}`);
+      expectRejected(raw, INVALID, sensitiveValues(base));
+    });
+  }
+
   it("TC-TST-SEED-003-001 rejects a __proto__ key (own property created by JSON.parse)", () => {
     const base = buildInitialDataInput();
     const raw = JSON.stringify(base).replace('"event":{', '"event":{"__proto__":{"polluted":1},');

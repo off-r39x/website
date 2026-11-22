@@ -1,6 +1,11 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { Client } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { outcomeExitCode, outcomeLogFields } from "../../packages/db/src/initial-data/seed.ts";
+import {
+  endConnection,
+  outcomeExitCode,
+  outcomeLogFields,
+} from "../../packages/db/src/initial-data/seed.ts";
 import {
   acquireMigrationLock,
   MigrationLockTimeoutError,
@@ -116,6 +121,7 @@ async function seedThroughProxy(
     statements?: string[];
     logs?: RecordedLog[];
     transactionDeadlineMs?: number;
+    recheckDeadlineMs?: number;
     migrationLockDeadlineMs?: number;
     delayMs?: number;
   } = {},
@@ -134,6 +140,7 @@ async function seedThroughProxy(
       statements,
       logs,
       transactionDeadlineMs: options.transactionDeadlineMs,
+      recheckDeadlineMs: options.recheckDeadlineMs,
       migrationLockDeadlineMs: options.migrationLockDeadlineMs,
     });
     return { run, statements, logs, fired: proxy.fired() };
@@ -579,9 +586,10 @@ describe("TC-TST-SEED-006-011 the re-check transaction runs within the transacti
     try {
       const { run, logs, fired } = await seedThroughProxy("drop_request", {
         statements,
-        // 600 ms per transaction; the re-check's Audit Event read waits up to 900 ms, shorter than the
-        // 1 s lock timeout and the 5 s statement timeout, so only the deadline can stop it.
-        transactionDeadlineMs: 600,
+        // 600 ms per re-check transaction; its Audit Event read waits up to 900 ms, shorter than the
+        // 1 s lock timeout and the 5 s statement timeout, so only the deadline can stop it. The seed
+        // transaction keeps the default deadline, so that it reaches COMMIT on a slow runner too.
+        recheckDeadlineMs: 600,
         connect: async (wrap) => {
           if (!held) {
             held = true;
@@ -696,7 +704,8 @@ describe("TC-TST-SEED-006-012 the network stops answering inside the re-check (F
       const seeding = seedThroughProxy("drop_request", {
         statements,
         logs,
-        transactionDeadlineMs: 800,
+        // Only the re-check transaction is shortened: the seed transaction must reach COMMIT.
+        recheckDeadlineMs: 800,
         connect: async (wrap) => wrap(await connectAs("app_migrator", recheckProxy.url)),
       });
       const settled = await settlesWithin(seeding, SETTLE_LIMIT_MS);
@@ -807,6 +816,110 @@ describe("TC-TST-SEED-006-014 the network stops answering while the re-check tak
     }
     await waitUntil(async () => (await admin.query(MIGRATION_LOCK_HELD_SQL)).rows[0].n === 0, {
       label: "the abandoned re-check session releasing the migration lock",
+    });
+    expect(await counts()).toEqual({ events: 0, offerings: 0, audits: 0 });
+  });
+});
+
+// pg keeps the socket on a private field; the tests only read whether it is gone.
+const socketOf = (client: Client) =>
+  (client as unknown as { connection: { stream: { destroyed: boolean } } }).connection.stream;
+const MIGRATOR_SESSIONS_SQL = `SELECT count(*)::int AS n FROM pg_stat_activity
+  WHERE datname = current_database() AND pid <> pg_backend_pid() AND usename = 'app_migrator'`;
+
+describe("TC-TST-SEED-003-012 ending a connection whose peer stops answering after the last answer (FP.DB.INSIDE_STATEMENT, INF-SEED-004, REL-DB-005)", () => {
+  it("TC-TST-SEED-003-012 the Terminate and the FIN get no answer: endConnection destroys the socket after its wait, and the session ends", async () => {
+    const proxy = await startCommitAcknowledgementDropProxy(new URL(url as string), {
+      mode: "stall_statement",
+      stallOnTerminate: true,
+    });
+    try {
+      const client = await connectAs("app_migrator", proxy.url);
+      const lock = await acquireMigrationLock(client);
+      // The unlock is answered: only what comes after it is lost.
+      expect(await lock.release()).toBe(true);
+      const startedAt = Date.now();
+      const settled = await settlesWithin(endConnection(client, 500), SETTLE_LIMIT_MS);
+      expect(settled, "endConnection settles by itself").not.toBe("hung");
+      expect(Date.now() - startedAt).toBeLessThan(2000);
+      expect(proxy.fired()).toBe(1);
+      // The socket no longer keeps the process alive (the command can exit).
+      expect(socketOf(client).destroyed).toBe(true);
+    } finally {
+      await proxy.close();
+    }
+    await waitUntil(async () => (await admin.query(MIGRATOR_SESSIONS_SQL)).rows[0].n === 0, {
+      label: "the stalled session ending",
+    });
+  });
+});
+
+describe("TC-TST-SEED-006-015 the re-check connection's peer stops answering after the unlock (FP.DB.INSIDE_STATEMENT, DB-SEED-002 (1), INF-SEED-004)", () => {
+  it("TC-TST-SEED-006-015 the seed still returns CREATED and the re-check socket is destroyed, not left open", async () => {
+    const recheckProxy = await startCommitAcknowledgementDropProxy(new URL(url as string), {
+      mode: "stall_statement",
+      stallOnTerminate: true,
+    });
+    let recheckClient: Client | undefined;
+    try {
+      const seeding = seedThroughProxy("drop_ack", {
+        connect: async (wrap) => {
+          recheckClient = wrap(await connectAs("app_migrator", recheckProxy.url));
+          return recheckClient;
+        },
+      });
+      const settled = await settlesWithin(seeding, SETTLE_LIMIT_MS);
+      expect(settled, "the command settles by itself").not.toBe("hung");
+      if (settled === "hung") return;
+      expect(settled.fired).toBe(1);
+      expect(shape(settled.run.outcome).outcome).toBe("CREATED");
+      expect(recheckProxy.fired()).toBe(1);
+      expect(recheckClient && socketOf(recheckClient).destroyed).toBe(true);
+    } finally {
+      await recheckProxy.close();
+    }
+    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: 3 });
+  });
+});
+
+describe("TC-TST-SEED-006-017 the reconnect after an unknown COMMIT result stays within 3 seconds (SPEC-150 section 11, DB-SEED-002 (4), REL-DB-006)", () => {
+  it("TC-TST-SEED-006-017 a slow failed attempt leaves only what is left of 3 s to the next: UNKNOWN_RESULT, no re-check, the late connection is ended", async () => {
+    const statements: string[] = [];
+    let calls = 0;
+    let firstCallAt = 0;
+    let late: Client | undefined;
+    const { run, logs, fired } = await seedThroughProxy("drop_request", {
+      statements,
+      connect: async (wrap) => {
+        calls += 1;
+        if (calls === 1) {
+          firstCallAt = Date.now();
+          await delay(2500);
+          throw new Error("synthetic slow connection failure");
+        }
+        // The second attempt would connect only 2 s later, past the 3 s budget.
+        await delay(2000);
+        late = wrap(await connectAs("app_migrator"));
+        return late;
+      },
+    });
+    const settledAt = Date.now();
+    expect(fired).toBe(1);
+    const outcome = shape(run.outcome);
+    expect(outcome.outcome).toBe("UNKNOWN_RESULT");
+    expect(outcome.errorCode).toBe("COMMIT_RESULT_UNKNOWN");
+    expect(calls).toBe(2);
+    expect(settledAt - firstCallAt).toBeLessThan(3500);
+    // Nothing was decided: no lock statement and no Audit Event read on a re-check connection.
+    // Only the original connection took the migration lock; no re-check connection did.
+    expect(statements.filter((text) => MIGRATION_LOCK.test(text))).toHaveLength(1);
+    expect(statements.some((text) => AUDIT_RECHECK.test(text))).toBe(false);
+    expect(named(logs, RESOLVED)).toHaveLength(0);
+    expect(named(logs, RETRY_ATTEMPTED)).toHaveLength(0);
+    // The connection that arrived after the budget is ended, not left open.
+    await waitUntil(async () => late !== undefined, { label: "the late connection arriving" });
+    await waitUntil(async () => (await admin.query(MIGRATOR_SESSIONS_SQL)).rows[0].n === 0, {
+      label: "the late connection being ended",
     });
     expect(await counts()).toEqual({ events: 0, offerings: 0, audits: 0 });
   });

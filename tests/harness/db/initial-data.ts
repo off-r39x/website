@@ -290,6 +290,8 @@ export async function runSeed(
     beforeSeed?: (() => Promise<void>) | undefined;
     /** Passed to seedInitialData as `transactionDeadlineMs` (SPEC-150 section 9 wall clock, plan v1.2 Q-2). */
     transactionDeadlineMs?: number | undefined;
+    /** Passed to seedInitialData as `recheckDeadlineMs` (the wall clock of a re-check transaction). */
+    recheckDeadlineMs?: number | undefined;
     /** Passed to seedInitialData as `migrationLockDeadlineMs` (the re-check's lock acquisition). */
     migrationLockDeadlineMs?: number | undefined;
     /** Blocks the (synchronous) readInput callback, i.e. the open transaction, for this long. */
@@ -342,6 +344,9 @@ export async function runSeed(
       ...(options.transactionDeadlineMs === undefined
         ? {}
         : { transactionDeadlineMs: options.transactionDeadlineMs }),
+      ...(options.recheckDeadlineMs === undefined
+        ? {}
+        : { recheckDeadlineMs: options.recheckDeadlineMs }),
       ...(options.migrationLockDeadlineMs === undefined
         ? {}
         : { migrationLockDeadlineMs: options.migrationLockDeadlineMs }),
