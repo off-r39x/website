@@ -437,11 +437,13 @@ describe("TC-TST-SEED-006-007 re-running after recovery (INF-SEED-004, REL-DB-00
 
 describe("TC-TST-SEED-006-008 the transaction deadline passes while COMMIT is in flight (plan v1.2 Q-2, DB-SEED-002, REL-DB-005, REL-DB-006)", () => {
   // The command's own deadline timer (transactionDeadlineMs) fires after COMMIT was sent and before its
-  // acknowledgement arrives: the result is unknown, and the re-check decides.
+  // acknowledgement arrives: the result is unknown, and the re-check decides. The deadline leaves a
+  // slow runner time to reach COMMIT (a seed transaction there takes about 1 s), and the
+  // acknowledgement is held longer than the deadline.
   it("TC-TST-SEED-006-008 (a) the COMMIT took effect: the re-check finds this run's Audit Events, CREATED, one set of rows", async () => {
     const { run, logs, fired } = await seedThroughProxy("delay_ack", {
-      transactionDeadlineMs: 1000,
-      delayMs: 3000,
+      transactionDeadlineMs: 2500,
+      delayMs: 5000,
     });
     const outcome = shape(run.outcome);
     expect(fired).toBe(1);
@@ -464,9 +466,11 @@ describe("TC-TST-SEED-006-008 the transaction deadline passes while COMMIT is in
 
   it("TC-TST-SEED-006-008 (b) the COMMIT never took effect (the session stays open): re-check, retry and CREATED without waiting for the migration lock timeout", async () => {
     const startedAt = Date.now();
+    // 2 s: the first attempt reaches COMMIT within it, and the retry still has about 2.5 s of the 5 s
+    // budget after the reconnect, the re-check and the backoff.
     const { run, logs, fired } = await seedThroughProxy("rollback_for_commit", {
-      transactionDeadlineMs: 1000,
-      delayMs: 4000,
+      transactionDeadlineMs: 2000,
+      delayMs: 5000,
     });
     const elapsedMs = Date.now() - startedAt;
     const outcome = shape(run.outcome);

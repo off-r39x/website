@@ -251,3 +251,52 @@ describe("TC-TST-SEED-006-016 a retry of the re-check transaction runs within wh
     expect(commits(recheck.statements)).toEqual([]);
   });
 });
+
+describe("TC-TST-SEED-006-018 the retry after an uncommitted re-check waits the 55P03 backoff, within the budget (DB-SEED-002 (3), REL-DB-011, SPEC-150 section 11)", () => {
+  it("TC-TST-SEED-006-018 (a) the retry starts only after a full jitter backoff: CREATED at attempt 2 after one 49.5 ms wait", async () => {
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({ xactLock: "grant" });
+    const outcome = await seedWith(main.client, async () => recheck.client);
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 2 });
+    expect(clock.sleeps).toEqual([49.5]);
+    // The re-check transaction, then the retried seed transaction, on the new connection.
+    expect(xactLocks(recheck.statements)).toHaveLength(2);
+    expect(commits(recheck.statements)).toHaveLength(1);
+  });
+
+  it("TC-TST-SEED-006-018 (b) a backoff that would end past the budget is not started: FAILED, no second seed transaction", async () => {
+    // The first attempt takes 4970 ms; the 49.5 ms backoff would end at 5019.5 ms, past the 5 s budget.
+    const main = scriptedClient({
+      xactLock: "grant",
+      commit: "lost",
+      xactLocks: [{ advanceMs: 4970 }],
+    });
+    const recheck = scriptedClient({ xactLock: "grant" });
+    const outcome = await seedWith(main.client, async () => recheck.client);
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      attemptNumber: 1,
+      failureClass: "TEMPORARY_FAILURE",
+      errorCode: "DATABASE_TEMPORARY_FAILURE",
+    });
+    expect(clock.sleeps).toEqual([]);
+    expect(xactLocks(recheck.statements)).toHaveLength(1);
+    expect(commits(recheck.statements)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-006-018 (c) a backoff that ends late is checked again: FAILED, no second seed transaction after the budget", async () => {
+    clock.overshootMs = 5000;
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({ xactLock: "grant" });
+    const outcome = await seedWith(main.client, async () => recheck.client);
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      attemptNumber: 1,
+      failureClass: "TEMPORARY_FAILURE",
+      errorCode: "DATABASE_TEMPORARY_FAILURE",
+    });
+    expect(clock.sleeps).toEqual([49.5]);
+    expect(xactLocks(recheck.statements)).toHaveLength(1);
+    expect(commits(recheck.statements)).toEqual([]);
+  });
+});
