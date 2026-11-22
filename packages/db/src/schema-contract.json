@@ -217,6 +217,13 @@
       "",
       "transaction_timestamp()"
     ],
+    ["idempotency_records", "id", "bigint", true, "a", "", null],
+    ["idempotency_records", "principal_profile_id", "bigint", true, "", "", null],
+    ["idempotency_records", "operation_id", "text", true, "", "", null],
+    ["idempotency_records", "key_digest", "bytea", true, "", "", null],
+    ["idempotency_records", "request_digest", "bytea", true, "", "", null],
+    ["idempotency_records", "result_ref_type", "text", false, "", "", null],
+    ["idempotency_records", "result_refs", "uuid[]", true, "", "", "'{}'::uuid[]"],
     [
       "idempotency_records",
       "created_at",
@@ -235,13 +242,6 @@
       "",
       "(transaction_timestamp() + '24:00:00'::interval)"
     ],
-    ["idempotency_records", "id", "bigint", true, "a", "", null],
-    ["idempotency_records", "key_digest", "bytea", true, "", "", null],
-    ["idempotency_records", "operation_id", "text", true, "", "", null],
-    ["idempotency_records", "principal_profile_id", "bigint", true, "", "", null],
-    ["idempotency_records", "request_digest", "bytea", true, "", "", null],
-    ["idempotency_records", "result_ref_type", "text", false, "", "", null],
-    ["idempotency_records", "result_refs", "uuid[]", true, "", "", "'{}'::uuid[]"],
     ["karaoke_exclusive_scopes", "id", "bigint", true, "a", "", null],
     ["karaoke_exclusive_scopes", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
     ["karaoke_exclusive_scopes", "event_id", "bigint", true, "", "", null],
