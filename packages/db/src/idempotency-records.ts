@@ -44,7 +44,15 @@ export type TransportIdempotencyClaim =
   | { readonly status: "replay"; readonly result: TransportIdempotencyResult | null }
   | { readonly status: "reused" };
 
-const handleIds = new WeakMap<object, string>();
+/**
+ * What a handle stands for: the record, the client that claimed it and that transaction's top-level
+ * transaction id. SPEC-100 §43.1 sets the result in the same transaction as the INSERT, so a handle is
+ * refused on another client before any query, and the UPDATE matches only while
+ * `pg_current_xact_id()` is still the claiming transaction's id (xid8 never repeats, savepoints share
+ * it). A handle kept past its transaction, or one whose expired row a later claim reused, sets nothing.
+ */
+type HandleBinding = { readonly id: string; readonly client: PoolClient; readonly xact: string };
+const handleBindings = new WeakMap<object, HandleBinding>();
 
 const reject = (field: string): never => {
   throw new Error(`Invalid transport idempotency field: ${field}`);
@@ -92,7 +100,7 @@ export async function claimTransportIdempotency(
   const key = Buffer.from(keyDigest);
   const request = Buffer.from(requestDigest);
 
-  const written = await client.query<{ id: string }>(
+  const written = await client.query<{ id: string; xact: string }>(
     `INSERT INTO app.idempotency_records (principal_profile_id, operation_id, key_digest, request_digest)
      SELECT p.id, $2, $3, $4 FROM app.business_profiles p WHERE p.public_ref = $1
      ON CONFLICT (principal_profile_id, operation_id, key_digest) DO UPDATE
@@ -102,13 +110,13 @@ export async function claimTransportIdempotency(
            created_at = transaction_timestamp(),
            expires_at = transaction_timestamp() + interval '24 hours'
        WHERE app.idempotency_records.expires_at <= transaction_timestamp()
-     RETURNING id::text AS id`,
+     RETURNING id::text AS id, pg_current_xact_id()::text AS xact`,
     [principalProfileRef, operationId, key, request],
   );
   const first = written.rows[0];
   if (first !== undefined) {
     const handle = Object.freeze({}) as TransportIdempotencyHandle;
-    handleIds.set(handle, first.id);
+    handleBindings.set(handle, { id: first.id, client, xact: first.xact });
     return { status: "first", handle };
   }
 
@@ -138,26 +146,35 @@ export async function claimTransportIdempotency(
 /**
  * Sets the result of a `first` claim, once, on the same transaction (SPEC-100 §43.1): only the type
  * token and the references of the result, never a body, Checkout URL, Session ID or Email address.
- * A second call for the same record throws.
+ * A second call for the same record throws, and so does a call from another client or transaction
+ * than the claim's (see HandleBinding). The references are copied index by index once, and only that
+ * checked copy is bound, so a hole or a value that changes between reads never reaches the database.
  */
 export async function setTransportIdempotencyResult(
   client: PoolClient,
   handle: TransportIdempotencyHandle,
   result: TransportIdempotencyResult,
 ): Promise<void> {
-  const id = typeof handle === "object" && handle !== null ? handleIds.get(handle) : undefined;
-  if (id === undefined) return reject("handle");
+  const binding =
+    typeof handle === "object" && handle !== null ? handleBindings.get(handle) : undefined;
+  if (binding === undefined || binding.client !== client) return reject("handle");
   if (typeof result !== "object" || result === null) return reject("result");
   const { type, refs } = result;
   if (typeof type !== "string" || !RESULT_REF_TYPE.test(type)) return reject("result.type");
-  if (!Array.isArray(refs) || refs.length === 0 || !refs.every(isUuid))
-    return reject("result.refs");
+  if (!Array.isArray(refs)) return reject("result.refs");
+  const checked: string[] = [];
+  for (let index = 0, length = refs.length; index < length; index++) {
+    const value: unknown = refs[index];
+    if (!isUuid(value)) return reject("result.refs");
+    checked.push(value);
+  }
+  if (checked.length === 0) return reject("result.refs");
 
   const updated = await client.query(
     `UPDATE app.idempotency_records
         SET result_ref_type = $2, result_refs = $3::uuid[]
-      WHERE id = $1::bigint AND result_ref_type IS NULL`,
-    [id, type, [...refs]],
+      WHERE id = $1::bigint AND result_ref_type IS NULL AND pg_current_xact_id() = $4::xid8`,
+    [binding.id, type, checked, binding.xact],
   );
   if (updated.rowCount !== 1) throw new Error("Transport idempotency result was not set");
 }
