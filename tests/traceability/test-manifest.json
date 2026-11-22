@@ -17407,7 +17407,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "CREATED and NOOP exit 0 and are told apart by the outcome; FAILED exits 2; invalid configuration (including a -pooler host in any case or percent-encoded, and a URL without a database name) exits 2 with CONFIGURATION_INVALID before any connection; a URL without a port connects to 5432 even when PGPORT names another port; the database named in the URL is used even when PGDATABASE names another one"
+        "CREATED and NOOP exit 0 and are told apart by the outcome; FAILED exits 2; invalid configuration (including a -pooler host in any case or percent-encoded, a URL without a database name, and a host with a slash such as a percent-encoded Unix socket directory) exits 2 with CONFIGURATION_INVALID before any connection; a URL without a port connects to 5432 even when PGPORT names another port; the database named in the URL is used even when PGDATABASE names another one"
       ],
       "expected_db_postconditions": [
         "Rows and Audit Events exist only after CREATED; NOOP does not need INITIAL_DATA_SEED_JSON; two Events, a missing input and every invalid configuration leave nothing created"
@@ -18673,6 +18673,36 @@
       ],
       "expected_db_postconditions": [
         "No COMMIT is sent; two seed xact lock statements in total"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-014",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: connectWithinBudget (the command's first connection and the re-check connection) over a scripted connect callback; the backoff wait advances a controlled clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 99 and 198 ms; (a) the first two attempts fail and the third connects; (b) every attempt fails; (c) the first attempt fails after 2950 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The temporary connection acquisition budget of SPEC-150 section 11 (3 attempts, 3 s in total, full jitter backoff included): (a) the third attempt's client, after 99 and 198 ms of backoff, each attempt given only what is left of the 3 s (3000, 2901, 2703 ms); (b) no client after three attempts, no fourth; (c) no further attempt when less than the backoff is left"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
