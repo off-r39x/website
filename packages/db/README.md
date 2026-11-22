@@ -138,7 +138,7 @@ Environment variables (an `app_migrator` direct URL on port 5432 over TLS, as fo
 | Name | Meaning |
 | --- | --- |
 | `APP_ENV` | `production`, `staging`, `development` or `test` |
-| `MIGRATION_DATABASE_URL` | Direct `app_migrator` URL: no query string, no `-pooler` host, port 5432 or none |
+| `MIGRATION_DATABASE_URL` | Direct `app_migrator` URL with a database name: no query string, no `-pooler` host, port 5432 or none |
 | `INITIAL_DATA_SEED_ACTOR_REF` | Stable non-secret identity for the Audit Event, `[A-Za-z0-9_:-]{1,128}` |
 | `INITIAL_DATA_SEED_JSON` | The input JSON; read only when a row has to be created |
 
@@ -155,7 +155,8 @@ local run: `export INITIAL_DATA_SEED_JSON="$(cat packages/db/seed/initial-data.e
 
 The URL is checked as pg reads it (the host percent-decoded, `-pooler` in any case rejected), and pg is
 given the checked host, user, password and database with the port fixed to 5432, never the URL itself:
-`PGHOST` and `PGPORT` cannot redirect it.
+`PGHOST` and `PGPORT` cannot redirect it. A URL without a database name is rejected
+(`CONFIGURATION_INVALID`), so `PGDATABASE` cannot choose the database either.
 
 The command never updates or deletes a row: it creates only when there is no Event (or the only Event
 has no Offering), reports `NOOP` otherwise, and fails when two or more Events exist. stdout is exactly one

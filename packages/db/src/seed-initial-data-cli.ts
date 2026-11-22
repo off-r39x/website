@@ -49,15 +49,16 @@ type MigrationTarget = {
   readonly host: string;
   readonly user: string;
   readonly password: string;
-  readonly database: string | undefined;
+  readonly database: string;
 };
 
 /**
- * The same conditions as migrate-cli.ts: a dedicated, direct app_migrator URL. The URL is taken apart
+ * The conditions of migrate-cli.ts, made stricter: a dedicated, direct app_migrator URL. The URL is taken apart
  * here, the way pg would read it (the host and the credentials percent-decoded), and the checks apply
  * to those decoded values: the `-pooler` check ignores case. pg then gets the parts, not the URL, with
  * the port fixed to 5432, so that neither a host spelled another way nor PGPORT / PGHOST can lead it
- * to another endpoint.
+ * to another endpoint. The database name is required too: without one pg would read PGDATABASE (or
+ * fall back to the user name), and the target would depend on the environment, not on the URL.
  */
 function migrationTarget(connectionString: string | undefined): MigrationTarget | undefined {
   if (!connectionString) return undefined;
@@ -83,11 +84,12 @@ function migrationTarget(connectionString: string | undefined): MigrationTarget 
     user !== "app_migrator" ||
     url.search ||
     host === "" ||
+    database === "" ||
     host.toLowerCase().includes("-pooler") ||
     (url.port !== "" && url.port !== String(DIRECT_PORT))
   )
     return undefined;
-  return { host, user, password, database: database === "" ? undefined : database };
+  return { host, user, password, database };
 }
 
 /** Waits at most CLOSE_WAIT_MS for `work` (the unlock); the client itself is ended with endConnection. */
@@ -190,7 +192,7 @@ async function execute(
       port: DIRECT_PORT,
       user: target.user,
       password: target.password,
-      ...(target.database === undefined ? {} : { database: target.database }),
+      database: target.database,
       ssl: {
         rejectUnauthorized: true,
         ...(servername === undefined ? {} : { servername }),
