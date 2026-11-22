@@ -1,7 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { afterAll } from "vitest";
+import { INTERVAL_STYLE_OPTION } from "../../../packages/db/src/database.ts";
 import { installBaselineRoles } from "../../../packages/db/src/migrations.ts";
+
+// The catalog goldens (orders-payments-golden.ts, idempotency-golden.ts) and the required catalog
+// hold interval literals in the postgres IntervalStyle. node-postgres sends PGOPTIONS as the startup
+// options of every connection that sets no options of its own, so a database or role default of
+// another IntervalStyle does not change what pg_get_expr returns to the harness. Connections with
+// explicit options (createDatabase, READINESS_OPTIONS) carry INTERVAL_STYLE_OPTION themselves.
+process.env.PGOPTIONS = [process.env.PGOPTIONS, INTERVAL_STYLE_OPTION].filter(Boolean).join(" ");
 
 // Vitest project.fileParallelism is not a scheduler control in v3. Use a fresh
 // database per file so DDL/COMMIT faults cannot affect another worker's schema.

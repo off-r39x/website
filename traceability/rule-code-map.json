@@ -3193,7 +3193,11 @@
     },
     {
       "rule_id": "INF-HLT-006",
-      "code_paths": ["packages/db/src/readiness.ts"],
+      "code_paths": [
+        "packages/db/src/readiness.ts",
+        "packages/db/src/database.ts",
+        "packages/db/src/migrations.ts"
+      ],
       "test_case_ids": [
         "TC-INF-HLT-006-001",
         "TC-INF-HLT-006-002",
@@ -3204,9 +3208,10 @@
         "TC-INF-HLT-006-007",
         "TC-INF-HLT-006-008",
         "TC-INF-HLT-006-009",
-        "TC-INF-HLT-006-011"
+        "TC-INF-HLT-006-011",
+        "TC-INF-HLT-006-012"
       ],
-      "notes": "Backward-compatible readiness: journal, catalog, journal read outside a transaction within the SPEC-150 55P03 budget; bundled migration set (byte order) is a prefix of the journal; required catalog contained in the live catalog only when the journal is ahead, exact otherwise; a required constraint validated after NOT VALID is accepted (UCR-180-003)"
+      "notes": "Backward-compatible readiness: journal, catalog, journal read outside a transaction within the SPEC-150 55P03 budget; bundled migration set (byte order) is a prefix of the journal; required catalog contained in the live catalog only when the journal is ahead, exact otherwise; a required constraint validated after NOT VALID is accepted (UCR-180-003); catalog-reading connections fix IntervalStyle=postgres (the notation of the required catalog) with a startup option that overrides database and role defaults"
     },
     {
       "rule_id": "REL-DB-012",

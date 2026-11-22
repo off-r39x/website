@@ -66,7 +66,9 @@ export async function runMigrations(client: Client): Promise<void> {
   let held = false;
   try {
     await client.query(
-      "SET lock_timeout = '60s'; SET statement_timeout = '60s'; SET timezone = 'UTC'",
+      // IntervalStyle also changes how signed interval input is read (sql_standard), so the DDL
+      // is parsed the way the reviewed required catalog assumes.
+      "SET lock_timeout = '60s'; SET statement_timeout = '60s'; SET timezone = 'UTC'; SET intervalstyle = 'postgres'",
     );
     await client.query("SELECT pg_advisory_lock(hashtext('r39x:schema-migration'))");
     held = true;

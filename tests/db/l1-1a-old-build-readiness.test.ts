@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import type { LogEvent } from "@off-r39x/observability";
 import { Client, Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { INTERVAL_STYLE_OPTION } from "../../packages/db/src/database.ts";
 import {
   checkReadiness,
   computeMigrationSetHash,
@@ -50,7 +51,7 @@ if (!sourceUrl || !caPath)
   throw new Error("Real PG17 requires TEST_DATABASE_URL and TEST_DATABASE_CA");
 
 const REPO_MIGRATIONS = resolve(process.cwd(), "../packages/db/migrations");
-const READINESS_OPTIONS = "-c timezone=UTC -c lock_timeout=1000";
+const READINESS_OPTIONS = `-c timezone=UTC ${INTERVAL_STYLE_OPTION} -c lock_timeout=1000`;
 const TIMEOUT = 90_000;
 
 async function inCwd<T>(dir: string, fn: () => Promise<T>): Promise<T> {
