@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-170
 title: Test Specification
-version: 2.9.1
+version: 2.9.2
 status: provisional
 depends_on:
   - SPEC-000
@@ -506,7 +506,7 @@ role/profile lookup independent DB failure
 | `TC-STACK-007` | Magic Linkの300秒境界・再使用、OTP誤入力 / 期限 / attempt上限 / 再送、コードやlinkがlog / storageに出ないこと | `AR-AUTH-006〜008`, `SEC-AUTH-018`。期限 / 上限のProvider適用値をevidenceへ保存 |
 | `TC-STACK-008` | 全詳細URLの直接アクセス / reload / Not Found、認可前の個人Data非表示、静的CSP / cache / headers、camera許可のdocument単位切替、公開artifactのSecret非混入 | `DEV-WEB-001〜008`, `SEC-WEB-003〜012`, `INF-VCL-004〜005`。SPA build / browser / artifact scan。旧Next.js mock buildを根拠にしない |
 | `TC-STACK-009` | Access保護previewで本番API / Authを遮断した成果物検査、同一output hashの再upload、別production deployment ID、公開後smoke、旧productionへのrollback | `INF-DEP-001〜003`, `INF-RBK-001`。通信遮断失敗・意図せぬ接続attemptも検査failure。preview検査は本番連携の証明ではない |
-| `TC-STACK-010` | 4環境別project / Singapore / PG17、非本番への本番Auth clone禁止、R2に認証情報なし、Neon内の認証復旧とSession復活防止、復元後同一Subjectで所有権解決 | `INF-DB-001〜003`, `INF-BKP-001〜004`, `SEC-DB-011`。synthetic restoreと承認済みProduction-class quarantineの証拠を区別 |
+| `TC-STACK-010` | 4環境別Neon project / Singapore / PG17、非本番への本番Auth clone禁止、R2に認証情報なし、Neon内の認証復旧とSession復活防止、復元後同一Subjectで所有権解決 | `INF-DB-001〜003`, `INF-BKP-001〜004`, `SEC-DB-011`。synthetic restoreと承認済みProduction-class quarantineの証拠を区別 |
 
 全方式のproxy互換性 / Email連携 / Directory最小権限 / 復元安全性が未確認または不成立の場合、Production gateをblockedとする。テストskipやProvider動作を推測したmock期待値で解除しない。
 
