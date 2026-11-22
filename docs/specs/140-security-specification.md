@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-140
 title: Security Specification
-version: 2.5.0
+version: 2.5.1
 status: provisional
 depends_on:
   - SPEC-000
@@ -1797,7 +1797,7 @@ Production startup / readinessで最低限次を検証する。
 - 対象: SPEC-140 Part XIII、SPEC-110 §21 / §24、SPEC-180 のInfrastructure、SPEC-150 / 160 / 170 / 190 の関連規則
 - 改訂前の仕様: `SEC-ABU-001` はProductionで共有enforcement layerを要求するが、その契約（counting方式、key、評価順、失敗時の動作、設定、store）が存在しなかった。`429` に対応する公開エラーコードがなかった。SPEC-110の各API operationがどのclassに属するかの定義がなかった。
 - 決定:
-  1. 共有storeは、各環境のRailway projectに置く単一ノードのRedis（`SPEC-180`）。
+  1. 共有storeは、各環境のRailway projectに置く単一ノードのRedis（`SPEC-180`）。（注: `SPEC-180` v2.8.0（`UCR-180-005`）以降、Railwayは1つのprojectの中の環境別environmentとなり、storeは各環境のRailway environmentに置く。現在の配置は `SPEC-180` `INF-RLS-001` を正とする。）
   2. counting方式はsliding window log。1回の評価に含まれる複数ruleを単一のatomic操作で評価し、その評価で拒否された場合はその評価のcounterを記録しない。評価は段階ごとに独立し、後段で拒否されても前段の記録は取り消さない（`SEC-ABU-012` / `SEC-ABU-013`）。
   3. counter keyはenvironment専用keyによるHMAC-SHA256（`SEC-ABU-015` / `SEC-ABU-016`）。
   4. store障害は `503 TEMPORARY_UNAVAILABLE` でFail Closed。process-localの縮退運用は含めない（`SEC-ABU-019`）。
