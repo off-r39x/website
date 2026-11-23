@@ -5974,9 +5974,13 @@
         "TC-TST-SEED-006-020",
         "TC-TST-SEED-003-020",
         "TC-TST-SEED-006-021",
-        "TC-TST-SEED-003-021"
+        "TC-TST-SEED-003-021",
+        "TC-TST-SEED-003-022",
+        "TC-TST-SEED-006-022",
+        "TC-TST-SEED-003-023",
+        "TC-TST-SEED-006-023"
       ],
-      "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits; the first connection is acquired within the SPEC-150 temporary connection budget (3 attempts, 3 seconds, backoff included), else FAILED; a connection that succeeds after the budget is ended, not used; an authentication rejection (SQLSTATE class 28) is not retried; a connection failure seen at or after the end of the connection budget, measured on the monotonic clock, is the budget running out whatever it is, an authentication rejection included"
+      "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits; the first connection is acquired within the SPEC-150 temporary connection budget (3 attempts, 3 seconds, backoff included), else FAILED; a connection that succeeds after the budget is ended, not used; an authentication rejection (SQLSTATE class 28) is not retried; a connection failure seen at or after the end of the connection budget, measured on the monotonic clock, is the budget running out whatever it is, an authentication rejection included; a lowered statement timeout acknowledged at or after the transaction deadline sends no further statement"
     },
     {
       "rule_id": "INF-SEED-005",
@@ -5991,9 +5995,11 @@
         "TC-TST-SEED-003-008",
         "TC-TST-SEED-003-016",
         "TC-TST-SEED-003-017",
-        "TC-TST-SEED-003-018"
+        "TC-TST-SEED-003-018",
+        "TC-TST-SEED-003-023",
+        "TC-TST-SEED-006-023"
       ],
-      "notes": "implementation mapping only: result line on stdout, common log fields on stderr, no input value, connection string or exception message; a refused authentication is FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED); a SQLSTATE is written only as the cause on the retry events"
+      "notes": "implementation mapping only: result line on stdout, common log fields on stderr, no input value, connection string or exception message; a refused authentication is FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED); a SQLSTATE is written only as the cause on the retry events; a seed or re-check transaction ended by its wall clock, or a COMMIT not acknowledged within it, logs reliability.timeout.occurred (SPEC-160 section 22) with query_name and duration_ms, and no SQLSTATE"
     },
     {
       "rule_id": "INF-SEED-006",
@@ -6050,7 +6056,10 @@
         "TC-TST-SEED-003-019",
         "TC-TST-SEED-006-020",
         "TC-TST-SEED-003-020",
-        "TC-TST-SEED-006-021"
+        "TC-TST-SEED-006-021",
+        "TC-TST-SEED-003-022",
+        "TC-TST-SEED-006-022",
+        "TC-TST-SEED-006-023"
       ],
       "notes": "implementation mapping only: transaction advisory lock before the count; re-check on a new connection, under the migration lock, after an unknown COMMIT result, each re-check transaction within the transaction deadline, kept on the client too (a connection that stops answering is abandoned); the reconnect stays within 3 attempts and 3 seconds in total, each attempt bounded by what is left; the retries of the seed and of the re-check, and the retry after an uncommitted re-check (after a full jitter 55P03 backoff), stay within the attempts and elapsed budget, backoff included, each retried transaction running within what is left of the budget and a later SQLSTATE never extending a budget already applied; a COMMIT acknowledged at or after the wall clock of its transaction (the 8 s, or what is left of the retry budget), measured on the monotonic clock once the acknowledgement is seen, is an unknown result and is re-checked, never CREATED from the late acknowledgement; a ROLLBACK that ends a transaction whose verdict was reached before COMMIT, acknowledged at or after its wall clock (measured on the monotonic clock once the acknowledgement is seen), ends the transaction by its wall clock: the seed transaction is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), never NOOP, and the re-check decides nothing (UNKNOWN_RESULT); likewise a transaction that failed is ended by its wall clock when, once it is rolled back or its connection is found gone, the deadline has passed (by the timer or on the monotonic clock), whatever the error: the seed transaction is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), not a constraint rejection and not retried, and the re-check decides nothing"
     },
@@ -6060,8 +6069,13 @@
         "packages/db/src/initial-data/input.ts",
         "packages/db/src/initial-data/targets.ts"
       ],
-      "test_case_ids": ["TC-TST-SEED-001-004", "TC-TST-SEED-003-001", "TC-TST-SEED-003-002"],
-      "notes": "implementation mapping only: strict input validation with the same conditions as the CHECK constraints; numbers are checked as written (a plain integer literal only, before JSON.parse rounding); no guessed values"
+      "test_case_ids": [
+        "TC-TST-SEED-001-004",
+        "TC-TST-SEED-003-001",
+        "TC-TST-SEED-003-002",
+        "TC-TST-SEED-003-024"
+      ],
+      "notes": "implementation mapping only: strict input validation with the same conditions as the CHECK constraints; numbers are checked as written (a plain integer literal only, before JSON.parse rounding); no guessed values; a key written twice in one object is rejected (JSON.parse would keep only its last value)"
     },
     {
       "rule_id": "DB-SEED-004",

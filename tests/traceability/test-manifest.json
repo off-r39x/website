@@ -19051,6 +19051,168 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-003-022",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock; each answer arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline); the xact lock takes 3500 ms of the 8 s, so the next statement first lowers the statement timeout to the 4500 ms left, and that SET is acknowledged at (a) 8001 ms, (b) exactly 8000 ms, (c) 7999 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b): FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1; the Event read is never sent after the SET, no COMMIT; (c): CREATED"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-022",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock; each answer arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline); a lost COMMIT, then a re-check whose xact lock takes 3500 ms of its 8 s and whose lowered statement timeout is acknowledged at (a) 8001 ms, (b) 7999 ms; the Audit Events of the run exist",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a): UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN); the Audit Event read is never sent after the SET; (b): CREATED with the Audit Event found by the re-check"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-023",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-160-22",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock; each answer arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline); (a) the xact lock granted at 8001 ms of the 8 s, (b) a constraint violation (23514) seen at 8001 ms, (c) a 55P03 at 4800 ms, then a retry with 150.5 ms left whose xact lock takes 200 ms, (d) COMMIT acknowledged at 8001 ms, (e) COMMIT connection lost, seen at 8001 ms, (f) no deadline reached: CREATED, a 23514 at 7999 ms, a 55P03 budget run out by elapsed time, a COMMIT lost in time",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b): FAILED (DATABASE_TEMPORARY_FAILURE) at attempt 1; (c): FAILED at attempt 2; (d), (e): CREATED after the re-check; (f): CREATED, FAILED (PERMANENT_FAILURE), FAILED at attempt 3, CREATED"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "Exactly one reliability.timeout.occurred (level ERROR, operation_id PROVISION.INITIAL_DATA_SEED, provider NEON_DB, query_name initial_data.seed, the attempt's operation_execution_id and attempt_number, no sqlstate) in (a) to (e): (a), (b) duration_ms 8001, result FAILED, failure_class TEMPORARY_FAILURE, error_code DATABASE_TEMPORARY_FAILURE; (c) the same at attempt 2 with duration_ms 200, plus one reliability.retry.exhausted; (d), (e) duration_ms 8001, result PENDING, failure_class UNKNOWN_RESULT, error_code COMMIT_RESULT_UNKNOWN, (d) before reliability.unknown_result.opened; none in (f)"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-023",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "TST-SEED-006",
+        "SPEC-160-22",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock; each answer arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline); a lost COMMIT, then a re-check whose (a) xact lock is granted at 8001 ms of its 8 s, (b) ROLLBACK is acknowledged at 8001 ms, (c) xact lock fails with 55P03 at 8001 ms, (d) verdict is reached in time",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b), (c): UNKNOWN_RESULT; (d): CREATED"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "Exactly one reliability.timeout.occurred (level ERROR, operation_id PROVISION.INITIAL_DATA_SEED, provider NEON_DB, query_name initial_data.recheck, result PENDING, failure_class UNKNOWN_RESULT, error_code COMMIT_RESULT_UNKNOWN, attempt_number 1, duration_ms 8001, no sqlstate) in (a), (b) and (c), and no reliability.retry.exhausted in (c); none in (d)"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-024",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "TST-UNT-003",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput on synthetic input text with a key written twice in one object: (a) an event carrying public_ref followed by a valid event, (b) unit_amount twice in an Offering, (c) the same key spelled with a \\u escape, (d) a duplicate in the last Offering only and a duplicate top-level entry_ticket_offerings; (e) the same key in different objects and key-like text inside a string value. In (a) to (d) the text with only the last value of each key is accepted",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) to (d): rejected with INITIAL_DATA_INPUT_INVALID only, carrying no input value; (e): accepted"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
       "test_case_id": "TC-DB-ARC-007-003",
       "level": "Unit",
       "suite": "unit",
