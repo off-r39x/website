@@ -149,6 +149,10 @@ describe("TC-API-006-103 publicSponsorLogoListSchema (API-PUB-012, SPEC-110 §26
     ["a fragment", "https://logos.example.test/a.png#frag"],
     ["user and password", "https://user:pass@logos.example.test/a.png"],
     ["a user", "https://user@logos.example.test/a.png"],
+    // PR #85 third review: the parser drops an empty userinfo, so the "@" is checked before parsing.
+    ["an empty userinfo", "https://@logos.example.test/a.png"],
+    ["an empty user and password", "https://:@logos.example.test/a.png"],
+    ["an empty userinfo and a port", "https://@logos.example.test:443/a.png"],
     ["no // after the scheme", "https:logos.example.test/a.png"],
     ["a backslash", "https://logos.example.test\\a.png"],
     ["a tab", "https://logos.example.test/a\tb.png"],
@@ -167,6 +171,7 @@ describe("TC-API-006-103 publicSponsorLogoListSchema (API-PUB-012, SPEC-110 §26
     ["the default port 443", "https://logos.example.test:443/one.png"],
     ["no path", "https://logos.example.test"],
     ["a hyphenated host", "https://cdn-1.logos.example.test/a/b/one.png"],
+    ["an @ in the path (not userinfo)", "https://logos.example.test/a/@2x.png"],
   ])("SEC-WEB-026: image_url accepts %s, and so does link_url", (_label, url) => {
     expect(ok(publicSponsorLogoListSchema, list({ ...LOGO, image_url: url }))).toBe(true);
     expect(ok(publicSponsorLogoListSchema, list({ ...LOGO, link_url: url }))).toBe(true);

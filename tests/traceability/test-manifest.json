@@ -28604,7 +28604,7 @@
         "API-PUB-012 answers { items: [{ logo_ref, display_name, image_url, link_url, sort_order }] } with link_url null kept, in the order the store returned, Cache-Control no-store, one store call; 0 Logos is 200 with items: []; HEAD has no body; POST / PUT / PATCH / DELETE are 405 with Allow: GET, HEAD",
         "An empty strict query: limit, cursor, state and the other keys are 400 VALIDATION_FAILED with no store call; without the dependency the route is 503 TEMPORARY_UNAVAILABLE",
         "unavailable is 503 DATABASE_TEMPORARY_FAILURE (retryable) and not an empty success; an unclassified failure is 500; two Events (multiple_events) are 500 with no row",
-        "A Logo store failure does not undo the other five public Operations (API-PUB-012: no effect on other public APIs); a Logo row whose image_url is http, whose display_name is empty or whose sort_order is negative makes the Operation 503 TEMPORARY_UNAVAILABLE (retryable) with no row sent",
+        "A Logo store failure does not undo the other five public Operations (API-PUB-012: no effect on other public APIs); a Logo row whose image_url is http, whose display_name is empty or whose sort_order is negative makes the Operation 503 TEMPORARY_UNAVAILABLE (retryable) with no row sent; so does an image_url or link_url with a userinfo, including an empty one (https://@host, https://:@host) that the URL parser would drop",
         "A store row carrying Internal IDs, a state or admin timestamps never reaches the response; no token is verified and no Principal is read whatever Authorization says; Stage 1 rate limit only (429 on the 21st request in 10 s with an integer Retry-After; a rate limit store failure is 503 without a public store call)"
       ],
       "expected_db_postconditions": [],
@@ -28685,7 +28685,7 @@
       "expected_http": null,
       "expected_domain_postconditions": [
         "emptyPublicQuerySchema accepts {} only (limit, cursor, state, sort and profile_ref are refused)",
-        "publicSponsorLogoListSchema accepts the documented shape, an empty list and link_url null; it is strict (id, event_id, state, published_at, created_at, updated_at refused); every key must be present (nullable is not optional); an http, relative, protocol-relative, empty, javascript: or data: URL is refused for image_url and link_url; display_name is non-empty; sort_order is a non-negative integer; logo_ref is a lower-case canonical UUID",
+        "publicSponsorLogoListSchema accepts the documented shape, an empty list and link_url null; it is strict (id, event_id, state, published_at, created_at, updated_at refused); every key must be present (nullable is not optional); an http, relative, protocol-relative, empty, javascript: or data: URL is refused for image_url and link_url; a userinfo delimiter in the authority is refused before parsing, so an empty userinfo (https://@host, https://:@host) is refused while an @ in the path is accepted; display_name is non-empty; sort_order is a non-negative integer; logo_ref is a lower-case canonical UUID",
         "announcementRefParamSchema keeps a lower-case UUID, lower-cases an upper- or mixed-case one and refuses a value that is not a UUID (35 / 37 characters, no hyphens, a non-hex digit, empty, a space, surrounding spaces, a number, null, undefined) or not a SPEC-110 section 9 canonical UUID after lower-casing (the nil UUID, the max UUID in either case, version digit 0, variant digit c)"
       ],
       "expected_db_postconditions": [],

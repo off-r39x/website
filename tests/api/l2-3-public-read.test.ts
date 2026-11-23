@@ -312,6 +312,8 @@ const LOGO_URLS_REFUSED: readonly string[] = [
   "https://logos.example.test/a.png#frag",
   "https://user:pass@logos.example.test/a.png",
   "https://user@logos.example.test/a.png",
+  "https://@logos.example.test/a.png",
+  "https://:@logos.example.test/a.png",
   "https:logos.example.test/a.png",
   "https://logos.example.test\\a.png",
   "https://logos.example.test/a\tb.png",
