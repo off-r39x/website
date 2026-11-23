@@ -115,3 +115,107 @@ provider mapping, credential issuance, deployment DB metadata,
 business write repositories, and production provider evidence are intentionally
 not supplied by this foundation. Readiness is an infrastructure check, not proof
 that deferred business services are production-ready.
+
+## Initial data seeding
+
+`pnpm db:seed-initial-data` (`packages/db/src/seed-initial-data-cli.ts`, SPEC-180 §45.3) creates the
+first Event and its Entry Ticket Offerings in an empty database. There is no Business API or migration
+that creates them. Offerings are always created `SUSPENDED` with counters at 0, and the Event
+`business_timezone` is `Asia/Tokyo`. Run it after the migration and the schema readiness check and
+before the API deploy. The command takes the migration lock (`r39x:schema-migration`) itself; the
+library functions `acquireMigrationLock` and `seedInitialData({ lock, ... })` let a migration job run
+migrate, readiness and seed under one session lock. Running `db:migrate` and this command as two
+processes is for development, tests and re-runs: the lock is released in between. Every statement of the
+seed runs in a session that holds the migration lock: when a COMMIT result is lost, the re-check takes
+the lock again on its new connection (waiting up to 60 seconds, else `UNKNOWN_RESULT`) before it reads.
+The 60 seconds bound the whole lock acquisition on the client as well: a connection that stops
+answering while the lock is taken is abandoned (the command fails with `MIGRATION_LOCK_TIMEOUT`, the
+re-check ends in `UNKNOWN_RESULT`), and a lock the server may have granted ends with its session.
+Each statement of the seed transaction runs within the 8 second transaction deadline (SPEC-150 §9); a
+lock wait or read that would pass it ends the attempt as `FAILED`. The re-check transaction has the same
+deadline; a re-check that cannot decide within it ends as `UNKNOWN_RESULT`. Once less than 5 seconds
+are left, a statement first lowers the statement timeout to the time left, and no statement is sent
+when that setting is acknowledged at or after the deadline. The command keeps the
+deadline itself too: a connection that stops answering is abandoned when the deadline passes (its
+session, and the migration lock with it, ends), so the command does not hang. A run that the re-check
+finds uncommitted, and a lock timeout, are retried only within the SPEC-150 55P03 budget (4 attempts,
+5 seconds from the first attempt, not counting the migration lock wait), backoff included, else
+`FAILED` (or `UNKNOWN_RESULT` for the re-check). The retry after an uncommitted re-check waits the same
+full jitter backoff as any 55P03 retry. A retried transaction runs within what is left of that budget,
+not a new 8 seconds, and a later SQLSTATE with a longer budget (`40001` 2 s, `40P01` 3 s, `55P03`
+5 s) never extends a budget already applied. The first connection and the new connection for the
+re-check are both acquired within the SPEC-150 budget for a temporary connection failure (3 attempts,
+3 seconds in total, backoff included, each attempt bounded by what is left), else `FAILED`
+(`DATABASE_TEMPORARY_FAILURE`) for the first one and `UNKNOWN_RESULT` for the re-check. A connection
+or a migration lock whose success arrives after its deadline is closed, not used, and an error that
+arrives at or after that deadline is the deadline whatever it is (the connection budget has run out,
+even for a refused authentication; the migration lock times out). A COMMIT whose
+acknowledgement arrives at or after the wall clock of its transaction (the 8 seconds, or what was left
+of the retry budget), as measured on the monotonic clock, is an unknown result like a lost one: it is
+re-checked, not reported `CREATED` from the acknowledgement. Likewise, a transaction whose verdict
+was reached before COMMIT (`NOOP`, a failure, or a re-check verdict) ends with a ROLLBACK, and a
+ROLLBACK acknowledged at or after that wall clock ends the transaction by its wall clock: the seed
+transaction is `FAILED` (`TEMPORARY_FAILURE`, `DATABASE_TEMPORARY_FAILURE`), not `NOOP`, and the
+re-check decides nothing (`UNKNOWN_RESULT`). The same holds when a statement fails: once the
+transaction is rolled back (or its connection is found gone), a transaction ended at or after its
+wall clock is ended by it, whatever the error. The seed transaction is then `FAILED`
+(`TEMPORARY_FAILURE`, `DATABASE_TEMPORARY_FAILURE`), not a constraint rejection and not retried, and
+the re-check decides nothing. The result does not depend on whether the deadline timer or the
+acknowledgement is seen first. A server that refuses
+the credentials (SQLSTATE class 28, such as `28P01`) is not retried: the first connection ends as
+`FAILED` (`PERMANENT_FAILURE`, `DATABASE_AUTHENTICATION_FAILED`), the re-check as `UNKNOWN_RESULT`.
+When a retry budget runs out (by attempts or by elapsed time, for the connection, the seed transaction
+or the re-check), `reliability.retry.exhausted` is logged (SPEC-160 §22) before the result. Every retry
+of these three logs `reliability.retry.attempted` as it starts. Both events carry the cause
+(SPEC-160 OBS-DB-003): `query_name` names what is retried (`initial_data.connect`,
+`initial_data.seed` or `initial_data.recheck`), and `sqlstate` the retryable SQLSTATE that caused a
+transaction retry (`40001`, `40P01` or `55P03`). A connection retry has no `sqlstate`, and neither has
+the seed retry after the re-check found the run uncommitted. No other output carries a SQLSTATE.
+A seed or re-check transaction ended by its wall clock, and a COMMIT not acknowledged within it, log
+`reliability.timeout.occurred` (SPEC-160 §22) with `query_name` (`initial_data.seed` or
+`initial_data.recheck`) and `duration_ms` from the transaction's start: `failure_class`
+`TEMPORARY_FAILURE` for a seed transaction ended before COMMIT (the run is then `FAILED` with
+`DATABASE_TEMPORARY_FAILURE`), `UNKNOWN_RESULT` for the COMMIT and the re-check. It is logged as well
+as `reliability.retry.exhausted` when the deadline was what was left of a retry budget. A
+connection whose server stops answering at the close is destroyed after 3 seconds, so the command
+still exits.
+
+Environment variables (an `app_migrator` direct URL on port 5432 over TLS, as for `db:migrate`):
+
+| Name | Meaning |
+| --- | --- |
+| `APP_ENV` | `production`, `staging`, `development` or `test` |
+| `MIGRATION_DATABASE_URL` | Direct `app_migrator` URL with a database name: no query string, no `-pooler` host, port 5432 or none |
+| `INITIAL_DATA_SEED_ACTOR_REF` | Stable non-secret identity for the Audit Event, `[A-Za-z0-9_:-]{1,128}` |
+| `INITIAL_DATA_SEED_JSON` | The input JSON; read only when a row has to be created |
+
+The input has the two keys `event` and `entry_ticket_offerings` (one or more). See
+`packages/db/seed/initial-data.example.json` (synthetic values only). Unknown keys are rejected,
+including `id`, `public_ref`, `event_id`, `sale_control_state`, `held_quantity`,
+`committed_quantity`, `business_timezone`, `created_at` and `updated_at`. Timestamps need an offset.
+Numbers are checked as written: only a plain integer literal is accepted (`1000`, not `1000.0`, `1e3`,
+`-0` or a fraction that JSON parsing would round). A key written twice in one object is rejected
+(JSON parsing would keep only its last value).
+Keep the real input in the protected GitHub Environment Secret of each environment; never share it
+between staging and production and never put it in the repository, a log or a pull request. For a
+local run: `export INITIAL_DATA_SEED_JSON="$(cat packages/db/seed/initial-data.example.json)"` (bash) or
+`$env:INITIAL_DATA_SEED_JSON = Get-Content -Raw packages/db/seed/initial-data.example.json` (PowerShell).
+
+The URL is checked as pg reads it (the host percent-decoded, `-pooler` in any case rejected, and a
+host with a `/`, which pg would take as a Unix socket directory without TLS, rejected), and pg is
+given the checked host, user, password and database with the port fixed to 5432, never the URL itself:
+`PGHOST` and `PGPORT` cannot redirect it. A URL without a database name is rejected
+(`CONFIGURATION_INVALID`), so `PGDATABASE` cannot choose the database either.
+
+The command never updates or deletes a row: it creates only when there is no Event (or the only Event
+has no Offering), reports `NOOP` otherwise, and fails when two or more Events exist. stdout is exactly one
+JSON result line (`outcome` is `CREATED`, `NOOP`, `FAILED` or `UNKNOWN_RESULT`); stderr holds the common
+log lines. Exit codes: `0` CREATED or NOOP, `2` FAILED (fix the cause, run again), `3` UNKNOWN_RESULT
+(the COMMIT result could not be determined; restore the connection and run the same command again).
+Exit code `1` is an unexpected crash (no result line is guaranteed) and is handled like `3`: run again.
+The root script `db:seed-initial-data` (and the package script `seed:initial-data`) runs `node
+--disable-warning=ExperimentalWarning` on the CLI file directly, not through `pnpm --filter`, which would
+turn the exit codes 2 and 3 into 1. The flag keeps the Node type stripping warning off stderr, which
+carries only JSON log lines (pnpm itself may print its own run lines there); a direct `node` call on an
+older Node 24.x prints that warning too. The CLI tests need PostgreSQL on port 5432
+with TLS.

@@ -16975,7 +16975,7 @@
       "expected_domain_postconditions": [
         "Invalid actor_ref per actor_type, unsafe reference text (Email, URL, raw QR and other values with a dot, slash, at sign or whitespace; the format cannot tell a Secret without such characters, which stays the caller's duty under SPEC-160 section 12), non UUID, bad fingerprint, reason_code, capability and non allowlisted enum values are refused before any statement is sent, and the error message omits the input",
         "A change is accepted only when issued by a per-operation change spec (enum, public reference, count or integer values) and only for the operation IDs that spec was defined for; forged, copied or plain objects, a change issued for another operation, free text and out-of-spec keys, states, fields and values are refused",
-        "operation_id accepts only a SPEC-110 API-* Operation ID or one of the 21 SPEC-160 section 9.1 internal keys (for example RECOVERY.ADMIN_BOOTSTRAP); free labels, reference-like values and unknown keys are refused",
+        "operation_id accepts only a SPEC-110 API-* Operation ID or one of the 22 SPEC-160 section 9.1 internal keys (for example RECOVERY.ADMIN_BOOTSTRAP, PROVISION.INITIAL_DATA_SEED); free labels, reference-like values and unknown keys are refused",
         "An accepted event sends exactly one bound INSERT into app.audit_events with no RETURNING, BEGIN or COMMIT, no timestamp and no generated id",
         "A database error is rethrown as the same object after a single attempt, with no retry (writer level only for OBS-AUD-008; no Provider flow is exercised)",
         "Unsafe change input is also a compile time error, checked by pnpm typecheck"
@@ -17034,6 +17034,2179 @@
         "id is lossless bigint (PgBigInt64); the writer only allowlists (effective role, provider, failure class, target type) equal the hand written SPEC values"
       ],
       "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-001-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-003",
+        "DB-SEED-004",
+        "INF-SEED-004",
+        "INV-010-07",
+        "TST-SEED-001",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-07"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; empty app.events and app.entry_ticket_offerings",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The result is CREATED and its created Public References equal the stored public_ref values"
+      ],
+      "expected_db_postconditions": [
+        "One events row and one row per input Offering exist; business_timezone is Asia/Tokyo, sale_control_state is SUSPENDED, held and committed quantities are 0, created_at equals updated_at",
+        "public_ref is a DB generated v4 UUID, distinct per row and absent from the input; stored values and instants equal the input",
+        "A minimal input leaves every omitted nullable column NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-001-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "SEC-DB-001",
+        "TST-SEED-001",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; connection as app_api_runtime",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The check is a database privilege check only; it is not an API check (API-PUB-001 and API-PUB-005 are not implemented, so TST-SEED-001 (3) stays unexecuted)"
+      ],
+      "expected_db_postconditions": [
+        "app_api_runtime can SELECT the seeded Event and Offerings, which are SUSPENDED"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-001-004",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "TST-UNT-003",
+        "TST-SEED-001",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Node unit test with no database; synthetic input values only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "sale_control_state, held_quantity, committed_quantity, id, public_ref, event_id, business_timezone, created_at and updated_at are each rejected in the Event object and in an Offering object with INITIAL_DATA_INPUT_INVALID and no input value in the result"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "INF-SEED-004",
+        "REL-DB-007",
+        "TST-SEED-002",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; seeded once",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The second run is NOOP and the input is never read"
+      ],
+      "expected_db_postconditions": [
+        "Every column of every row of the three tables, including updated_at, and the Audit Event count are unchanged"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "REL-DB-007",
+        "TST-SEED-002",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; seeded once, then Event name, Offering unit_amount and sale_control_state changed by the superuser",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-run is NOOP and the changed values are not reverted"
+      ],
+      "expected_db_postconditions": [
+        "The changed name, unit_amount 4242 and ENABLED state remain and the table snapshot is unchanged"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "OBS-AUD-014",
+        "TST-SEED-002",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; one Event inserted by the superuser, then one Event with one Offering",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "With only an Event, only the Offerings are created and no Event Audit Event is written; with one Offering and a three Offering input, the result is NOOP and the input is not read"
+      ],
+      "expected_db_postconditions": [
+        "The existing Event row is unchanged and the new Offerings reference it",
+        "The Offering count stays 1 and the Audit Event count stays 0 in the NOOP case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "API-RLC-007",
+        "REL-DB-007",
+        "TST-SEED-002",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; two events rows inserted by the superuser",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The result is FAILED with CONSISTENCY_FAILURE and INITIAL_DATA_EVENT_NOT_UNIQUE and the input is never read"
+      ],
+      "expected_db_postconditions": [
+        "No row is created or updated and no Audit Event is written"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-003",
+        "INF-DB-008",
+        "INV-010-07",
+        "TST-SEED-002",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-07"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; eight connections start together behind a barrier",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": "barrier start of 8 concurrent runs; no random seed",
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Exactly one run is CREATED and seven are NOOP; the input is read once in total"
+      ],
+      "expected_db_postconditions": [
+        "One Event, the input count of Offerings and one set of Audit Events exist, all with the CREATED run's operation_execution_id"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "TST-UNT-003",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Node unit test with no database; synthetic input values only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Unknown keys, wrong types, CHECK-equivalent ordering and range violations, lowercase or four letter currency, empty Event name, timestamps without an offset, unsafe integers, numbers not written as a plain integer literal (checked as written, before JSON.parse rounding: 1000.00000000000001, -1e-400, 1e3, 1000.0, -0), lone surrogates, empty or non-array Offerings and non-JSON text are rejected with an error code only",
+        "Valid full, minimal and null-valued inputs and many Offerings are accepted; an absent or empty input is reported as missing"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "DB-TXN-002",
+        "REL-DB-002",
+        "INV-010-07",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-07"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; an input whose second of three Offerings is invalid, and an input refused by a probe CHECK added by the superuser on the third Offering",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Both runs are FAILED (INITIAL_DATA_INPUT_INVALID and INITIAL_DATA_CONSTRAINT_REJECTED, PERMANENT_FAILURE) and the constraint violation is not retried"
+      ],
+      "expected_db_postconditions": [
+        "Event, Offering and Audit Event counts are all 0 after each run, and the probe CHECK is removed afterwards"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-005",
+        "OBS-AUD-007",
+        "REL-DB-002",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; INSERT on app.audit_events revoked from app_migrator by the superuser for the run and granted back",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.AUDIT.INSERT_FAILURE"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The result is FAILED with AUDIT_WRITE_FAILED and PERMANENT_FAILURE"
+      ],
+      "expected_db_postconditions": [
+        "No Event, Offering or Audit Event row remains, the Event INSERT was issued once (no retry), and the INSERT privilege is restored"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-004",
+      "level": "Integration",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "INF-DEP-005",
+        "INF-SEED-005",
+        "OBS-LOG-005",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "CLI child process over TLS (NODE_EXTRA_CA_CERTS) against the isolated real PostgreSQL 17 database as app_migrator, port 5432; UNKNOWN_RESULT exit code 3 is covered through the public command by TC-TST-SEED-003-008, by TC-TST-SEED-005-006 and by the 006 cases",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "CREATED and NOOP exit 0 and are told apart by the outcome; FAILED exits 2; invalid configuration (including a -pooler host in any case or percent-encoded, a URL without a database name, and a host with a slash such as a percent-encoded Unix socket directory) exits 2 with CONFIGURATION_INVALID before any connection; a URL without a port connects to 5432 even when PGPORT names another port; the database named in the URL is used even when PGDATABASE names another one"
+      ],
+      "expected_db_postconditions": [
+        "Rows and Audit Events exist only after CREATED; NOOP does not need INITIAL_DATA_SEED_JSON; two Events, a missing input and every invalid configuration leave nothing created"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "stdout carries exactly one JSON result line for each run"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-002",
+        "INF-SEED-004",
+        "DB-SEED-002",
+        "REL-DB-007",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "With rows to skip, a missing or malformed input is not read and the result is NOOP; with rows to create it is FAILED (INITIAL_DATA_INPUT_MISSING or INITIAL_DATA_INPUT_INVALID) and nothing is created"
+      ],
+      "expected_db_postconditions": [
+        "pg_advisory_xact_lock(hashtext('app:initial-data-seed')) is issued before the first SELECT from app.events"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-004-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "OBS-AUD-014",
+        "DB-SEED-005",
+        "OBS-AUD-007",
+        "TST-SEED-004",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The result's auditEventIds equal the stored audit_event_id values"
+      ],
+      "expected_db_postconditions": [
+        "One Audit Event per created row with BUSINESS_EFFECT, INFRASTRUCTURE_OPERATOR, the actor ref, PROVISION.INITIAL_DATA_SEED, the result's operation_execution_id, PASSED and COMMITTED",
+        "target_type is PUBLIC_CONTENT for the Event and ENTRY_TICKET_OFFERING for each Offering, target_ref is the row's public_ref, an Offering after_state is SUSPENDED and occurred_at equals the row's created_at"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-004-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "OBS-AUD-014",
+        "OBS-AUD-009",
+        "TST-SEED-004",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "NOOP, two Events and invalid input do not add an Audit Event"
+      ],
+      "expected_db_postconditions": [
+        "The Audit Event count is unchanged by a NOOP run and is 0 after each rolled-back FAILED run"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-004-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "OBS-AUD-014",
+        "OBS-AUD-006",
+        "TST-SEED-004",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "changed_fields lists field names only"
+      ],
+      "expected_db_postconditions": [
+        "changed_fields equals the created input columns plus business_timezone (Event) or sale_control_state, held_quantity and committed_quantity (Offering); omitted nullable columns are not listed",
+        "safe_change_summary is {} and no Audit Event column text contains an input string, number, timestamp, JPY or Asia/Tokyo"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-005-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-006",
+        "INF-SEED-002",
+        "TST-SEED-005",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Node unit test with no database; synthetic input values only; reads packages/db/seed/initial-data.example.json",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The example parses with the command's strict parser, every free text value says it is synthetic data, timestamps are in 2030, and it has no URL, phone-number shape or non-reserved e-mail domain (secret-scan is run separately)"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-005-002",
+      "level": "Integration",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-005",
+        "INF-SEC-001",
+        "OBS-LOG-005",
+        "TST-UNT-003",
+        "TST-SEED-005",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "CLI child process over TLS against the isolated real PostgreSQL 17 database; a synthetic URL password and per-run probe strings and numbers",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "stdout is exactly one JSON line with the nine result keys; stderr lines are JSON with the common log fields and the result and failure_class mapping of INF-SEED-005"
+      ],
+      "expected_db_postconditions": [
+        "CREATED result line matches the stored public_ref and audit_event_id values"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No input value, connection string, password, host, parser message, raw exception message or stack appears in stdout or stderr for CREATED, NOOP, FAILED, malformed input and an unreachable host"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-005-003",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-001",
+        "DB-SEED-007",
+        "TST-SEED-005",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Node unit test with no database; synthetic input values only; reads packages/db/migrations/*.sql",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No migration contains an INSERT INTO app.events or app.entry_ticket_offerings (comments excluded; the detector is first checked against sample spellings)"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-005-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "SEC-DB-001",
+        "INF-AUD-001",
+        "TST-SEED-005",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; statements recorded by wrapping Client.query (SQL text only); app_api_runtime, app_email_runtime and app_reconciliation_runtime connections",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A lock handle that acquireMigrationLock did not issue, or one already released, is refused before any SQL"
+      ],
+      "expected_db_postconditions": [
+        "CREATED, NOOP and FAILED issue only BEGIN, SET, SELECT current_user, advisory lock calls, SELECT and INSERT on the three tables, COMMIT and ROLLBACK",
+        "The three runtime roles get 42501 on INSERT into events and entry_ticket_offerings, and a runtime connection cannot acquire the migration lock (MigrationPrincipalError) and sends no INSERT"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-005-005",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-001",
+        "INF-SEED-006",
+        "TST-SEED-005",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Node unit test with no database; synthetic input values only; reads the mounted ROUTES registry",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Admin event and entry-offerings routes expose only GET and PATCH and no route creates or replaces an Event or an Offering"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-005-006",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "TST-SEED-005",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Node unit test with no database; synthetic input values only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "CREATED and NOOP exit 0, FAILED exits 2, UNKNOWN_RESULT exits 3; the two failure codes differ and are neither 0 nor 1"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "CREATED maps to SUCCESS, NOOP to NOOP, FAILED to FAILED with its failure class, UNKNOWN_RESULT to PENDING with failure_class UNKNOWN_RESULT, at levels INFO, INFO, ERROR and WARN"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-005-007",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "OBS-LOG-001",
+        "OBS-LOG-003",
+        "INF-SEED-005",
+        "TST-SEED-005",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Node unit test with no database; synthetic input values only; the strict logger from packages/observability",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "EVENT_NAMES lists provision.initial_data_seed.completed once"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "The strict logger accepts the completion record with service RECOVERY, INFRASTRUCTURE_OPERATOR and PROVISION.INITIAL_DATA_SEED"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "REL-DB-007",
+        "OBS-DB-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried); re-check and retries on direct connections; mode drop_ack",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check finds this run's Audit Event and the result is CREATED"
+      ],
+      "expected_db_postconditions": [
+        "One set of rows and Audit Events, all with the result's operation_execution_id, and the fault fired once"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.opened (WARN, PENDING, UNKNOWN_RESULT) then reliability.unknown_result.resolved (SUCCESS) with an integer duration_ms; no retry.attempted; every record passes the production strict logger schema"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-008",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried); re-check and retries on direct connections; mode drop_request; another seed run completes before the re-check connection is handed back",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The result is NOOP"
+      ],
+      "expected_db_postconditions": [
+        "Rows and Audit Events are the other run's single set and none carries this run's execution id"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.resolved with result NOOP"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-005",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried); re-check and retries on direct connections; mode drop_request",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check finds neither rows nor an Audit Event, the migration lock is taken again on the new connection and the retry is CREATED"
+      ],
+      "expected_db_postconditions": [
+        "One set of rows and Audit Events carrying the second attempt's operation_execution_id; none carries the first attempt's id; the Event INSERT was issued twice in total"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.opened then resolved (FAILED, TEMPORARY_FAILURE, integer duration_ms), then reliability.retry.attempted with is_retry true and attempt_number 2 or more; every record passes the production strict logger schema"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-005",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried); re-check and retries on direct connections; mode drop_request; an Event already exists",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "An existing Event alone is not treated as success: zero Offerings means uncommitted and the retry creates the Offerings"
+      ],
+      "expected_db_postconditions": [
+        "The Event row is unchanged, the Offerings reference it and only Offering Audit Events exist"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "REL-DB-007",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried); re-check and retries on direct connections; mode hold_request: the COMMIT is withheld until the re-check connection is seen waiting on an advisory lock in pg_stat_activity",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "After the withheld COMMIT is released the re-check sees the committed rows and the result is CREATED, not a false uncommitted"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is visible before the release; afterwards one set of rows and Audit Events with the result's operation_execution_id"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.resolved with result SUCCESS"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-006",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "OBS-AUD-014",
+        "REL-DB-007",
+        "OBS-DB-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried); re-check and retries on direct connections; (a) drop_ack and every re-check connection fails; (b) drop_request and a superuser session holds the seed xact lock beyond the retry budget",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The result is UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) with exit code 3, PENDING and failure_class UNKNOWN_RESULT; (a) makes 3 connection attempts"
+      ],
+      "expected_db_postconditions": [
+        "(a) The committed rows and Audit Events remain untouched and none is added; (b) nothing was committed and nothing exists",
+        "Only INSERTs into the three seeded tables are issued, once per original attempt; no Consistency Review Case is created"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.opened is logged once"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "REL-DB-007",
+        "DB-SEED-002",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried); re-check and retries on direct connections; re-run after each 006-006 scenario",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "After (a) the same command is NOOP and does not read the input; after (b) it is CREATED, then NOOP"
+      ],
+      "expected_db_postconditions": [
+        "Rows and Audit Events are never duplicated"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-008",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-005",
+        "REL-DB-006",
+        "OBS-DB-004",
+        "INF-SEED-003",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried); re-check and retries on direct connections; transactionDeadlineMs shortened to 2500 ms for (a) and 2000 ms for (b) (time for a slow runner to reach COMMIT); (a) proxy mode delay_ack holds the COMMIT acknowledgement for 5 s after the commit took effect; (b) proxy mode rollback_for_commit replaces COMMIT by ROLLBACK (the backend session and its migration lock stay alive) and holds the acknowledgement for 5 s",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The deadline passes after COMMIT was sent: the result is unknown and the re-check decides. (a) The re-check finds this run's Audit Events and the result is CREATED. (b) The re-check finds an uncommitted run, the retry takes the migration lock again and the result is CREATED, within 15 s (not the 60 s migration lock timeout)"
+      ],
+      "expected_db_postconditions": [
+        "One set of rows and Audit Events; in (a) with this run's operation_execution_id, in (b) with the second attempt's and none with the first attempt's"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.opened then resolved (a: SUCCESS; b: FAILED, TEMPORARY_FAILURE) with an integer duration_ms; in (b) reliability.retry.attempted with is_retry true"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-009",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried), mode drop_ack; before the re-check connection is handed back, another session (standing for a migration job) takes the migration lock once the original session is gone",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "While the migration lock is held elsewhere the re-check waits for it, reads nothing and does not decide; after the lock is released it takes the lock, then re-checks and the result is CREATED"
+      ],
+      "expected_db_postconditions": [
+        "One set of rows and Audit Events; on the re-check connection the migration lock statement precedes the re-check's Audit Event read; only allowed statements are issued"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-010",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "REL-DB-006",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried), mode rollback_for_commit (the COMMIT is replaced by ROLLBACK and its acknowledgement withheld for 8 s); transactionDeadlineMs 5200, longer than the 5 s elapsed budget of the 55P03 retry policy",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check finds the run uncommitted after the retry budget is spent: FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), exit code 2, and no second seed transaction is started"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; the Event INSERT is issued once in total; only allowed statements are issued"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened and one reliability.unknown_result.resolved record (FAILED, TEMPORARY_FAILURE); no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-011",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy in front of the original connection (plain transport; TLS is not carried), mode drop_request (nothing committed); recheckDeadlineMs 600 (the seed transaction keeps the default deadline, so that it reaches COMMIT on a slow runner too); before the re-check connection is handed back, another session holds an ACCESS EXCLUSIVE lock on app.audit_events for 900 ms, longer than the deadline and shorter than the 1 s lock and 5 s statement timeouts",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check transaction is bounded by the transaction deadline: its Audit Event read is stopped at the deadline, the re-check is not retried and decides nothing, and the result is UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN, exit code 3), not a late CREATED"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; the Event INSERT is issued once in total; only allowed statements are issued"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record and no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-012",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried); the original connection through a proxy in mode drop_request (nothing committed), the re-check connection through a second proxy in mode stall_statement on the re-check's Audit Event read; recheckDeadlineMs 800 (the seed transaction keeps the default deadline)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK",
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check connection is abandoned at the transaction deadline: UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN, exit code 3) well within 10 s, no verdict and no retry"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; the Event INSERT is issued once in total; only allowed statements are issued; no session keeps the migration lock"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record and no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-013",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData over a scripted pg Client double whose COMMIT fails with a connection error (result unknown) and whose re-check connection's seed xact lock statement fails with SQLSTATE 55P03 after 1600 ms of a controlled clock; the backoff wait advances the same clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 49.5, 99 and 198 ms; (b) every backoff wait ends 3500 ms late",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) a re-check backoff that would end past the 5 s budget is not started: UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) after the third re-check transaction, waits of 49.5 and 99 ms only; (b) after a wait that ended past the budget no further re-check transaction starts: UNKNOWN_RESULT"
+      ],
+      "expected_db_postconditions": [
+        "(a) three seed xact lock statements on the re-check connection; (b) one"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-014",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic values only; real TCP fault proxy (plain transport; TLS is not carried); acquireMigrationLock then seedInitialData; the original connection through a proxy in mode drop_request (nothing committed), the re-check connection through a second proxy in mode stall_statement on the migration lock statement, sent upstream and its answer lost; migrationLockDeadlineMs 800",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK",
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check connection is abandoned at the lock deadline: UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN, exit code 3) well within 10 s; the re-check reads nothing, decides nothing and is not retried"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; only allowed statements are issued; no session keeps the migration lock the server had granted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record and no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-015",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-005",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried); the original connection through a proxy in mode drop_ack (the COMMIT takes effect), the re-check connection through a second proxy in mode stall_statement with stallOnTerminate (the unlock is answered, the Terminate and the half-close are not)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK",
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check finds this run's Audit Events: CREATED, well within 10 s; the re-check client socket is destroyed after the close wait instead of being left open"
+      ],
+      "expected_db_postconditions": [
+        "One set of rows: one Event, two Offerings and three Audit Events"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-016",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData over a scripted pg Client double whose seed xact lock statements take a scripted time of a controlled clock and fail with a scripted SQLSTATE; the backoff wait advances the same clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 49.5 and 99 ms; the original COMMIT fails with a connection loss; on the re-check connection the first xact lock fails with 55P03 at 4800 ms and the second is granted after 200 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The retried re-check transaction has only what is left of the 5 s budget (statement timeout at most 151 ms): UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) at attempt 1, no verdict and no seed retry"
+      ],
+      "expected_db_postconditions": [
+        "The re-check reads no Audit Event and sends no COMMIT; two re-check xact lock statements"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-017",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried); the original connection through a proxy in mode drop_request (nothing committed); the re-check connect callback fails after 2.5 s on its first call and connects only after 2 s on its second",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The reconnect stays within the 3 s connection budget (SPEC-150 section 11): the second attempt gets only what is left of it, UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) within 3.5 s of the first attempt, two connect calls in total, no re-check"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created; no re-check connection takes the migration lock or reads an Audit Event; the connection that arrives after the budget is ended"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "One reliability.unknown_result.opened record, no reliability.unknown_result.resolved record, and reliability.retry.attempted only for the second connection attempt (query_name initial_data.connect), none for the seed"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-018",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData over scripted pg Client doubles on a controlled clock (node:timers/promises mocked, Math.random fixed at 0.99, so the first 55P03 delay is 49.5 ms); the original COMMIT fails with a connection loss and the re-check finds nothing committed; (b) the first attempt takes 4970 ms; (c) every backoff wait ends 5000 ms late",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) the retry after the uncommitted re-check starts only after one 49.5 ms full jitter backoff: CREATED at attempt 2; (b) a backoff that would end past the 5 s budget is not started: FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1; (c) after a wait that ended past the budget no seed transaction starts: FAILED at attempt 1"
+      ],
+      "expected_db_postconditions": [
+        "(a) one re-check and one retried seed transaction with one COMMIT on the new connection; (b) and (c) the re-check only, no COMMIT"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-019",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock (Math.random 0.99); the COMMIT acknowledgement arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): (a) at 8001 ms, (b) at exactly 8000 ms, (c) at 7999 ms of the 8 s transaction wall clock; (d) a retry after 55P03 at 4800 ms and a 49.5 ms backoff, acknowledged 151 ms later, past the 150.5 ms left of the 5 s budget; the re-check connection finds the run's Audit Events",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) and (b) CREATED at attempt 1 from the re-check (its Audit Event ids), not from the acknowledgement; (c) CREATED at attempt 1 from the acknowledgement, no re-check; (d) CREATED at attempt 2 from the re-check",
+        "(a), (b) and (d): the re-check runs on a new connection and no seed transaction is run again (no COMMIT on it)"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(a), (b) and (d): reliability.unknown_result.opened (COMMIT_RESULT_UNKNOWN, the attempt's attempt_number), then reliability.unknown_result.resolved SUCCESS; (c): no reliability.unknown_result.opened"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-020",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock (Math.random 0.99); the COMMIT of the seed transaction is lost, so the result goes to the re-check on a new connection; the re-check ROLLBACK acknowledgement arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): (a) the re-check finds the run's Audit Events, at 8001 ms; (b) another run completed the data, at exactly 8000 ms; (c) nothing is committed, at 8001 ms; (d) the re-check finds the run's Audit Events, at 7999 ms of the 8 s wall clock",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b) and (c) UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) at attempt 1: not CREATED, not NOOP, and the seed transaction is not run again; (d) CREATED from the re-check (its Audit Event ids)",
+        "The re-check runs one transaction on one new connection and sends no COMMIT"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(a): reliability.unknown_result.opened (COMMIT_RESULT_UNKNOWN), and no reliability.unknown_result.resolved SUCCESS"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-021",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock (Math.random 0.99); the COMMIT of the seed transaction is lost, so the result goes to the re-check on a new connection; the error and the ROLLBACK acknowledgement arrive at once in real time, before any timer callback, while the controlled clock advances: (a) a 55P03 on the re-check xact lock seen at 8001 ms of the first re-check; (b) a 55P03 seen at 7000 ms, its ROLLBACK acknowledged 1001 ms later; (c) a 55P03 at 1000 ms, its ROLLBACK in time, then the run's Audit Events are found",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) and (b) UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) at attempt 1, after one re-check transaction, not retried; (c) the re-check is retried once and is CREATED from it (its Audit Event ids)"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(a) and (b): no reliability.retry.exhausted record (the first re-check is not bound by a retry budget)"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-006",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "DB-SEED-001",
+        "INF-SEED-003",
+        "INV-010-07",
+        "TST-SEED-002",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-07"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; a superuser session holds the seed xact lock while the seed starts, then creates the Event and an Offering and commits inside the seed's lock_timeout",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The seed ends NOOP without reading the input"
+      ],
+      "expected_db_postconditions": [
+        "The seed connection is seen waiting on an advisory lock in pg_stat_activity before the writer commits",
+        "The rows are the writer's, unchanged, and no Audit Event exists"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-006",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-005",
+        "REL-DB-006",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; transactionDeadlineMs option shortened to 300 ms and the transaction held open for 800 ms before COMMIT; a control run with the default deadline; (c) and (d) with the rows already present, another session holds the seed xact lock (c) or an ACCESS EXCLUSIVE lock on app.entry_ticket_offerings (d) for 700 ms, longer than the deadline and shorter than the 1 s lock and 5 s statement timeouts",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A transaction still open after its deadline is rolled back before COMMIT and the result is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE); the control run is CREATED",
+        "The deadline also bounds the lock wait and the count reads: (c) and (d) are FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), not NOOP, and are not retried"
+      ],
+      "expected_db_postconditions": [
+        "No Event, Offering or Audit Event remains after the deadline run, no COMMIT was sent and no INSERT was issued after the deadline; in (c) and (d) the existing rows are unchanged and the input is not read"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "In (c) and (d) no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-007",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "REL-DB-002",
+        "DB-SEED-005",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Node unit test with no database; the pure classifySeedFailure(stage, sqlstate) of the seed module; retryable states and an unknown COMMIT result are handled before it",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "An Audit-stage failure is AUDIT_WRITE_FAILED: PERMANENT_FAILURE for 23xxx and other server states, TEMPORARY_FAILURE for connection-class states and a missing SQLSTATE",
+        "A statement-stage 23xxx is INITIAL_DATA_CONSTRAINT_REJECTED (PERMANENT_FAILURE); a 22xxx data exception or a missing SQLSTATE is UNEXPECTED_INTERNAL_ERROR (TEMPORARY_FAILURE)"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-008",
+      "level": "Integration",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-001",
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "INF-DEP-005",
+        "DB-SEED-002",
+        "REL-DB-006",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "The public command pnpm db:seed-initial-data run from the repository root in a child process over TLS (NODE_EXTRA_CA_CERTS) against the isolated real PostgreSQL 17 database as app_migrator, port 5432; synthetic values only; (c) a test-only deferred constraint trigger on app.events sleeps inside COMMIT, the test revokes CONNECT on the test database from PUBLIC and ends the command's backend while COMMIT is in flight, then restores CONNECT and drops the trigger",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The exit code is the command's own: (a) CREATED and then NOOP exit 0; (b) FAILED exits 2, not 1; (c) UNKNOWN_RESULT exits 3, not 1 or 2"
+      ],
+      "expected_db_postconditions": [
+        "(a) one set of rows and Audit Events; (b) nothing is created; (c) nothing is committed and the next run creates one set"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "stdout carries exactly one JSON result line for each run, with the nine result keys"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-009",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-005",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic Event and Offering values only; acquireMigrationLock then seedInitialData on a dedicated app_migrator connection; no Provider; real TCP fault proxy (plain transport; TLS is not carried) in front of the original connection, mode stall_statement on the Event count read (the network stops answering; the sockets stay open); transactionDeadlineMs 800",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The command keeps the transaction deadline itself: the stalled connection is abandoned at the deadline and the result is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), exit code 2, well within 10 s; not an unknown COMMIT result, not retried, the input is not read"
+      ],
+      "expected_db_postconditions": [
+        "Nothing is created, no INSERT and no COMMIT is sent; the abandoned session ends and no session keeps the migration lock"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No reliability.unknown_result.opened and no reliability.retry.attempted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-010",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "INF-SEED-004",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData over a scripted pg Client double whose seed xact lock statement fails with SQLSTATE 55P03 after 1600 ms of a controlled clock; the backoff wait advances the same clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 49.5, 99 and 198 ms; (b) every backoff wait ends 3500 ms late",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) a backoff that would end past the 5 s budget is not started: FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) after the third attempt, waits of 49.5 and 99 ms only; (b) after a wait that ended past the budget no further attempt starts: FAILED after the first attempt"
+      ],
+      "expected_db_postconditions": [
+        "(a) three seed xact lock statements in total; (b) one"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-011",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "INF-SEED-004",
+        "REL-DB-005",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic values only; real TCP fault proxy (plain transport; TLS is not carried); acquireMigrationLock on an app_migrator connection through the proxy in mode stall_statement with deadlineMs 800: (a) on SET lock_timeout, not sent upstream; (b) on the migration lock statement, sent upstream (the server grants the lock) and its answer lost",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The acquisition is bounded on the client: it rejects with MigrationLockTimeoutError at the deadline, well within 10 s, instead of waiting for an answer that never arrives"
+      ],
+      "expected_db_postconditions": [
+        "(b) the abandoned session ends and no session keeps the migration lock the server had granted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-012",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "REL-DB-005",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PostgreSQL 17 test database created per test file with migrations 0001-0003 applied by app_migrator; synthetic values only; real TCP fault proxy (plain transport; TLS is not carried) in mode stall_statement with stallOnTerminate: every answer arrives, then the Terminate message is not sent upstream and the caller's half-close is never answered; acquireMigrationLock, release, then endConnection with a 500 ms wait",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.INSIDE_STATEMENT"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "endConnection settles well within 2 s although the graceful close never completes; the client socket is destroyed, so it no longer keeps the process alive"
+      ],
+      "expected_db_postconditions": [
+        "The stalled app_migrator session ends; no app_migrator session remains"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-013",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-001",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData over a scripted pg Client double whose seed xact lock statements take a scripted time of a controlled clock and fail with a scripted SQLSTATE; the backoff wait advances the same clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 49.5 and 99 ms; (a) the first xact lock fails with 55P03 at 4800 ms and the second is granted after 200 ms; (b) the first fails with 40001 at 1500 ms and the second with 55P03 after 400 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) the retry has only what is left of the 5 s budget (its statement timeout is lowered to at most 151 ms), not a new 8 s: FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 2; (b) the 2 s budget of 40001 is not extended by the later 55P03: the backoff that would end past 2 s is not started, FAILED at attempt 2"
+      ],
+      "expected_db_postconditions": [
+        "No COMMIT is sent; two seed xact lock statements in total"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-014",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: connectWithinBudget (the command's first connection and the re-check connection) over a scripted connect callback; the backoff wait advances a controlled clock (node:timers/promises mocked) and Math.random is fixed at 0.99, so the delays are 99 and 198 ms; (a) the first two attempts fail and the third connects; (b) every attempt fails; (c) the first attempt fails after 2950 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The temporary connection acquisition budget of SPEC-150 section 11 (3 attempts, 3 s in total, full jitter backoff included): (a) the third attempt's client, after 99 and 198 ms of backoff, each attempt given only what is left of the 3 s (3000, 2901, 2703 ms); (b) no client after three attempts, no fourth; (c) no further attempt when less than the backoff is left"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-015",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: connectWithinBudget and acquireMigrationLock over connection doubles whose success advances a controlled clock (performance.now mocked) before it is seen, so the success is handled before the deadline timer callback; (a) a connection that succeeds at 3001 ms; (b) a migration lock granted 1001 ms into a 1000 ms deadline; (c) one granted at 999 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) the late connection is ended and not returned, and no further attempt starts; (b) MigrationLockTimeoutError and the connection is ended, so the session and its lock end; (c) the lock is held and the connection is not ended"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-016",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: connectWithinBudget, openSeedConnection (the command's first connection) and seedInitialData after a lost COMMIT, over connect callbacks that reject with SQLSTATE 28P01 or 28000 (an authentication rejection); controlled clock",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) DatabaseAuthenticationRejected after one attempt, no backoff, for 28P01 and 28000; (b) the first connection ends as FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED) at attempt 1 after one attempt; (c) the re-check connection is not retried and the result stays UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN)"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(b) no reliability.retry.exhausted event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-017",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "OBS-DB-003",
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-160-22",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData and openSeedConnection with the schema-checking logger of @off-r39x/observability collecting its records; scripted connection doubles and a controlled clock (Math.random 0.99); (a) 55P03 until the 5 s budget; (b) 40001 four times; (c) every connection attempt fails; (d) the retry after an uncommitted re-check cannot start within the budget; (e) the re-check gets 55P03 until its budget; (f) a retry and a connection that succeed; (g) a seed retry and (h) a re-check retry cut off by what is left of the budget; (i) a first attempt past the 8 s deadline",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) FAILED at attempt 3; (b) FAILED at attempt 4 after 49.5, 99 and 198 ms; (c) FAILED(TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE); (d) FAILED at attempt 1; (e) UNKNOWN_RESULT; (f) CREATED at attempt 2 and a connection; (g) FAILED at attempt 2; (h) UNKNOWN_RESULT; (i) FAILED at attempt 1"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "Exactly one reliability.retry.exhausted (level ERROR, result FAILED, failure_class TEMPORARY_FAILURE, operation_id PROVISION.INITIAL_DATA_SEED, provider NEON_DB, the attempt's operation_execution_id and attempt_number; its cause is TC-TST-SEED-003-018) in (a) attempt 3, (b) attempt 4, (c) attempt 3, (d) attempt 1, (e) re-check attempt 3, (g) attempt 2, (h) re-check attempt 2; none in (f) and (i)"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-018",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "OBS-DB-003",
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-160-22",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData and openSeedConnection with the schema-checking logger of @off-r39x/observability collecting its records; scripted connection doubles and a controlled clock (Math.random 0.99); (a) 55P03 until the 5 s budget; (b) 40001 four times; (c) 40P01, then 40001, then success; (d) every connection attempt fails; (e) the re-check gets 55P03 until its budget; (f) the re-check finds the run uncommitted, the retry succeeds; (g) a seed retry and (h) a re-check retry cut off by what is left of the budget",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) FAILED at attempt 3; (c) CREATED at attempt 3; (e) UNKNOWN_RESULT; (f) CREATED at attempt 2"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.retry.attempted (is_retry true) at each retry and reliability.retry.exhausted at exhaustion, each with query_name for the unit retried and sqlstate for the SQLSTATE that caused the retry: (a) attempted 2 and 3, exhausted 3, initial_data.seed 55P03; (b) attempted 2 to 4, exhausted 4, initial_data.seed 40001; (c) attempted 2 with 40P01 and 3 with 40001, no exhaustion; (d) attempted 2 and 3, exhausted 3, initial_data.connect without sqlstate; (e) attempted 2 and 3, exhausted 3, initial_data.recheck 55P03; (f) attempted 2, initial_data.seed without sqlstate; (g) attempted and exhausted 2, initial_data.seed 55P03; (h) attempted and exhausted 2, initial_data.recheck 55P03",
+        "In every case of the file, a sqlstate appears only on reliability.retry.attempted or reliability.retry.exhausted, and only as 40001, 40P01 or 55P03"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-019",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with a scripted connection double and a controlled clock (Math.random 0.99); the Event and its Offering already exist (two Events in (e)); every ROLLBACK acknowledgement arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): (a) at 8001 ms, (b) at exactly 8000 ms, (c) at 7999 ms of the 8 s transaction wall clock; (d) a retry after 55P03 (the first attempt's ROLLBACK ending at 4800 ms) and a 49.5 ms backoff, with 150.5 ms left of the 5 s budget, its ROLLBACK taking 151 ms; (e) at 8001 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b) and (e) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1, not NOOP and not the verdict reached before the ROLLBACK, and not retried; (c) NOOP at attempt 1; (d) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 2",
+        "No COMMIT is sent"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(a): no reliability.retry.attempted record; (d): one reliability.retry.exhausted at attempt 2 with sqlstate 55P03"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-020",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with a scripted connection double and a controlled clock (Math.random 0.99); the error and the ROLLBACK acknowledgement arrive at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): a constraint violation (23514) on the first INSERT, its ROLLBACK acknowledged (a) at 8001 ms, (b) at exactly 8000 ms, (c) at 7999 ms of the 8 s transaction wall clock; (d) the constraint violation itself seen at 8001 ms; (e) a 55P03 seen at 8001 ms of the first attempt; (f) a retry after 55P03 at 4800 ms and a 49.5 ms backoff, with 150.5 ms left of the 5 s budget, whose constraint violation is seen in time and whose ROLLBACK fails 151 ms later (the connection is gone); a COMMIT rejected with 40001 (a definite answer: nothing committed) (g) at 8001 ms, (h) at 1000 ms, the retry then committing",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b), (d) and (e) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1, not INITIAL_DATA_CONSTRAINT_REJECTED and not retried; (c) FAILED (PERMANENT_FAILURE, INITIAL_DATA_CONSTRAINT_REJECTED); (f) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 2; (g) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1, not retried and no re-check; (h) retried within the 2 s budget and CREATED at attempt 2",
+        "No COMMIT is sent in (a) to (f)"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(e) and (g): no reliability.retry.attempted and no reliability.retry.exhausted record, and (g) no reliability.unknown_result.opened; (f): one reliability.retry.exhausted at attempt 2 with sqlstate 55P03"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-021",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: connectWithinBudget, openSeedConnection and acquireMigrationLock with scripted doubles and a controlled clock; the error arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): an authentication rejection (28P01 / 28000) at (a) 3001 ms, (b) exactly 3000 ms, (c) 2999 ms of the 3 s connection budget, (d) at 3001 ms on the command's first connection; with a 1000 ms migration lock deadline, (e) the role check answered with another role at 1001 ms, (f) a session setting that fails (42501) at exactly 1000 ms, (g) another role answered at 999 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b): no client and no DatabaseAuthenticationRejected; the budget ran out after 1 attempt, no backoff; (c): DatabaseAuthenticationRejected; (d): FAILED (TEMPORARY_FAILURE), not DATABASE_AUTHENTICATION_FAILED",
+        "(e), (f): MigrationLockTimeoutError and the connection is ended; (g): MigrationPrincipalError and the connection is not ended"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(d): one reliability.retry.exhausted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-022",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock; each answer arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline); the xact lock takes 3500 ms of the 8 s, so the next statement first lowers the statement timeout to the 4500 ms left, and that SET is acknowledged at (a) 8001 ms, (b) exactly 8000 ms, (c) 7999 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b): FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1; the Event read is never sent after the SET, no COMMIT; (c): CREATED"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-022",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock; each answer arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline); a lost COMMIT, then a re-check whose xact lock takes 3500 ms of its 8 s and whose lowered statement timeout is acknowledged at (a) 8001 ms, (b) 7999 ms; the Audit Events of the run exist",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a): UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN); the Audit Event read is never sent after the SET; (b): CREATED with the Audit Event found by the re-check"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-023",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-160-22",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock; each answer arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline); (a) the xact lock granted at 8001 ms of the 8 s, (b) a constraint violation (23514) seen at 8001 ms, (c) a 55P03 at 4800 ms, then a retry with 150.5 ms left whose xact lock takes 200 ms, (d) COMMIT acknowledged at 8001 ms, (e) COMMIT connection lost, seen at 8001 ms, (f) no deadline reached: CREATED, a 23514 at 7999 ms, a 55P03 budget run out by elapsed time, a COMMIT lost in time",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b): FAILED (DATABASE_TEMPORARY_FAILURE) at attempt 1; (c): FAILED at attempt 2; (d), (e): CREATED after the re-check; (f): CREATED, FAILED (PERMANENT_FAILURE), FAILED at attempt 3, CREATED"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "Exactly one reliability.timeout.occurred (level ERROR, operation_id PROVISION.INITIAL_DATA_SEED, provider NEON_DB, query_name initial_data.seed, the attempt's operation_execution_id and attempt_number, no sqlstate) in (a) to (e): (a), (b) duration_ms 8001, result FAILED, failure_class TEMPORARY_FAILURE, error_code DATABASE_TEMPORARY_FAILURE; (c) the same at attempt 2 with duration_ms 200, plus one reliability.retry.exhausted; (d), (e) duration_ms 8001, result PENDING, failure_class UNKNOWN_RESULT, error_code COMMIT_RESULT_UNKNOWN, (d) before reliability.unknown_result.opened; none in (f)"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-023",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "INF-SEED-004",
+        "INF-SEED-005",
+        "TST-SEED-006",
+        "SPEC-160-22",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock; each answer arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline); a lost COMMIT, then a re-check whose (a) xact lock is granted at 8001 ms of its 8 s, (b) ROLLBACK is acknowledged at 8001 ms, (c) xact lock fails with 55P03 at 8001 ms, (d) verdict is reached in time",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b), (c): UNKNOWN_RESULT; (d): CREATED"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "Exactly one reliability.timeout.occurred (level ERROR, operation_id PROVISION.INITIAL_DATA_SEED, provider NEON_DB, query_name initial_data.recheck, result PENDING, failure_class UNKNOWN_RESULT, error_code COMMIT_RESULT_UNKNOWN, attempt_number 1, duration_ms 8001, no sqlstate) in (a), (b) and (c), and no reliability.retry.exhausted in (c); none in (d)"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-024",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "TST-UNT-003",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput on synthetic input text with a key written twice in one object: (a) an event carrying public_ref followed by a valid event, (b) unit_amount twice in an Offering, (c) the same key spelled with a \\u escape, (d) a duplicate in the last Offering only and a duplicate top-level entry_ticket_offerings; (e) the same key in different objects and key-like text inside a string value. In (a) to (d) the text with only the last value of each key is accepted",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) to (d): rejected with INITIAL_DATA_INPUT_INVALID only, carrying no input value; (e): accepted"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
       "sensitivity_class": "synthetic",
@@ -30612,6 +32785,597 @@
         "A session without the startup option sees the configured IntervalStyle, pg_get_expr / pg_get_constraintdef write the payment_deadline_at generation expression, the idempotency_records.expires_at default and ck_idempotency_records_expiry in that style, and the live catalog does not equal the required catalog",
         "The harness session (PGOPTIONS) and the createDatabase pools of app_api_runtime, app_email_runtime and app_reconciliation_runtime run in the postgres IntervalStyle, read those expressions as the hand-written goldens and the required catalog exactly, and checkReadiness is Ready with no failures",
         "Migrations run by a session that starts in sql_standard execute every CREATE TABLE statement in the postgres IntervalStyle, and the migrated database reads the goldens and the required catalog exactly"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-009",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-001",
+        "DB-MIG-002",
+        "DB-MIG-003",
+        "DB-TIM-001",
+        "DB-TIM-002",
+        "DB-ID-003",
+        "DB-IDX-001",
+        "DEV-DB-013",
+        "SPEC-170-22",
+        "SPEC-100-30",
+        "SPEC-100-33",
+        "SPEC-100-34",
+        "SPEC-100-37",
+        "SPEC-100-45.4",
+        "SPEC-100-59",
+        "SPEC-170-23"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only. The catalog goldens are tests/harness/db/karaoke-reservations-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration; pg_get_expr is read with IntervalStyle=postgres",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Applied migrations are immutable: 0001-0006 equal their committed hashes, and 0007 statically creates only the four tables in parent-first order and the four separately named section 45 indexes, with one REVOKE ALL and no ALTER, GRANT, DROP, TRUNCATE, DELETE, INSERT, trigger, function, extension, role, view, OWNER TO or row level security; order_items, orders, business_profiles and role_assignments appear only as REFERENCES targets"
+      ],
+      "expected_db_postconditions": [
+        "The journal lists 0001_foundation to 0007_karaoke_reservations once each with the bundled source hashes, and a second runMigrations leaves it unchanged",
+        "The four tables have 15 + 14 + 8 + 6 columns in attnum order equal to the golden (types, NOT NULL, identity always on id, defaults including order_purpose 'KARAOKE_PURCHASE', and the generated hold_expires_at with the UCR-100-006 expression)",
+        "29 constraints and 19 valid indexes equal the golden by name and definition, all validated and not deferrable, every name within 63 bytes; owner app_migrator, no row level security, four bigint identity sequences, 18 time columns all timestamptz",
+        "The live catalog equals requiredCatalog; public_ref of Holds, Reservations and Tickets is a database generated v4 UUID unique by name; an explicit id is 428C9 on all four tables",
+        "A duplicate id given with OVERRIDING SYSTEM VALUE, in a row that satisfies every other UNIQUE and foreign key, is 23505 pk_karaoke_holds, pk_karaoke_reservations, pk_karaoke_tickets and pk_karaoke_checkins"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-010",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-002",
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-TIM-001",
+        "DEV-DB-001",
+        "DEV-DB-006",
+        "SPEC-100-55",
+        "SPEC-100-56",
+        "SPEC-100-57"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Static Drizzle declaration check of the four Karaoke reservation tables against the reviewed schema-contract.json and the hand-written goldens of tests/harness/db/karaoke-reservations-golden.ts; not a database execution test; DB enforcement is TC-DB-ARC-007-009 and the other DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The contract rows of the four tables equal the golden columns, constraints and indexes; the golden Hold, Reservation and Karaoke Ticket states equal @off-r39x/domain KARAOKE_HOLD_STATES, RESERVATION_STATES and KARAOKE_TICKET_STATES",
+        "For each table the Drizzle name, schema app, column order, SQL type, NOT NULL, identity on id only, defaults (none on a state column), lossless PgBigInt64 for every bigint and the generated hold_expires_at expression equal the golden",
+        "Constraint names, kinds and UNIQUE column lists equal the golden and the contract; CHECK text equals the golden exactly and matches the contract by column, literal and number; the seven foreign keys (four composite) reference the golden parent columns with ON DELETE RESTRICT; the declared indexes carry the golden columns, order, uniqueness and partial predicate; the four exports are in the schema barrel"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-STA-002-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-TIM-002",
+        "SPEC-100-10",
+        "SPEC-100-30",
+        "SPEC-100-33",
+        "SPEC-100-34",
+        "SPEC-100-37"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_karaoke_holds_order_purpose",
+        "ck_karaoke_holds_state",
+        "ck_karaoke_holds_state_times",
+        "ck_karaoke_reservations_state",
+        "ck_karaoke_tickets_state"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The stored names are exactly those of SPEC-030 / SPEC-090 (Hold 4, Reservation 2, Karaoke Ticket 4 states)"
+      ],
+      "expected_db_postconditions": [
+        "The 4 Hold states, 2 Reservation states and 4 Karaoke Ticket states are accepted; lower case, padded and suffixed near misses are 23514 by the named allowlist CHECK; an omitted state is 23502 (no default)",
+        "order_purpose defaults to KARAOKE_PURCHASE and any other value is 23514 ck_karaoke_holds_order_purpose",
+        "ck_karaoke_holds_state_times is SPEC-100 section 30 as written (plan U-2): ACTIVE with any of committed_at, released_at, expired_at and COMMITTED / RELEASED / EXPIRED without their own timestamp are 23514; a state with all three timestamps is accepted; a state UPDATE without the matching timestamp is refused",
+        "The required columns are NOT NULL (23502 by column), and every time default of the four tables is the transaction's transaction_timestamp()"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-KRK-006-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-006",
+        "KRK-HLD-006",
+        "KRK-HLD-007",
+        "UCR-100-006",
+        "SPEC-100-30",
+        "SPEC-100-57",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "Under session TimeZone UTC, Asia/Tokyo, America/New_York and Europe/Berlin, including instants next to a daylight saving change, hold_expires_at - hold_acquired_at is exactly 2700 seconds, equals hold_acquired_at + interval '45 minutes', and keeps the microseconds",
+        "With the default hold_acquired_at the expiry is transaction_timestamp() + 45 minutes; hold_expires_at cannot be inserted or updated (428C9) and follows an UPDATE of hold_acquired_at"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-007-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-007",
+        "KRK-HLD-003",
+        "TST-DB-004",
+        "SPEC-100-30",
+        "SPEC-100-45.4",
+        "SPEC-100-67",
+        "SPEC-170-23"
+      ],
+      "system_invariant_ids": [
+        "INV-010-04"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ux_karaoke_holds_slot_active"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second ACTIVE Hold of the same Slot is 23505 ux_karaoke_holds_slot_active; COMMITTED, RELEASED and EXPIRED Holds of the Slot are not limited and another Slot is independent",
+        "After the ACTIVE Hold is released a new ACTIVE Hold is accepted; turning the released Hold back to ACTIVE beside it is 23505 ux_karaoke_holds_slot_active; one ACTIVE Hold remains"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INV-010-08-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INV-010-08",
+        "KRK-HLD-001",
+        "SPEC-100-30",
+        "SPEC-100-63",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08",
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_holds_order_item_id",
+        "fk_karaoke_holds_order_item",
+        "fk_karaoke_holds_order"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Hold of the same Karaoke Order Item is 23505 uq_karaoke_holds_order_item_id in every state",
+        "A Hold whose Slot or Order differs from its item's, of an absent item, or of an Entry Ticket item is 23503 fk_karaoke_holds_order_item",
+        "A Hold whose Customer is not its Order's, or is absent, is 23503 fk_karaoke_holds_order; the Hold of another Customer's own item is accepted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-CON-001-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-007",
+        "KRK-HLD-003",
+        "TST-CON-001",
+        "TST-DB-004",
+        "SPEC-170-24",
+        "SPEC-100-30"
+      ],
+      "system_invariant_ids": [
+        "INV-010-04"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ux_karaoke_holds_slot_active"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied; parents and two Karaoke Orders with one item each for the same Slot committed by the administrator and deleted again in finally; two additional connections X and Y checked to run in UTC and READ COMMITTED, a barrier on pg_stat_activity instead of sleep that fails at once if Y's INSERT finishes without waiting, statement_timeout 10s on Y; synthetic data only. The acquire transaction of SPEC-100 section 31 is not implemented; this pins the last defence only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "X inserts an ACTIVE Hold uncommitted; Y's ACTIVE Hold of the same Slot waits on X's lock; after X COMMIT, Y is 23505 ux_karaoke_holds_slot_active and one Hold remains; after X ROLLBACK, Y is accepted; nothing remains after the case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-011-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-011",
+        "KRK-CFM-002",
+        "KRK-CFM-003",
+        "SPEC-100-33",
+        "SPEC-100-45.4",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-04"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_reservations_order_item_id",
+        "uq_karaoke_reservations_slot_id",
+        "uq_karaoke_reservations_hold_id",
+        "fk_karaoke_reservations_hold",
+        "uq_karaoke_holds_reservation_target"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "fk_karaoke_holds_order, fk_karaoke_holds_order_item, fk_karaoke_reservations_hold and fk_karaoke_tickets_reservation are backed by uq_orders_id_customer_profile_id, uq_order_items_id_order_id_purpose_karaoke_slot_id, uq_karaoke_holds_reservation_target (plan U-1) and uq_karaoke_reservations_id_customer_profile_id",
+        "A Reservation that repeats only the item or only the Hold of an existing one is 23505 uq_karaoke_reservations_order_item_id / uq_karaoke_reservations_hold_id (the UNIQUE is checked at index insertion, before the foreign key's AFTER trigger); a second Reservation of the Slot from another chain is 23505 uq_karaoke_reservations_slot_id; another Slot is accepted",
+        "A Reservation whose Customer, Slot, Order or item differs from its Hold's, or whose Hold is absent, is 23503 fk_karaoke_reservations_hold"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-012-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-012",
+        "KRK-CFM-005",
+        "SPEC-100-33"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_karaoke_reservations_state",
+        "ck_karaoke_reservations_canceled_at",
+        "ck_karaoke_reservations_usage_snapshot"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "USED, EXPIRED and VALID Reservations are 23514 ck_karaoke_reservations_state",
+        "CONFIRMED with canceled_at and CANCELED without it are 23514 ck_karaoke_reservations_canceled_at, also for a CONFIRMED -> CANCELED UPDATE without canceled_at; equal or reversed snapshot times are 23514 ck_karaoke_reservations_usage_snapshot"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-KRK-013-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-013",
+        "DB-FK-002",
+        "TST-KRK-002",
+        "SPEC-100-33",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-04"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_reservations_slot_id",
+        "uq_karaoke_reservations_hold_id",
+        "uq_karaoke_reservations_order_item_id",
+        "fk_karaoke_reservations_hold",
+        "fk_karaoke_holds_order_item",
+        "fk_order_items_karaoke_slot"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "After a Reservation is CANCELED, a new Reservation of its Slot is 23505 uq_karaoke_reservations_slot_id, one repeating its Hold is 23505 uq_karaoke_reservations_hold_id and one repeating its item is 23505 uq_karaoke_reservations_order_item_id: the UNIQUEs have no predicate",
+        "Deleting the Hold, the item or the Slot behind it is 23503 by name, no row is lost and the Reservation stays CANCELED"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-014-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-014",
+        "KRK-CFM-003",
+        "TQR-TKT-005",
+        "SPEC-100-34",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-03"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_tickets_reservation_id"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Karaoke Ticket of the same Reservation is 23505 uq_karaoke_tickets_reservation_id in every Ticket state; another Reservation's Ticket is accepted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-015-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-015",
+        "KRK-CFM-002",
+        "SPEC-100-34"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "fk_karaoke_tickets_reservation"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A Karaoke Ticket owned by another Profile or by the staff Profile, or of an absent Reservation, is 23503 fk_karaoke_tickets_reservation; changing the owner to another Profile is refused the same way"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INV-010-05-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INV-010-05",
+        "TST-DB-004",
+        "SPEC-100-37",
+        "SPEC-100-45.5",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-05"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_checkins_karaoke_ticket_id",
+        "fk_karaoke_checkins_karaoke_ticket",
+        "fk_karaoke_checkins_staff_profile",
+        "fk_karaoke_checkins_staff_role_assignment"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only. The check-in transaction of SPEC-100 sections 36-37 (Ticket VALID -> USED in the same transaction, the time window) is not implemented; this pins the unique last defence only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Karaoke Check-in of the same Ticket, by the same or another Staff, is 23505 uq_karaoke_checkins_karaoke_ticket_id and one Check-in remains",
+        "An absent Ticket, Staff Profile or Role Assignment is 23503 by the named foreign key"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-FK-002-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-FK-001",
+        "DB-FK-002",
+        "DB-FK-004",
+        "SPEC-100-11",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "fk_karaoke_holds_order_item",
+        "fk_karaoke_holds_order",
+        "fk_karaoke_reservations_hold",
+        "fk_karaoke_tickets_reservation",
+        "fk_karaoke_checkins_karaoke_ticket",
+        "fk_karaoke_checkins_staff_profile",
+        "fk_karaoke_checkins_staff_role_assignment"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "All seven foreign keys of the four tables are ON DELETE RESTRICT and ON UPDATE NO ACTION",
+        "Deleting a Ticket with a Check-in, a Reservation with a Ticket, a Hold with a Reservation, an item with a Hold, a Role Assignment of a Check-in or a Staff Profile of a Check-in (without a Role Assignment of its own) is 23503 by the one named foreign key; deleting an Order with an item and a Hold is 23503 by either of its two keys; no row of the four tables is lost"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-SEC-DB-001-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "SEC-DB-001",
+        "SEC-DB-003",
+        "DB-FK-004",
+        "SPEC-100-53",
+        "SPEC-180-22.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied; runtime pools of app_api_runtime, app_email_runtime and app_reconciliation_runtime over verified TLS; plan U-4: no mounted Operation uses the four tables yet, so no grant is expected",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the four tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the four identity sequences",
+        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE by the three runtime pools are refused with 42501 on all four tables"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-013",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-8",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "DB-MIG-003"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0007_karaoke_reservations applied (the build released before GK-2); readiness evaluated from a temporary directory holding those migrations, with the fixed 0006 required catalog fixture (asserted equal to the 0001-0006 live catalog); then 0007, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0007",
+      "fixture_ids": [
+        "tests/fixtures/db/required-catalog-0006.json"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "Synthetic history written under 0006 (Profiles, Role Assignment, Event, Offering, Karaoke Sales Configuration, Scope, Slot, Karaoke and Entry Orders and items, Allocation, Checkout Attempt, Payment Binding, Webhook Receipt, Refund Record) is identical row for row, ids and values included, after 0007 (SPEC-170 section 22 item 8); the only new tables are the four of 0007 and they are empty",
+        "Before 0007 the old build is Ready with an exact catalog; after 0007 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [
