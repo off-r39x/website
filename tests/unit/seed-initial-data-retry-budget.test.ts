@@ -58,6 +58,8 @@ function scriptedClient(options: {
    * acknowledgement arrives at once in real time, before any timer callback.
    */
   rollbackAdvanceMs?: number;
+  /** The first COMMIT is rejected with this SQLSTATE (a definite answer), after `advanceMs`. */
+  commitError?: { code: string; advanceMs: number };
   /** Every ROLLBACK fails (after `rollbackAdvanceMs`): the connection is gone. */
   rollbackFails?: boolean;
   /** The first business INSERT fails with this SQLSTATE, after advancing the clock by `advanceMs`. */
@@ -69,6 +71,7 @@ function scriptedClient(options: {
   const script = [...(options.xactLocks ?? [])];
   let inserted = 0;
   let insertError = options.insertError;
+  let commitError = options.commitError;
   const client = {
     on: () => client,
     end: async () => {},
@@ -92,6 +95,12 @@ function scriptedClient(options: {
       }
       if (/^\s*COMMIT/i.test(text)) {
         if (options.commit === "lost") throw new Error("synthetic connection loss");
+        const rejection = commitError;
+        commitError = undefined;
+        if (rejection) {
+          clock.now += rejection.advanceMs;
+          throw Object.assign(new Error("synthetic commit rejection"), { code: rejection.code });
+        }
         clock.now += options.commitAdvanceMs ?? 0;
         return { rows: [] };
       }
@@ -1134,6 +1143,31 @@ describe("TC-TST-SEED-003-020 a seed transaction that failed and is closed after
     expect(xactLocks(main.statements)).toHaveLength(1);
     expect(named(ATTEMPTED)).toEqual([]);
     expect(named(EXHAUSTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-020 (g) COMMIT rejected with 40001 at 8001 ms (nothing committed): FAILED by the wall clock, not retried, no re-check", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      commitError: { code: "40001", advanceMs: 8001 },
+    });
+    const outcome = await seedWith(main.client, noReconnect, logger);
+    expect(outcome).toMatchObject({ ...DEADLINE_FAILURE, attemptNumber: 1 });
+    expect(xactLocks(main.statements)).toHaveLength(1);
+    expect(named(ATTEMPTED)).toEqual([]);
+    // Ended by its wall clock, not by a retry budget: the first attempt is not bound by one.
+    expect(named(EXHAUSTED)).toEqual([]);
+    expect(named("reliability.unknown_result.opened")).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-020 (h) COMMIT rejected with 40001 at 1000 ms: retried within the 2 s budget, as before, and CREATED", async () => {
+    const main = scriptedClient({
+      xactLock: "grant",
+      commitError: { code: "40001", advanceMs: 1000 },
+    });
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(xactLocks(main.statements)).toHaveLength(2);
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 2 });
   });
 
   it("TC-TST-SEED-003-020 (f) the ROLLBACK after an error fails at 8001 ms (the connection is gone) in a retry bound by the 5 s budget: FAILED, the budget is exhausted", async () => {
