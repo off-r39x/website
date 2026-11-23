@@ -1158,9 +1158,10 @@ describe("TC-CON-001-004 two connections cannot both hold one Slot ACTIVE (ux_ka
   async function race(outcomeOfX: "COMMIT" | "ROLLBACK", rowX: Row, rowY: Row) {
     const x = new Client({ connectionString: url });
     const y = new Client({ connectionString: url });
-    await x.connect();
-    await y.connect();
     try {
+      // Inside try, so a failed connect of Y still closes X (end() of an unconnected client resolves at once).
+      await x.connect();
+      await y.connect();
       for (const [label, client] of [
         ["X", x],
         ["Y", y],

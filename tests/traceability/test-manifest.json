@@ -30505,6 +30505,7 @@
       "suite": "db",
       "upstream_rule_ids": [
         "INF-HLT-006",
+        "SPEC-170-22-8",
         "SPEC-170-22-9",
         "REL-DB-012",
         "INF-RBK-002",
@@ -30525,6 +30526,7 @@
         "No business mutation"
       ],
       "expected_db_postconditions": [
+        "Synthetic history written under 0006 (Profiles, Role Assignment, Event, Offering, Karaoke Sales Configuration, Scope, Slot, Karaoke and Entry Orders and items, Allocation, Checkout Attempt, Payment Binding, Webhook Receipt, Refund Record) is identical row for row, ids and values included, after 0007 (SPEC-170 section 22 item 8); the only new tables are the four of 0007 and they are empty",
         "Before 0007 the old build is Ready with an exact catalog; after 0007 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
       ],
       "expected_provider_postconditions": [],
