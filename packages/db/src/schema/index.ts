@@ -1,7 +1,7 @@
 export { app } from "./app-schema.ts";
 export { auditEvents } from "./audit.ts";
 export { idempotencyRecords } from "./cross-functional.ts";
-export { goodsInventory } from "./goods.ts";
+export { goodsHandoffs, goodsInventory, goodsOrderItems, goodsSalesAllocations } from "./goods.ts";
 export { businessProfiles, roleAssignments } from "./identity.ts";
 export { karaokeExclusiveScopes, karaokeSlots } from "./karaoke.ts";
 export { entrySalesAllocations, orderItems, orders } from "./orders.ts";
