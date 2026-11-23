@@ -45,8 +45,9 @@ function scriptedClient(options: {
   xactLock: "timeout" | "grant";
   commit?: "lost" | "ok";
   /**
-   * How long an acknowledged COMMIT "takes" on the controlled clock. The acknowledgement still arrives
-   * at once in real time, before any timer callback: an event loop that was blocked past the deadline.
+   * How long an acknowledged COMMIT "takes" on the controlled clock (a lost one too, before its error).
+   * The acknowledgement still arrives at once in real time, before any timer callback: an event loop
+   * that was blocked past the deadline.
    */
   commitAdvanceMs?: number;
   /** The re-check finds the Audit Events of the run: its COMMIT took effect. */
@@ -60,6 +61,11 @@ function scriptedClient(options: {
   rollbackAdvanceMs?: number;
   /** The first COMMIT is rejected with this SQLSTATE (a definite answer), after `advanceMs`. */
   commitError?: { code: string; advanceMs: number };
+  /**
+   * How long the first lowered statement timeout (`SET LOCAL statement_timeout` sent alone, once less
+   * than 5 s is left) "takes"; acknowledged at once in real time, before any timer callback.
+   */
+  loweredSetAdvanceMs?: number;
   /** Every ROLLBACK fails (after `rollbackAdvanceMs`): the connection is gone. */
   rollbackFails?: boolean;
   /** The first business INSERT fails with this SQLSTATE, after advancing the clock by `advanceMs`. */
@@ -72,6 +78,7 @@ function scriptedClient(options: {
   let inserted = 0;
   let insertError = options.insertError;
   let commitError = options.commitError;
+  let loweredSetAdvanceMs = options.loweredSetAdvanceMs ?? 0;
   const client = {
     on: () => client,
     end: async () => {},
@@ -79,6 +86,11 @@ function scriptedClient(options: {
       const text = textOf(query);
       statements.push(text);
       if (/current_user/i.test(text)) return { rows: [{ role: "app_migrator" }] };
+      if (/^SET LOCAL statement_timeout = '\d+ms'$/.test(text)) {
+        clock.now += loweredSetAdvanceMs;
+        loweredSetAdvanceMs = 0;
+        return { rows: [] };
+      }
       if (XACT_LOCK.test(text)) {
         const step = script.shift();
         if (step) {
@@ -94,7 +106,10 @@ function scriptedClient(options: {
         return { rows: [] };
       }
       if (/^\s*COMMIT/i.test(text)) {
-        if (options.commit === "lost") throw new Error("synthetic connection loss");
+        if (options.commit === "lost") {
+          clock.now += options.commitAdvanceMs ?? 0;
+          throw new Error("synthetic connection loss");
+        }
         const rejection = commitError;
         commitError = undefined;
         if (rejection) {
@@ -1347,5 +1362,296 @@ describe("TC-TST-SEED-003-021 an error seen after the deadline of a connection o
       MigrationPrincipalError,
     );
     expect(inTime.state.ended).toBe(0);
+  });
+});
+
+describe("TC-TST-SEED-003-022 a lowered statement timeout acknowledged after the wall clock sends no further statement (SPEC-150 section 9)", () => {
+  // The xact lock takes 3500 ms of the 8 s, so the next statement first lowers the statement timeout to
+  // the 4500 ms left. That SET is acknowledged before the timer callback (an event loop blocked past
+  // the deadline): only the monotonic clock shows that the deadline passed before the next statement.
+  const noReconnect = async (): Promise<Client> => {
+    throw new Error("no new connection expected");
+  };
+  const EVENT_READ = /FROM app\.events ORDER BY id LIMIT 2/i;
+  const DEADLINE_FAILURE = {
+    outcome: "FAILED",
+    failureClass: "TEMPORARY_FAILURE",
+    errorCode: "DATABASE_TEMPORARY_FAILURE",
+  };
+  const lateSet = (advanceMs: number) =>
+    scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 3500 }],
+      loweredSetAdvanceMs: advanceMs,
+    });
+
+  it("TC-TST-SEED-003-022 (a) the SET acknowledged at 8001 ms: FAILED by the wall clock, the Event read is not sent", async () => {
+    const main = lateSet(4501);
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject({ ...DEADLINE_FAILURE, attemptNumber: 1 });
+    expect(loweredTimeouts(main.statements)).toEqual([4500]);
+    expect(main.statements.some((text) => EVENT_READ.test(text))).toBe(false);
+    expect(xactLocks(main.statements)).toHaveLength(1);
+    expect(commits(main.statements)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-022 (b) the SET acknowledged at exactly 8000 ms: the same, the deadline is reached", async () => {
+    const main = lateSet(4500);
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject({ ...DEADLINE_FAILURE, attemptNumber: 1 });
+    expect(main.statements.some((text) => EVENT_READ.test(text))).toBe(false);
+  });
+
+  it("TC-TST-SEED-003-022 (c) the SET acknowledged at 7999 ms: the transaction goes on and is CREATED", async () => {
+    const main = lateSet(4499);
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 1 });
+    expect(main.statements.some((text) => EVENT_READ.test(text))).toBe(true);
+    expect(commits(main.statements)).toHaveLength(1);
+  });
+});
+
+describe("TC-TST-SEED-006-022 a lowered statement timeout of the re-check acknowledged after its wall clock sends no further statement (SPEC-150 section 9, DB-SEED-002 (4))", () => {
+  const lateSetRecheck = (advanceMs: number) =>
+    scriptedClient({
+      xactLock: "grant",
+      committedAudit: true,
+      xactLocks: [{ advanceMs: 3500 }],
+      loweredSetAdvanceMs: advanceMs,
+    });
+
+  it("TC-TST-SEED-006-022 (a) the SET acknowledged at 8001 ms of the re-check: UNKNOWN_RESULT, the Audit Event read is not sent", async () => {
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = lateSetRecheck(4501);
+    const outcome = await seedWith(main.client, async () => recheck.client);
+    expect(outcome).toMatchObject({
+      outcome: "UNKNOWN_RESULT",
+      errorCode: "COMMIT_RESULT_UNKNOWN",
+    });
+    expect(loweredTimeouts(recheck.statements)).toEqual([4500]);
+    expect(recheck.statements.some((text) => AUDIT_RECHECK.test(text))).toBe(false);
+    expect(xactLocks(recheck.statements)).toHaveLength(1);
+  });
+
+  it("TC-TST-SEED-006-022 (b) the SET acknowledged at 7999 ms: the re-check goes on and finds the commit", async () => {
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = lateSetRecheck(4499);
+    const outcome = await seedWith(main.client, async () => recheck.client);
+    expect(outcome).toMatchObject({
+      outcome: "CREATED",
+      auditEventIds: ["00000000-0000-4000-8000-0000000000c1"],
+    });
+    expect(recheck.statements.some((text) => AUDIT_RECHECK.test(text))).toBe(true);
+  });
+});
+
+describe("TC-TST-SEED-003-023 a seed transaction ended by its wall clock emits reliability.timeout.occurred (SPEC-160 section 22, SPEC-150 section 9)", () => {
+  const TIMEOUT = "reliability.timeout.occurred";
+  const noReconnect = async (): Promise<Client> => {
+    throw new Error("no new connection expected");
+  };
+  const seedTimeout = {
+    level: "ERROR",
+    operation_id: "PROVISION.INITIAL_DATA_SEED",
+    provider: "NEON_DB",
+    query_name: "initial_data.seed",
+  };
+  const failedTimeout = {
+    ...seedTimeout,
+    result: "FAILED",
+    failure_class: "TEMPORARY_FAILURE",
+    error_code: "DATABASE_TEMPORARY_FAILURE",
+  };
+  const unknownTimeout = {
+    ...seedTimeout,
+    result: "PENDING",
+    failure_class: "UNKNOWN_RESULT",
+    error_code: "COMMIT_RESULT_UNKNOWN",
+  };
+
+  it("TC-TST-SEED-003-023 (a) the xact lock granted at 8001 ms of the 8 s: one event with the elapsed time, no SQLSTATE", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", xactLocks: [{ advanceMs: 8001 }] });
+    const outcome = await seedWith(main.client, noReconnect, logger);
+    expect(outcome).toMatchObject({ outcome: "FAILED", attemptNumber: 1 });
+    expect(named(TIMEOUT)).toEqual([
+      expect.objectContaining({
+        ...failedTimeout,
+        operation_execution_id: outcome.operationExecutionId,
+        attempt_number: 1,
+        is_retry: false,
+        duration_ms: 8001,
+      }),
+    ]);
+    expect(named(TIMEOUT)[0]).not.toHaveProperty("sqlstate");
+    expect(named(EXHAUSTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-023 (b) a constraint violation seen at 8001 ms: one event, as for the timer", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      insertError: { code: "23514", advanceMs: 8001 },
+    });
+    const outcome = await seedWith(main.client, noReconnect, logger);
+    expect(outcome).toMatchObject({ outcome: "FAILED", errorCode: "DATABASE_TEMPORARY_FAILURE" });
+    expect(named(TIMEOUT)).toEqual([
+      expect.objectContaining({ ...failedTimeout, attempt_number: 1, duration_ms: 8001 }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-023 (c) a retry that reaches what was left of the 5 s budget: the timeout and the exhaustion are both emitted", async () => {
+    // Attempt 1 ends at 4800 ms with 55P03; after the 49.5 ms backoff attempt 2 has 150.5 ms left and
+    // its xact lock takes 200 ms.
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }, { advanceMs: 200 }],
+    });
+    const outcome = await seedWith(main.client, noReconnect, logger);
+    expect(outcome).toMatchObject({ outcome: "FAILED", attemptNumber: 2 });
+    expect(named(TIMEOUT)).toEqual([
+      expect.objectContaining({
+        ...failedTimeout,
+        operation_execution_id: outcome.operationExecutionId,
+        attempt_number: 2,
+        is_retry: true,
+        duration_ms: 200,
+      }),
+    ]);
+    expect(named(EXHAUSTED)).toHaveLength(1);
+  });
+
+  it("TC-TST-SEED-003-023 (d) COMMIT acknowledged at 8001 ms: one event for the unknown result, before the re-check", async () => {
+    const { logger, named, records } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commitAdvanceMs: 8001 });
+    const recheck = scriptedClient({ xactLock: "grant", committedAudit: true });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 1 });
+    expect(named(TIMEOUT)).toEqual([
+      expect.objectContaining({
+        ...unknownTimeout,
+        operation_execution_id: outcome.operationExecutionId,
+        attempt_number: 1,
+        duration_ms: 8001,
+      }),
+    ]);
+    const order = records.map((record) => record.event_name);
+    expect(order.indexOf(TIMEOUT)).toBeLessThan(order.indexOf("reliability.unknown_result.opened"));
+  });
+
+  it("TC-TST-SEED-003-023 (e) COMMIT connection lost, seen at 8001 ms: one event for the unknown result", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost", commitAdvanceMs: 8001 });
+    const recheck = scriptedClient({ xactLock: "grant", committedAudit: true });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 1 });
+    expect(named(TIMEOUT)).toEqual([
+      expect.objectContaining({ ...unknownTimeout, attempt_number: 1, duration_ms: 8001 }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-023 (f) no deadline reached: no event (CREATED, a constraint violation at 7999 ms, a 55P03 budget run out, a COMMIT lost in time)", async () => {
+    const { logger, named } = collectingLogger();
+    const created = scriptedClient({ xactLock: "grant" });
+    expect(await seedWith(created.client, noReconnect, logger)).toMatchObject({
+      outcome: "CREATED",
+    });
+    clock.now = 0;
+    const constraint = scriptedClient({
+      xactLock: "grant",
+      insertError: { code: "23514", advanceMs: 7999 },
+    });
+    expect(await seedWith(constraint.client, noReconnect, logger)).toMatchObject({
+      outcome: "FAILED",
+      failureClass: "PERMANENT_FAILURE",
+    });
+    clock.now = 0;
+    const budget = scriptedClient({ xactLock: "timeout" });
+    expect(await seedWith(budget.client, noReconnect, logger)).toMatchObject({
+      outcome: "FAILED",
+      attemptNumber: 3,
+    });
+    expect(named(EXHAUSTED)).toHaveLength(1);
+    clock.now = 0;
+    const lost = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({ xactLock: "grant", committedAudit: true });
+    expect(await seedWith(lost.client, async () => recheck.client, logger)).toMatchObject({
+      outcome: "CREATED",
+    });
+    expect(named(TIMEOUT)).toEqual([]);
+  });
+});
+
+describe("TC-TST-SEED-006-023 a re-check ended by its wall clock emits reliability.timeout.occurred (SPEC-160 section 22, DB-SEED-002 (4))", () => {
+  const TIMEOUT = "reliability.timeout.occurred";
+  const recheckTimeout = {
+    level: "ERROR",
+    operation_id: "PROVISION.INITIAL_DATA_SEED",
+    provider: "NEON_DB",
+    query_name: "initial_data.recheck",
+    result: "PENDING",
+    failure_class: "UNKNOWN_RESULT",
+    error_code: "COMMIT_RESULT_UNKNOWN",
+  };
+
+  it("TC-TST-SEED-006-023 (a) the re-check xact lock granted at 8001 ms: UNKNOWN_RESULT and one event for the re-check", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      committedAudit: true,
+      xactLocks: [{ advanceMs: 8001 }],
+    });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT", attemptNumber: 1 });
+    expect(named(TIMEOUT)).toEqual([
+      expect.objectContaining({
+        ...recheckTimeout,
+        operation_execution_id: outcome.operationExecutionId,
+        attempt_number: 1,
+        duration_ms: 8001,
+      }),
+    ]);
+    expect(named(TIMEOUT)[0]).not.toHaveProperty("sqlstate");
+  });
+
+  it("TC-TST-SEED-006-023 (b) the re-check ROLLBACK acknowledged at 8001 ms: UNKNOWN_RESULT and one event", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      committedAudit: true,
+      rollbackAdvanceMs: 8001,
+    });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT" });
+    expect(named(TIMEOUT)).toEqual([
+      expect.objectContaining({ ...recheckTimeout, attempt_number: 1, duration_ms: 8001 }),
+    ]);
+  });
+
+  it("TC-TST-SEED-006-023 (c) a 55P03 of the re-check seen at 8001 ms: one event, no exhaustion", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 8001, code: "55P03" }],
+    });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT" });
+    expect(named(TIMEOUT)).toEqual([
+      expect.objectContaining({ ...recheckTimeout, attempt_number: 1, duration_ms: 8001 }),
+    ]);
+    expect(named(EXHAUSTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-006-023 (d) a re-check decided in time: no event", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commit: "lost" });
+    const recheck = scriptedClient({ xactLock: "grant", committedAudit: true });
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "CREATED" });
+    expect(named(TIMEOUT)).toEqual([]);
   });
 });

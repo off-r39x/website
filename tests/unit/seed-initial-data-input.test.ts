@@ -622,3 +622,65 @@ describe("TC-TST-SEED-003-007 failure classification of a rolled-back attempt (p
     });
   }
 });
+
+describe("TC-TST-SEED-003-024 a key written twice in one object is rejected, not resolved to its last value (DB-SEED-003)", () => {
+  /** `text` with `insert` placed before the first (or last) occurrence of `at`. */
+  const insertBefore = (text: string, at: string, insert: string, last = false) => {
+    const index = last ? text.lastIndexOf(at) : text.indexOf(at);
+    expect(index).toBeGreaterThanOrEqual(0);
+    return text.slice(0, index) + insert + text.slice(index);
+  };
+  /** JSON.parse alone keeps the last value: the duplicate would pass without its own check. */
+  const lastValueAccepted = (raw: string) =>
+    expect(parseInitialDataInput(JSON.stringify(JSON.parse(raw))).ok).toBe(true);
+
+  it("TC-TST-SEED-003-024 (a) an Event carrying public_ref, overwritten by a later valid event key", () => {
+    const base = buildInitialDataInput();
+    const shadowed = JSON.stringify({
+      ...base.event,
+      public_ref: "00000000-0000-4000-8000-000000000001",
+    });
+    const raw = insertBefore(JSON.stringify(base), '"event":', `"event":${shadowed},`);
+    lastValueAccepted(raw);
+    expectRejected(raw, INVALID, [...sensitiveValues(base)]);
+  });
+
+  it("TC-TST-SEED-003-024 (b) unit_amount written twice in an Offering", () => {
+    const base = buildInitialDataInput();
+    const raw = insertBefore(JSON.stringify(base), '"unit_amount":', '"unit_amount":7,');
+    lastValueAccepted(raw);
+    expectRejected(raw, INVALID, [...sensitiveValues(base)]);
+  });
+
+  it("TC-TST-SEED-003-024 (c) the same key spelled with an escape (unit\\u005famount)", () => {
+    const base = buildInitialDataInput();
+    const raw = insertBefore(JSON.stringify(base), '"unit_amount":', '"unit\\u005famount":7,');
+    expect(raw).toContain("\\u005f");
+    lastValueAccepted(raw);
+    expectRejected(raw, INVALID, [...sensitiveValues(base)]);
+  });
+
+  it("TC-TST-SEED-003-024 (d) a duplicate in the last Offering only, and a duplicate top-level entry_ticket_offerings", () => {
+    const base = buildInitialDataInput();
+    const text = JSON.stringify(base);
+    const inLast = insertBefore(text, '"purchase_limit":', '"purchase_limit":2,', true);
+    lastValueAccepted(inLast);
+    expectRejected(inLast, INVALID, [...sensitiveValues(base)]);
+    const offerings = JSON.stringify(base.entry_ticket_offerings);
+    const topLevel = insertBefore(
+      text,
+      '"entry_ticket_offerings":',
+      `"entry_ticket_offerings":${offerings},`,
+    );
+    lastValueAccepted(topLevel);
+    expectRejected(topLevel, INVALID, [...sensitiveValues(base)]);
+  });
+
+  it("TC-TST-SEED-003-024 (e) the same key in different objects, and key-like text inside a value, are accepted", () => {
+    const input = buildInitialDataInput({
+      offeringCount: 3,
+      event: { summary: '合成データ {"name":"x","name":"y"} \\" "unit_amount":1' },
+    });
+    expect(parseInitialDataInput(JSON.stringify(input)).ok).toBe(true);
+  });
+});
