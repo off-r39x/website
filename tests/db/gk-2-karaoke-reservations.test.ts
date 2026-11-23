@@ -152,6 +152,11 @@ function insertStatement(table: string, row: Row, returning?: string): [string, 
 }
 
 const tryInsert = (table: string, row: Row) => attempt(...insertStatement(table, row));
+/** An INSERT that supplies id itself (OVERRIDING SYSTEM VALUE), for the PK duplicate cases. */
+function tryInsertWithId(table: string, id: string, row: Row) {
+  const [statement, values] = insertStatement(table, { id, ...row });
+  return attempt(statement.replace(") VALUES (", ") OVERRIDING SYSTEM VALUE VALUES ("), values);
+}
 const probeInsert = (table: string, row: Row) => probe(...insertStatement(table, row));
 
 async function insertRow(table: string, row: Row): Promise<string> {
@@ -216,6 +221,7 @@ interface Seed {
   staffRole: string;
   slot: string;
   otherSlot: string;
+  thirdSlot: string;
   entryOffering: string;
   /** A new Karaoke Order (PREPARED) with one item for the slot (default: seed.slot, seed.profile). */
   chain: (o?: { slot?: string; customer?: string }) => Promise<Chain>;
@@ -286,7 +292,11 @@ async function insertParents() {
     "karaoke_slots",
     slotRow("2030-01-01T05:20:00Z", "2030-01-01T05:35:00Z", "2030-01-01T05:40:00Z", 1),
   );
-  return { profile, otherProfile, staff, staffRole, slot, otherSlot, entryOffering };
+  const thirdSlot = await insertRow(
+    "karaoke_slots",
+    slotRow("2030-01-01T05:40:00Z", "2030-01-01T05:55:00Z", "2030-01-01T06:00:00Z", 2),
+  );
+  return { profile, otherProfile, staff, staffRole, slot, otherSlot, thirdSlot, entryOffering };
 }
 
 function factories(parents: Awaited<ReturnType<typeof insertParents>>): Seed {
@@ -609,6 +619,42 @@ describe("TC-DB-ARC-007-009 migration 0007 and the catalog of the four Karaoke r
     const liveConstraints = live.constraints.map((row: unknown[]) => row[1]);
     for (const golden of GOLDEN_TABLES)
       for (const c of golden.constraints) expect(liveConstraints).toContain(c.name);
+  });
+
+  it("TC-DB-ARC-007-009 a duplicate id given with OVERRIDING SYSTEM VALUE is refused with 23505 pk_karaoke_* on all four tables", async () => {
+    await withSeed(async (seed) => {
+      const t = await seed.newTicket();
+      const checkinId = await insertRow(KARAOKE_CHECKINS, seed.checkin(t.ticket));
+      // Each row satisfies every other UNIQUE and foreign key of its table, so only the PK is broken.
+      const d = await seed.chain({ slot: seed.otherSlot });
+      expectViolation(
+        await tryInsertWithId(KARAOKE_HOLDS, t.hold, seed.hold(d, { state: "EXPIRED" })),
+        "23505",
+        "pk_karaoke_holds",
+        "duplicate Hold id",
+      );
+      const holdId = await seed.newHold(d, { state: "COMMITTED" });
+      expectViolation(
+        await tryInsertWithId(KARAOKE_RESERVATIONS, t.reservation, seed.reservation(d, holdId)),
+        "23505",
+        "pk_karaoke_reservations",
+        "duplicate Reservation id",
+      );
+      const reservationId = await insertRow(KARAOKE_RESERVATIONS, seed.reservation(d, holdId));
+      expectViolation(
+        await tryInsertWithId(KARAOKE_TICKETS, t.ticket, seed.ticket(reservationId, d.customer)),
+        "23505",
+        "pk_karaoke_tickets",
+        "duplicate Ticket id",
+      );
+      const ticketId = await insertRow(KARAOKE_TICKETS, seed.ticket(reservationId, d.customer));
+      expectViolation(
+        await tryInsertWithId(KARAOKE_CHECKINS, checkinId, seed.checkin(ticketId)),
+        "23505",
+        "pk_karaoke_checkins",
+        "duplicate Check-in id",
+      );
+    });
   });
 
   it("TC-DB-ARC-007-009 public_ref of Holds, Reservations and Tickets is a database generated v4 UUID unique by name; ids are GENERATED ALWAYS on all four tables", async () => {
@@ -999,8 +1045,8 @@ describe("TC-DB-KRK-007-001 at most one ACTIVE Hold per Slot (ux_karaoke_holds_s
   });
 });
 
-describe("TC-DB-KRK-007-002 a Hold belongs to one Karaoke Order Item and repeats its Order, Purpose, Slot and Customer (real PostgreSQL 17)", () => {
-  it("TC-DB-KRK-007-002 one Hold per Order Item: a retry of the same item is refused with uq_karaoke_holds_order_item_id in any state", async () => {
+describe("TC-INV-010-08-001 a Hold belongs to one Karaoke Order Item and repeats its Order, Purpose, Slot and Customer (real PostgreSQL 17)", () => {
+  it("TC-INV-010-08-001 one Hold per Order Item: a retry of the same item is refused with uq_karaoke_holds_order_item_id in any state", async () => {
     await withSeed(async (seed) => {
       const c = await seed.chain();
       await seed.newHold(c, { state: "RELEASED" });
@@ -1015,7 +1061,7 @@ describe("TC-DB-KRK-007-002 a Hold belongs to one Karaoke Order Item and repeats
     });
   });
 
-  it("TC-DB-KRK-007-002 a Hold whose Order, Slot or Purpose differs from its item's is refused with 23503 fk_karaoke_holds_order_item", async () => {
+  it("TC-INV-010-08-001 a Hold whose Order, Slot or Purpose differs from its item's is refused with 23503 fk_karaoke_holds_order_item", async () => {
     await withSeed(async (seed) => {
       const c = await seed.chain();
       const other = await seed.chain();
@@ -1054,7 +1100,7 @@ describe("TC-DB-KRK-007-002 a Hold belongs to one Karaoke Order Item and repeats
     });
   });
 
-  it("TC-DB-KRK-007-002 a Hold whose Customer is not its Order's is refused with 23503 fk_karaoke_holds_order", async () => {
+  it("TC-INV-010-08-001 a Hold whose Customer is not its Order's is refused with 23503 fk_karaoke_holds_order", async () => {
     await withSeed(async (seed) => {
       await expectRejected(
         KARAOKE_HOLDS,
@@ -1217,15 +1263,26 @@ describe("TC-DB-KRK-011-001 at most one Reservation per Order Item, Slot and Hol
   it("TC-DB-KRK-011-001 a second Reservation of the same item, Slot or Hold is refused by the matching UNIQUE", async () => {
     await withSeed(async (seed) => {
       const r = await seed.newReservation();
-      const again = (o: Row) => seed.reservation(r, r.hold, o);
-      // Same Hold, item and Slot: the three UNIQUEs all apply; one of them reports first.
-      const error = await tryInsert(KARAOKE_RESERVATIONS, again({}));
-      expect(error?.code, "duplicate of the whole correlation").toBe("23505");
-      expect([
+      // A chain on the third Slot whose Reservation would be valid; each case repeats one column of r.
+      const e = await seed.chain({ slot: seed.thirdSlot });
+      const eHold = await seed.newHold(e, { state: "COMMITTED" });
+      // order_item_id and hold_id are also part of fk_karaoke_reservations_hold, so a row that repeats only one
+      // of them cannot match a Hold either. A UNIQUE is checked when the index entry is inserted, before the
+      // foreign key's AFTER trigger runs at the end of the statement, so the UNIQUE is the one reported.
+      await expectRejected(
+        KARAOKE_RESERVATIONS,
+        seed.reservation(e, eHold, { order_item_id: r.item }),
+        "23505",
         "uq_karaoke_reservations_order_item_id",
-        "uq_karaoke_reservations_slot_id",
+        "second Reservation of the item",
+      );
+      await expectRejected(
+        KARAOKE_RESERVATIONS,
+        seed.reservation(e, eHold, { hold_id: r.hold }),
+        "23505",
         "uq_karaoke_reservations_hold_id",
-      ]).toContain(error?.constraint);
+        "second Reservation of the Hold",
+      );
       // A second chain on the same Slot isolates uq_karaoke_reservations_slot_id.
       const c = await seed.chain();
       const holdId = await seed.newHold(c, { state: "COMMITTED" });
@@ -1351,8 +1408,23 @@ describe("TC-DB-KRK-013-001 a canceled Reservation keeps its row, and its Slot, 
         "uq_karaoke_reservations_slot_id",
         "new Reservation of the canceled Reservation's Slot",
       );
-      const error = await tryInsert(KARAOKE_RESERVATIONS, seed.reservation(r, r.hold));
-      expect(error?.code, "new Reservation of the canceled Hold").toBe("23505");
+      // As in TC-DB-KRK-011-001, the repeated item or Hold is reported by its UNIQUE before the foreign key.
+      const e = await seed.chain({ slot: seed.thirdSlot });
+      const eHold = await seed.newHold(e, { state: "COMMITTED" });
+      await expectRejected(
+        KARAOKE_RESERVATIONS,
+        seed.reservation(e, eHold, { hold_id: r.hold }),
+        "23505",
+        "uq_karaoke_reservations_hold_id",
+        "new Reservation of the canceled Reservation's Hold",
+      );
+      await expectRejected(
+        KARAOKE_RESERVATIONS,
+        seed.reservation(e, eHold, { order_item_id: r.item }),
+        "23505",
+        "uq_karaoke_reservations_order_item_id",
+        "new Reservation of the canceled Reservation's item",
+      );
       const before = await Promise.all(
         [...KARAOKE_RESERVATION_TABLES, "order_items", "karaoke_slots"].map((t) => countRows(t)),
       );
@@ -1525,6 +1597,12 @@ describe("TC-DB-FK-002-004 the Karaoke reservation foreign keys restrict deletes
       await insertRow(KARAOKE_CHECKINS, seed.checkin(t.ticket));
       const lonely = await seed.chain({ slot: seed.otherSlot });
       await seed.newHold(lonely);
+      // A Staff Profile without a Role Assignment of its own (the Check-in names the seed's assignment by its own
+      // foreign key, SPEC-100 section 37), so deleting it breaks only fk_karaoke_checkins_staff_profile.
+      const bareStaff = await insertRow("business_profiles", { auth_subject: uuid() });
+      const u = await seed.newReservation({ slot: seed.thirdSlot });
+      const uTicket = await insertRow(KARAOKE_TICKETS, seed.ticket(u.reservation, u.customer));
+      await insertRow(KARAOKE_CHECKINS, seed.checkin(uTicket, { staff_profile_id: bareStaff }));
       const before = await Promise.all(KARAOKE_RESERVATION_TABLES.map((tb) => countRows(tb)));
       const cases: [string, string, string, string][] = [
         [
@@ -1557,23 +1635,23 @@ describe("TC-DB-FK-002-004 the Karaoke reservation foreign keys restrict deletes
           seed.staffRole,
           "fk_karaoke_checkins_staff_role_assignment",
         ],
+        [
+          "Staff Profile of a Check-in",
+          "DELETE FROM app.business_profiles WHERE id = $1",
+          bareStaff,
+          "fk_karaoke_checkins_staff_profile",
+        ],
       ];
       for (const [label, statement, id, name] of cases)
         expectViolation(await attempt(statement, [id]), "23503", name, label);
-      // Several foreign keys refer to the deleted row in these cases. Which one reports first follows the order
-      // of their RI triggers and is not a contract, so any of the names is accepted; the delete is refused.
+      // A Hold always has an item of the same Order, so two foreign keys refer to the deleted Order. Which one
+      // reports first follows the order of their RI triggers and is not a contract, so either name is accepted.
       const doubles: [string, string, string, string[]][] = [
         [
           "Order with an item and a Hold",
           "DELETE FROM app.orders WHERE id = $1",
           lonely.order,
           ["fk_order_items_order", "fk_karaoke_holds_order"],
-        ],
-        [
-          "Staff Profile with a Role Assignment and a Check-in",
-          "DELETE FROM app.business_profiles WHERE id = $1",
-          seed.staff,
-          ["fk_role_assignments_profile", "fk_karaoke_checkins_staff_profile"],
         ],
       ];
       for (const [label, statement, id, names] of doubles) {
