@@ -963,11 +963,12 @@ describe("TC-TST-SEED-003-019 a seed transaction whose ROLLBACK is acknowledged 
   });
 
   it("TC-TST-SEED-003-019 (d) a retry with a NOOP verdict, ROLLBACK acknowledged after what was left of the 5 s budget: FAILED, budget exhausted", async () => {
-    // Attempt 1 ends at 4800 ms with 55P03; after the 49.5 ms backoff attempt 2 has 150.5 ms left.
+    // Attempt 1 fails with 55P03 at 4649 ms and its ROLLBACK (every ROLLBACK takes 151 ms here) ends
+    // at 4800 ms; after the 49.5 ms backoff attempt 2 has 150.5 ms left.
     const { logger, named } = collectingLogger();
     const main = scriptedClient({
       xactLock: "grant",
-      xactLocks: [{ advanceMs: 4800, code: "55P03" }],
+      xactLocks: [{ advanceMs: 4649, code: "55P03" }],
       events: 1,
       rollbackAdvanceMs: 151,
     });
