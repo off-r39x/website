@@ -131,7 +131,9 @@ answering while the lock is taken is abandoned (the command fails with `MIGRATIO
 re-check ends in `UNKNOWN_RESULT`), and a lock the server may have granted ends with its session.
 Each statement of the seed transaction runs within the 8 second transaction deadline (SPEC-150 §9); a
 lock wait or read that would pass it ends the attempt as `FAILED`. The re-check transaction has the same
-deadline; a re-check that cannot decide within it ends as `UNKNOWN_RESULT`. The command keeps the
+deadline; a re-check that cannot decide within it ends as `UNKNOWN_RESULT`. Once less than 5 seconds
+are left, a statement first lowers the statement timeout to the time left, and no statement is sent
+when that setting is acknowledged at or after the deadline. The command keeps the
 deadline itself too: a connection that stops answering is abandoned when the deadline passes (its
 session, and the migration lock with it, ends), so the command does not hang. A run that the re-check
 finds uncommitted, and a lock timeout, are retried only within the SPEC-150 55P03 budget (4 attempts,
@@ -166,7 +168,13 @@ of these three logs `reliability.retry.attempted` as it starts. Both events carr
 (SPEC-160 OBS-DB-003): `query_name` names what is retried (`initial_data.connect`,
 `initial_data.seed` or `initial_data.recheck`), and `sqlstate` the retryable SQLSTATE that caused a
 transaction retry (`40001`, `40P01` or `55P03`). A connection retry has no `sqlstate`, and neither has
-the seed retry after the re-check found the run uncommitted. No other output carries a SQLSTATE. A
+the seed retry after the re-check found the run uncommitted. No other output carries a SQLSTATE.
+A seed or re-check transaction ended by its wall clock, and a COMMIT not acknowledged within it, log
+`reliability.timeout.occurred` (SPEC-160 §22) with `query_name` (`initial_data.seed` or
+`initial_data.recheck`) and `duration_ms` from the transaction's start: `failure_class`
+`TEMPORARY_FAILURE` for a seed transaction ended before COMMIT (the run is then `FAILED` with
+`DATABASE_TEMPORARY_FAILURE`), `UNKNOWN_RESULT` for the COMMIT and the re-check. It is logged as well
+as `reliability.retry.exhausted` when the deadline was what was left of a retry budget. A
 connection whose server stops answering at the close is destroyed after 3 seconds, so the command
 still exits.
 
@@ -184,7 +192,8 @@ The input has the two keys `event` and `entry_ticket_offerings` (one or more). S
 including `id`, `public_ref`, `event_id`, `sale_control_state`, `held_quantity`,
 `committed_quantity`, `business_timezone`, `created_at` and `updated_at`. Timestamps need an offset.
 Numbers are checked as written: only a plain integer literal is accepted (`1000`, not `1000.0`, `1e3`,
-`-0` or a fraction that JSON parsing would round).
+`-0` or a fraction that JSON parsing would round). A key written twice in one object is rejected
+(JSON parsing would keep only its last value).
 Keep the real input in the protected GitHub Environment Secret of each environment; never share it
 between staging and production and never put it in the repository, a log or a pull request. For a
 local run: `export INITIAL_DATA_SEED_JSON="$(cat packages/db/seed/initial-data.example.json)"` (bash) or
