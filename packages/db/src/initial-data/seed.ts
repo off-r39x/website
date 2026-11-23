@@ -242,8 +242,9 @@ async function beginTransaction(client: Client): Promise<void> {
  * The wall clock of one transaction (SPEC-150 section 9), applied to every statement of it. The BEGIN
  * timeouts bound a statement to 5 s and a lock wait to 1 s; once less than 5 s is left, the statement
  * timeout (which also bounds lock waits) is first lowered to the time left, and a timeout it causes is
- * the deadline. The deadline is checked before and after each statement, so a slow lock wait or read
- * cannot lead to a verdict after the deadline either.
+ * the deadline. The deadline is checked before and after each statement, and again once the lowered
+ * timeout is acknowledged (before the statement is sent), so a slow lock wait or read cannot lead to a
+ * verdict after the deadline either, and no statement is sent after it.
  *
  * The server-side timeouts cannot end a wait for an answer that never arrives (the network stops
  * answering), so the deadline is also kept on the client: when it passes, the connection is abandoned.
@@ -274,7 +275,12 @@ function transactionDeadline(client: Client, deadlineMs: number) {
     check();
     const left = Math.floor(remainingMs());
     const lowered = left < TIMEOUTS.statementMs;
-    if (lowered) await client.query(`SET LOCAL statement_timeout = '${Math.max(left, 1)}ms'`);
+    if (lowered) {
+      await client.query(`SET LOCAL statement_timeout = '${Math.max(left, 1)}ms'`);
+      // The SET can be acknowledged at or after the deadline, before the timer callback (an event
+      // loop blocked past it): no further statement is sent then.
+      check();
+    }
     try {
       const result = await work();
       check();
@@ -284,7 +290,8 @@ function transactionDeadline(client: Client, deadlineMs: number) {
       throw error;
     }
   };
-  return { remainingMs, check, within, disarm, abandoned: () => abandoned };
+  const elapsedMs = () => performance.now() - startedAt;
+  return { remainingMs, elapsedMs, check, within, disarm, abandoned: () => abandoned };
 }
 
 async function readEventIds(client: Client): Promise<string[]> {
@@ -418,6 +425,52 @@ function logRetry(
             error_code: "DATABASE_TEMPORARY_FAILURE",
           },
     );
+  } catch {
+    // Logging is not business authority.
+  }
+}
+
+/**
+ * SPEC-160 section 22 `reliability.timeout.occurred`: a seed or re-check transaction reached its wall
+ * clock (SPEC-150 section 9), whether the timer or the monotonic clock saw it first, or the
+ * acknowledgement of its COMMIT came too late. `duration_ms` is the time from the transaction's start.
+ * The failure class is what the run then reports for it: a seed transaction ended before COMMIT is a
+ * temporary failure; a COMMIT not acknowledged in time, or a re-check that could not decide, leaves the
+ * result unknown (REL-DB-006). No SQLSTATE: the wall clock, not the database, ended it.
+ */
+function logTimeout(
+  logger: SeedOptions["logger"],
+  fields: {
+    executionId: string;
+    attemptNumber: number;
+    unit: "seed" | "recheck";
+    durationMs: number;
+    resultUnknown: boolean;
+  },
+): void {
+  try {
+    logger?.log({
+      event_name: "reliability.timeout.occurred",
+      level: "ERROR",
+      is_retry: fields.attemptNumber > 1,
+      operation_id: SEED_OPERATION_ID,
+      operation_execution_id: fields.executionId,
+      attempt_number: fields.attemptNumber,
+      provider: "NEON_DB",
+      query_name: RETRY_UNITS[fields.unit],
+      duration_ms: Math.max(Math.round(fields.durationMs), 0),
+      ...(fields.resultUnknown
+        ? {
+            result: "PENDING",
+            failure_class: "UNKNOWN_RESULT",
+            error_code: "COMMIT_RESULT_UNKNOWN",
+          }
+        : {
+            result: "FAILED",
+            failure_class: "TEMPORARY_FAILURE",
+            error_code: "DATABASE_TEMPORARY_FAILURE",
+          }),
+    });
   } catch {
     // Logging is not business authority.
   }
@@ -609,17 +662,39 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       kind: "done",
       outcome: failedOutcome(executionId, attemptNumber, failureClass, errorCode),
     });
-    // Ended by its wall clock: a temporary failure, not retried (SPEC-150 section 9).
-    const deadlineFailure = (): Attempt => ({
-      kind: "done",
-      outcome: failedOutcome(
+    // Ended by its wall clock: a temporary failure, not retried (SPEC-150 section 9). Every path that
+    // ends the attempt by its wall clock comes here once, so the timeout is logged once.
+    const deadlineFailure = (): Attempt => {
+      logTimeout(options.logger, {
         executionId,
         attemptNumber,
-        "TEMPORARY_FAILURE",
-        "DATABASE_TEMPORARY_FAILURE",
-      ),
-      deadlineHit: true,
-    });
+        unit: "seed",
+        durationMs: deadline.elapsedMs(),
+        resultUnknown: false,
+      });
+      return {
+        kind: "done",
+        outcome: failedOutcome(
+          executionId,
+          attemptNumber,
+          "TEMPORARY_FAILURE",
+          "DATABASE_TEMPORARY_FAILURE",
+        ),
+        deadlineHit: true,
+      };
+    };
+    // COMMIT was sent and its acknowledgement did not come within the wall clock: the result is
+    // unknown (REL-DB-006) and the timeout is logged with it.
+    const commitTimedOut = (): Attempt => {
+      logTimeout(options.logger, {
+        executionId,
+        attemptNumber,
+        unit: "seed",
+        durationMs: deadline.elapsedMs(),
+        resultUnknown: true,
+      });
+      return { kind: "unknown" };
+    };
     let commitSent = false;
     let stage: "statement" | "audit" = "statement";
     // Each statement runs within the time left, so a slow lock wait or read cannot end in NOOP
@@ -715,12 +790,12 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
           }),
         ]);
         // COMMIT is sent and not acknowledged in time: the result is unknown, never a plain failure.
-        if (settled === "late") return { kind: "unknown" };
+        if (settled === "late") return commitTimedOut();
         // The acknowledgement can be seen before the timer callback (an event loop blocked past the
         // deadline): the wall clock is checked on the monotonic clock too, as for the connection and
         // the migration lock. Acknowledged at or after the deadline is not acknowledged in time
         // (SPEC-150 section 9): the result is re-checked, never CREATED from the late acknowledgement.
-        if (remainingMs() <= 0) return { kind: "unknown" };
+        if (remainingMs() <= 0) return commitTimedOut();
       } finally {
         if (timer) clearTimeout(timer);
       }
@@ -735,7 +810,10 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         },
       };
     } catch (error) {
-      if (commitSent && commitAcknowledgementUnknown(error)) return { kind: "unknown" };
+      // A lost COMMIT seen at or after the deadline is a COMMIT not acknowledged in time, as the timer
+      // would have made it: the same unknown result, with the timeout.
+      if (commitSent && commitAcknowledgementUnknown(error))
+        return remainingMs() <= 0 ? commitTimedOut() : { kind: "unknown" };
       // Abandoned at the deadline before COMMIT was sent: nothing can have been committed (REL-DB-005)
       // and the backend ends, so the transaction is rolled back. Not retried, like any deadline.
       if (deadline.abandoned()) {
@@ -814,6 +892,18 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         });
         return undefined;
       };
+      // Ended by its wall clock (the timer or the monotonic clock): the timeout is logged, nothing is
+      // decided, and reaching a budget-bound deadline is exhaustion too.
+      const timedOut = () => {
+        logTimeout(options.logger, {
+          executionId,
+          attemptNumber: n,
+          unit: "recheck",
+          durationMs: deadline.elapsedMs(),
+          resultUnknown: true,
+        });
+        return budgetBound ? exhausted() : undefined;
+      };
       try {
         await beginTransaction(connection);
         await within(() => connection.query(SEED_XACT_LOCK));
@@ -855,12 +945,12 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         // The re-check transaction ends within its wall clock too (SPEC-150 section 9): a ROLLBACK
         // acknowledged at or after the deadline, seen before the timer callback (an event loop
         // blocked past it), decides nothing, like a re-check ended by its deadline.
-        if (remainingMs() <= 0) return budgetBound ? exhausted() : undefined;
+        if (remainingMs() <= 0) return timedOut();
         return verdict;
       } catch (error) {
         if (deadline.abandoned()) {
           await abandonConnection(connection);
-          return budgetBound ? exhausted() : undefined;
+          return timedOut();
         }
         // As for the seed transaction: a re-check ended past its wall clock, by the timer or as
         // measured on the monotonic clock once the error and the ROLLBACK are seen, is ended by its
@@ -869,10 +959,9 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         const closed = await succeedsWithin(connection.query("ROLLBACK"), CLOSE_WAIT_MS);
         if (!closed) {
           await abandonConnection(connection);
-          return pastDeadline() && budgetBound ? exhausted() : undefined;
+          return pastDeadline() ? timedOut() : undefined;
         }
-        if (error instanceof DeadlineExceeded || pastDeadline())
-          return budgetBound ? exhausted() : undefined;
+        if (error instanceof DeadlineExceeded || pastDeadline()) return timedOut();
         if (!isDatabaseRetryable(error)) return undefined;
         sqlstate = error.code;
         if (n >= MAX_ATTEMPTS) return exhausted();
