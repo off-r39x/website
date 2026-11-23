@@ -29965,7 +29965,8 @@
         "SPEC-100-34",
         "SPEC-100-37",
         "SPEC-100-45.4",
-        "SPEC-100-59"
+        "SPEC-100-59",
+        "SPEC-170-23"
       ],
       "system_invariant_ids": [
         "INV-010-01"
@@ -29985,7 +29986,8 @@
         "The journal lists 0001_foundation to 0007_karaoke_reservations once each with the bundled source hashes, and a second runMigrations leaves it unchanged",
         "The four tables have 15 + 14 + 8 + 6 columns in attnum order equal to the golden (types, NOT NULL, identity always on id, defaults including order_purpose 'KARAOKE_PURCHASE', and the generated hold_expires_at with the UCR-100-006 expression)",
         "29 constraints and 19 valid indexes equal the golden by name and definition, all validated and not deferrable, every name within 63 bytes; owner app_migrator, no row level security, four bigint identity sequences, 18 time columns all timestamptz",
-        "The live catalog equals requiredCatalog; public_ref of Holds, Reservations and Tickets is a database generated v4 UUID unique by name; an explicit id is 428C9 on all four tables"
+        "The live catalog equals requiredCatalog; public_ref of Holds, Reservations and Tickets is a database generated v4 UUID unique by name; an explicit id is 428C9 on all four tables",
+        "A duplicate id given with OVERRIDING SYSTEM VALUE, in a row that satisfies every other UNIQUE and foreign key, is 23505 pk_karaoke_holds, pk_karaoke_reservations, pk_karaoke_tickets and pk_karaoke_checkins"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
@@ -30142,18 +30144,19 @@
       "critical": true
     },
     {
-      "test_case_id": "TC-DB-KRK-007-002",
+      "test_case_id": "TC-INV-010-08-001",
       "level": "DB",
       "suite": "db",
       "upstream_rule_ids": [
-        "DB-KRK-007",
-        "DB-ORD-002",
+        "INV-010-08",
+        "KRK-HLD-001",
         "SPEC-100-30",
+        "SPEC-100-63",
         "SPEC-100-67"
       ],
       "system_invariant_ids": [
-        "INV-010-04",
-        "INV-010-08"
+        "INV-010-08",
+        "INV-010-10"
       ],
       "api_operation_ids": [],
       "db_constraint_names": [
@@ -30244,7 +30247,7 @@
       "expected_domain_postconditions": [],
       "expected_db_postconditions": [
         "fk_karaoke_holds_order, fk_karaoke_holds_order_item, fk_karaoke_reservations_hold and fk_karaoke_tickets_reservation are backed by uq_orders_id_customer_profile_id, uq_order_items_id_order_id_purpose_karaoke_slot_id, uq_karaoke_holds_reservation_target (plan U-1) and uq_karaoke_reservations_id_customer_profile_id",
-        "A second Reservation of the same item, Slot and Hold is 23505 by one of the three UNIQUEs; a second Reservation of the Slot from another chain is 23505 uq_karaoke_reservations_slot_id; another Slot is accepted",
+        "A Reservation that repeats only the item or only the Hold of an existing one is 23505 uq_karaoke_reservations_order_item_id / uq_karaoke_reservations_hold_id (the UNIQUE is checked at index insertion, before the foreign key's AFTER trigger); a second Reservation of the Slot from another chain is 23505 uq_karaoke_reservations_slot_id; another Slot is accepted",
         "A Reservation whose Customer, Slot, Order or item differs from its Hold's, or whose Hold is absent, is 23503 fk_karaoke_reservations_hold"
       ],
       "expected_provider_postconditions": [],
@@ -30301,6 +30304,8 @@
       "api_operation_ids": [],
       "db_constraint_names": [
         "uq_karaoke_reservations_slot_id",
+        "uq_karaoke_reservations_hold_id",
+        "uq_karaoke_reservations_order_item_id",
         "fk_karaoke_reservations_hold",
         "fk_karaoke_holds_order_item",
         "fk_order_items_karaoke_slot"
@@ -30313,7 +30318,7 @@
       "expected_http": null,
       "expected_domain_postconditions": [],
       "expected_db_postconditions": [
-        "After a Reservation is CANCELED, a new Reservation of its Slot is 23505 uq_karaoke_reservations_slot_id and of its Hold is 23505: the UNIQUEs have no predicate",
+        "After a Reservation is CANCELED, a new Reservation of its Slot is 23505 uq_karaoke_reservations_slot_id, one repeating its Hold is 23505 uq_karaoke_reservations_hold_id and one repeating its item is 23505 uq_karaoke_reservations_order_item_id: the UNIQUEs have no predicate",
         "Deleting the Hold, the item or the Slot behind it is 23503 by name, no row is lost and the Reservation stays CANCELED"
       ],
       "expected_provider_postconditions": [],
@@ -30391,9 +30396,9 @@
       "suite": "db",
       "upstream_rule_ids": [
         "INV-010-05",
-        "TQR-IDM-009",
         "TST-DB-004",
         "SPEC-100-37",
+        "SPEC-100-45.5",
         "SPEC-100-67"
       ],
       "system_invariant_ids": [
@@ -30455,7 +30460,7 @@
       "expected_domain_postconditions": [],
       "expected_db_postconditions": [
         "All seven foreign keys of the four tables are ON DELETE RESTRICT and ON UPDATE NO ACTION",
-        "Deleting a Ticket with a Check-in, a Reservation with a Ticket, a Hold with a Reservation, an item with a Hold, a Role Assignment of a Check-in, an Order with an item and a Hold, or a Staff Profile with a Role Assignment and a Check-in is 23503 by name (where two keys refer to the row either name is accepted), and no row of the four tables is lost"
+        "Deleting a Ticket with a Check-in, a Reservation with a Ticket, a Hold with a Reservation, an item with a Hold, a Role Assignment of a Check-in or a Staff Profile of a Check-in (without a Role Assignment of its own) is 23503 by the one named foreign key; deleting an Order with an item and a Hold is 23503 by either of its two keys; no row of the four tables is lost"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
