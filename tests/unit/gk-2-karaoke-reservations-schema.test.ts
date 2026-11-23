@@ -245,8 +245,9 @@ function describeTable(golden: GoldenTable) {
       ).toEqual(expected.map(([name]) => name));
       for (const [name, , , , , defaultExpr] of expected) {
         const column = config.columns.find((c) => c.name === name);
+        // defaultText drops casts, so the golden's catalog notation ('KARAOKE_PURCHASE'::text) is compared without them.
         expect(defaultText(column?.default, `default of ${name}`), `default of ${name}`).toBe(
-          defaultExpr as string,
+          (defaultExpr as string).replaceAll("::text", ""),
         );
       }
     });
