@@ -119,6 +119,200 @@ describe("the build before GK-3 stays Ready after 0008 is applied (real PostgreS
     return (await setup.query(catalogQuery)).rows[0].catalog;
   }
 
+  // SPEC-170 §22 item 8: historical rows written under the 0007 schema must survive the forward migration. The
+  // rows are synthetic and cover the tables a 0008 row will refer to (Business Profiles, the Role Assignment, Goods,
+  // a Goods and an Entry + Goods Order with their Order Items) and the rest of the Order / payment and Karaoke
+  // reservation history, so the comparison reaches every business table that exists before 0008.
+  async function insert(table: string, row: Record<string, unknown>, key = "id"): Promise<string> {
+    const columns = Object.keys(row);
+    const statement = `INSERT INTO app.${table}(${columns.join(", ")}) VALUES (${columns.map((_, i) => `$${i + 1}`).join(", ")}) RETURNING ${key}`;
+    return (await setup.query(statement, Object.values(row))).rows[0][key] as string;
+  }
+
+  async function writeHistory(): Promise<void> {
+    const subject = (n: number) =>
+      `00000000-0000-4000-8000-${(0xc30000 + n).toString(16).padStart(12, "0")}`;
+    const profile = await insert("business_profiles", { auth_subject: subject(1) });
+    const staff = await insert("business_profiles", { auth_subject: subject(2) });
+    const role = await insert("role_assignments", {
+      profile_id: staff,
+      role: "STAFF",
+      state: "ACTIVE",
+    });
+    const event = await insert("events", { name: "合成イベント" });
+    const sales = {
+      event_id: event,
+      currency: "JPY",
+      sales_starts_at: "2030-01-01T00:00:00Z",
+      sales_ends_at: "2030-01-02T00:00:00Z",
+    };
+    const offering = await insert("entry_ticket_offerings", {
+      ...sales,
+      name: "合成入場券",
+      unit_amount: 1000,
+      sale_control_state: "ENABLED",
+      sales_capacity: 100,
+      purchase_limit: 4,
+    });
+    const goods = await insert("goods", {
+      ...sales,
+      name: "合成グッズ",
+      unit_amount: 2000,
+      sale_control_state: "SUSPENDED",
+      purchase_limit: 3,
+    });
+    await insert("goods_inventory", { goods_id: goods, saleable_capacity: 0 }, "goods_id");
+    const config = await insert("karaoke_sales_configurations", {
+      ...sales,
+      name: "合成カラオケ",
+      unit_amount: 500,
+      sale_control_state: "SUSPENDED",
+      purchase_limit: 2,
+    });
+    const scope = await insert("karaoke_exclusive_scopes", {
+      event_id: event,
+      name: "合成スコープ",
+    });
+    const slot = await insert("karaoke_slots", {
+      exclusive_scope_id: scope,
+      sales_configuration_id: config,
+      state: "SOLD",
+      usage_start: "2030-01-01T05:00:00Z",
+      usage_end: "2030-01-01T05:15:00Z",
+      cycle_end: "2030-01-01T05:20:00Z",
+      generation_cause_key: subject(3),
+      generation_candidate_no: 0,
+    });
+    const order = (purpose: string, n: number, total: number) =>
+      insert("orders", {
+        purchase_cause_key: subject(n),
+        customer_profile_id: profile,
+        purpose,
+        state: "AWAITING_PAYMENT",
+        currency: "JPY",
+        total_amount: total,
+      });
+    const item = (
+      orderId: string,
+      purpose: string,
+      line: number,
+      source: Record<string, unknown>,
+    ) =>
+      insert("order_items", {
+        order_id: orderId,
+        purpose,
+        line_no: line,
+        quantity: 1,
+        unit_amount: 500,
+        currency: "JPY",
+        item_name_snapshot: "合成明細",
+        ...source,
+      });
+    // Goods history: a Goods Order and an Entry + Goods Order with both lines and the Entry Allocation.
+    const goodsOrder = await order("GOODS_PURCHASE", 4, 500);
+    await item(goodsOrder, "GOODS_PURCHASE", 1, { goods_id: goods });
+    const compositeOrder = await order("ENTRY_GOODS_PURCHASE", 5, 1000);
+    const entryLine = await item(compositeOrder, "ENTRY_GOODS_PURCHASE", 1, {
+      entry_offering_id: offering,
+    });
+    await item(compositeOrder, "ENTRY_GOODS_PURCHASE", 2, { goods_id: goods });
+    await insert("entry_sales_allocations", {
+      order_item_id: entryLine,
+      order_id: compositeOrder,
+      purpose: "ENTRY_GOODS_PURCHASE",
+      offering_id: offering,
+      quantity: 1,
+      state: "HELD",
+    });
+    // Karaoke history under 0007: a committed Hold, its Reservation, Ticket and Check-in.
+    const karaokeOrder = await order("KARAOKE_PURCHASE", 6, 500);
+    const karaokeLine = await item(karaokeOrder, "KARAOKE_PURCHASE", 1, { karaoke_slot_id: slot });
+    const hold = await insert("karaoke_holds", {
+      order_id: karaokeOrder,
+      order_item_id: karaokeLine,
+      customer_profile_id: profile,
+      slot_id: slot,
+      state: "COMMITTED",
+      hold_acquired_at: "2030-01-01T03:00:00.123456Z",
+      committed_at: "2030-01-01T03:10:00Z",
+    });
+    const reservation = await insert("karaoke_reservations", {
+      order_id: karaokeOrder,
+      order_item_id: karaokeLine,
+      hold_id: hold,
+      customer_profile_id: profile,
+      slot_id: slot,
+      state: "CONFIRMED",
+      usage_start_snapshot: "2030-01-01T05:00:00Z",
+      usage_end_snapshot: "2030-01-01T05:15:00Z",
+    });
+    const ticket = await insert("karaoke_tickets", {
+      reservation_id: reservation,
+      owner_profile_id: profile,
+      state: "USED",
+      expires_at: "2030-01-01T05:15:00Z",
+    });
+    await insert("karaoke_checkins", {
+      karaoke_ticket_id: ticket,
+      staff_profile_id: staff,
+      staff_role_assignment_id: role,
+    });
+    const attempt = await insert("checkout_attempts", {
+      order_id: goodsOrder,
+      attempt_no: 1,
+      stripe_idempotency_key: "synthetic-idem-gk3-old-1",
+      creation_result: "SUCCEEDED",
+    });
+    await insert("payment_bindings", {
+      order_id: goodsOrder,
+      checkout_attempt_id: attempt,
+      stripe_checkout_session_id: "cs_test_synthetic_gk3_old_1",
+      checkout_session_created_at: "2030-01-01T03:00:00.123456Z",
+      amount_total: 500,
+      currency: "JPY",
+    });
+    await insert("webhook_receipts", {
+      stripe_event_id: "evt_test_synthetic_gk3_old_1",
+      event_type: "checkout.session.completed",
+      livemode: false,
+      processing_state: "PROCESSED",
+      payload_sha256: Buffer.alloc(32, 8),
+      canonical_snapshot: JSON.stringify({ synthetic: true }),
+    });
+    await insert("refund_records", {
+      order_id: compositeOrder,
+      business_cause_key: subject(7),
+      stripe_idempotency_key: "synthetic-refund-gk3-old-1",
+      state: "REQUESTED",
+      requested_amount: 1000,
+      currency: "JPY",
+      is_full_refund: true,
+      requested_by_profile_id: staff,
+    });
+  }
+
+  /** Every row of the given app tables, as jsonb, in a stable order. */
+  async function history(tables: readonly string[]): Promise<Record<string, unknown[]>> {
+    const result: Record<string, unknown[]> = {};
+    for (const table of tables) {
+      result[table] = (
+        await setup.query(
+          `SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text), '[]'::jsonb) AS rows FROM app.${table} t`,
+        )
+      ).rows[0].rows;
+    }
+    return result;
+  }
+
+  async function appTables(): Promise<string[]> {
+    return (
+      await setup.query(
+        `SELECT tablename FROM pg_tables WHERE schemaname = 'app' AND tablename <> 'schema_migrations'
+          ORDER BY tablename COLLATE "C"`,
+      )
+    ).rows.map((row) => row.tablename as string);
+  }
+
   async function journal(): Promise<string[]> {
     return (
       await setup.query('SELECT version FROM app.schema_migrations ORDER BY version COLLATE "C"')
@@ -192,8 +386,32 @@ describe("the build before GK-3 stays Ready after 0008 is applied (real PostgreS
   );
 
   it(
-    "TC-INF-HLT-006-014 INF-HLT-006 INF-RBK-002 after the real 0008 is applied the old build stays Ready for the setup, API and Reconciliation identities",
+    "TC-INF-HLT-006-014 INF-HLT-006 INF-RBK-002 after the real 0008 is applied the 0007 history is kept row for row and the old build stays Ready for the setup, API and Reconciliation identities",
     async () => {
+      // SPEC-170 §22 item 8: history written under 0007 (committed before the migration runs).
+      await writeHistory();
+      const oldTables = await appTables();
+      const before = await history(oldTables);
+      for (const table of [
+        "business_profiles",
+        "role_assignments",
+        "goods",
+        "goods_inventory",
+        "orders",
+        "order_items",
+        "entry_sales_allocations",
+        "checkout_attempts",
+        "payment_bindings",
+        "webhook_receipts",
+        "refund_records",
+        "karaoke_slots",
+        "karaoke_holds",
+        "karaoke_reservations",
+        "karaoke_tickets",
+        "karaoke_checkins",
+      ])
+        expect(before[table]?.length, `${table} history rows`).toBeGreaterThan(0);
+
       // The next release applies 0008 (and nothing after it) with the production runner.
       const migrator = new Client({ connectionString: url });
       await migrator.connect();
@@ -205,6 +423,12 @@ describe("the build before GK-3 stays Ready after 0008 is applied (real PostgreS
         await migrator.end();
       }
       expect(await journal()).toEqual([...oldVersions, GK3_VERSION]);
+      // Every pre-existing table keeps exactly its rows, ids and values (generated columns included); the only new
+      // tables are the three of 0008, and they are empty (0008 inserts nothing).
+      expect(await history(oldTables)).toEqual(before);
+      const newTables = (await appTables()).filter((table) => !oldTables.includes(table));
+      expect(newTables).toEqual([...GOODS_FULFILLMENT_TABLES].sort());
+      for (const rows of Object.values(await history(newTables))) expect(rows).toEqual([]);
       const catalog = await liveCatalog();
       // 0008 really changed the catalog: an exact comparison would make the old build Not Ready;
       // containment holds.
