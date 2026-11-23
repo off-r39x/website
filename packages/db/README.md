@@ -143,7 +143,9 @@ not a new 8 seconds, and a later SQLSTATE with a longer budget (`40001` 2 s, `40
 re-check are both acquired within the SPEC-150 budget for a temporary connection failure (3 attempts,
 3 seconds in total, backoff included, each attempt bounded by what is left), else `FAILED`
 (`DATABASE_TEMPORARY_FAILURE`) for the first one and `UNKNOWN_RESULT` for the re-check. A connection
-or a migration lock whose success arrives after its deadline is closed, not used. A COMMIT whose
+or a migration lock whose success arrives after its deadline is closed, not used, and an error that
+arrives at or after that deadline is the deadline whatever it is (the connection budget has run out,
+even for a refused authentication; the migration lock times out). A COMMIT whose
 acknowledgement arrives at or after the wall clock of its transaction (the 8 seconds, or what was left
 of the retry budget), as measured on the monotonic clock, is an unknown result like a lost one: it is
 re-checked, not reported `CREATED` from the acknowledgement. Likewise, a transaction whose verdict
