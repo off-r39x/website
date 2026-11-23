@@ -742,11 +742,18 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       // Not committed: close the transaction. A connection that cannot even roll back is gone, which
       // proves nothing was committed (REL-DB-005): a temporary failure, to be run again. It is
       // abandoned, so that a connection that stopped answering does not keep the migration lock.
+      // The transaction ends within its wall clock too (SPEC-150 section 9): ended past it, by the
+      // timer or as measured on the monotonic clock once the error and the ROLLBACK are seen (an event
+      // loop blocked past the deadline sees them before the timer callback), the attempt is ended by
+      // its wall clock, whatever the error. The result never depends on which is seen first.
+      const pastDeadline = () => deadline.abandoned() || remainingMs() <= 0;
       if (!(await succeedsWithin(client.query("ROLLBACK"), CLOSE_WAIT_MS))) {
         await abandonConnection(client);
-        return fail("TEMPORARY_FAILURE", "DATABASE_TEMPORARY_FAILURE");
+        return pastDeadline()
+          ? deadlineFailure()
+          : fail("TEMPORARY_FAILURE", "DATABASE_TEMPORARY_FAILURE");
       }
-      if (error instanceof DeadlineExceeded) return deadlineFailure();
+      if (error instanceof DeadlineExceeded || pastDeadline()) return deadlineFailure();
       if (isDatabaseRetryable(error)) return { kind: "retry", code: error.code };
       const code = sqlState(error);
       const { failureClass, errorCode } = classifySeedFailure(
@@ -852,12 +859,17 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
           await abandonConnection(connection);
           return budgetBound ? exhausted() : undefined;
         }
+        // As for the seed transaction: a re-check ended past its wall clock, by the timer or as
+        // measured on the monotonic clock once the error and the ROLLBACK are seen, is ended by its
+        // deadline whatever the error (never retried; reaching a budget-bound deadline is exhaustion).
+        const pastDeadline = () => deadline.abandoned() || remainingMs() <= 0;
         const closed = await succeedsWithin(connection.query("ROLLBACK"), CLOSE_WAIT_MS);
         if (!closed) {
           await abandonConnection(connection);
-          return undefined;
+          return pastDeadline() && budgetBound ? exhausted() : undefined;
         }
-        if (error instanceof DeadlineExceeded) return budgetBound ? exhausted() : undefined;
+        if (error instanceof DeadlineExceeded || pastDeadline())
+          return budgetBound ? exhausted() : undefined;
         if (!isDatabaseRetryable(error)) return undefined;
         sqlstate = error.code;
         if (n >= MAX_ATTEMPTS) return exhausted();
