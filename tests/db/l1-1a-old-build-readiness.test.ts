@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import type { LogEvent } from "@off-r39x/observability";
 import { Client, Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { INTERVAL_STYLE_OPTION } from "../../packages/db/src/database.ts";
 import {
   checkReadiness,
   computeMigrationSetHash,
@@ -16,6 +17,7 @@ import { catalogSatisfies, type ReadinessExpectations } from "../../packages/db/
 import { catalogQuery, requiredCatalog } from "../../packages/db/src/schema-contract.ts";
 import { installSyntheticDirectory, prepareFoundationDatabase } from "../harness/db/foundation.ts";
 import { ORDER_PAYMENT_TABLES } from "../harness/db/orders-payments-golden.ts";
+import { testSessionOptions } from "../harness/db/session-options.ts";
 
 // SPEC-180 INF-HLT-006 (UCR-180-003), PR-L1-1a: the build released before L1-1a bundles 0001-0005 and the
 // required catalog without the seven Order / payment tables of 0006. Applying the real 0006 (expand-only: seven
@@ -50,7 +52,9 @@ if (!sourceUrl || !caPath)
   throw new Error("Real PG17 requires TEST_DATABASE_URL and TEST_DATABASE_CA");
 
 const REPO_MIGRATIONS = resolve(process.cwd(), "../packages/db/migrations");
-const READINESS_OPTIONS = "-c timezone=UTC -c lock_timeout=1000";
+const READINESS_OPTIONS = testSessionOptions(
+  `-c timezone=UTC ${INTERVAL_STYLE_OPTION} -c lock_timeout=1000`,
+);
 const TIMEOUT = 90_000;
 
 async function inCwd<T>(dir: string, fn: () => Promise<T>): Promise<T> {
