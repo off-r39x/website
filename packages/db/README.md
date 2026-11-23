@@ -150,7 +150,12 @@ re-checked, not reported `CREATED` from the acknowledgement. Likewise, a transac
 was reached before COMMIT (`NOOP`, a failure, or a re-check verdict) ends with a ROLLBACK, and a
 ROLLBACK acknowledged at or after that wall clock ends the transaction by its wall clock: the seed
 transaction is `FAILED` (`TEMPORARY_FAILURE`, `DATABASE_TEMPORARY_FAILURE`), not `NOOP`, and the
-re-check decides nothing (`UNKNOWN_RESULT`). A server that refuses
+re-check decides nothing (`UNKNOWN_RESULT`). The same holds when a statement fails: once the
+transaction is rolled back (or its connection is found gone), a transaction ended at or after its
+wall clock is ended by it, whatever the error. The seed transaction is then `FAILED`
+(`TEMPORARY_FAILURE`, `DATABASE_TEMPORARY_FAILURE`), not a constraint rejection and not retried, and
+the re-check decides nothing. The result does not depend on whether the deadline timer or the
+acknowledgement is seen first. A server that refuses
 the credentials (SQLSTATE class 28, such as `28P01`) is not retried: the first connection ends as
 `FAILED` (`PERMANENT_FAILURE`, `DATABASE_AUTHENTICATION_FAILED`), the re-check as `UNKNOWN_RESULT`.
 When a retry budget runs out (by attempts or by elapsed time, for the connection, the seed transaction
