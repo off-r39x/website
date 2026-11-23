@@ -131,6 +131,46 @@ function reviveNumber(_key: string, value: unknown, context?: { readonly source?
   return context?.source !== undefined && context.source === String(value) ? value : NOT_AS_WRITTEN;
 }
 
+/**
+ * Whether an object of the JSON text has the same key twice. JSON.parse keeps only the last value of a
+ * duplicated key, so a forbidden key or an earlier value would be dropped before any check sees it; a
+ * strict input names each key once. Keys are compared decoded (`"a"` and `"a"` are the same key).
+ * Called only on text that JSON.parse accepted, so the scan needs no syntax checks: a string is skipped
+ * as a whole (escapes included), and only a string that follows `{` or `,` inside an object is a key.
+ */
+function hasDuplicateKey(text: string): boolean {
+  // One entry per open container: the keys seen so far for an object, null for an array.
+  const open: (Set<string> | null)[] = [];
+  let keyNext = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '"') {
+      let end = i + 1;
+      while (text[end] !== '"') end += text[end] === "\\" ? 2 : 1;
+      if (keyNext) {
+        const keys = open[open.length - 1];
+        const key = JSON.parse(text.slice(i, end + 1)) as string;
+        if (keys?.has(key)) return true;
+        keys?.add(key);
+        keyNext = false;
+      }
+      i = end;
+    } else if (char === "{") {
+      open.push(new Set());
+      keyNext = true;
+    } else if (char === "[") {
+      open.push(null);
+      keyNext = false;
+    } else if (char === "}" || char === "]") {
+      open.pop();
+      keyNext = false;
+    } else if (char === ",") {
+      keyNext = open[open.length - 1] instanceof Set;
+    }
+  }
+  return false;
+}
+
 /** Parses the raw `INITIAL_DATA_SEED_JSON` text. Never throws. */
 export function parseInitialDataInput(raw: string | undefined): ParseResult {
   if (raw === undefined || raw === "")
@@ -142,6 +182,7 @@ export function parseInitialDataInput(raw: string | undefined): ParseResult {
     // The parser message quotes a fragment of the input; it is dropped on purpose.
     return INVALID;
   }
+  if (hasDuplicateKey(raw)) return INVALID;
   if (!isRecord(parsed)) return INVALID;
   const keys = INITIAL_DATA_TARGETS.map((target) => target.key as string);
   const actual = Object.keys(parsed);
