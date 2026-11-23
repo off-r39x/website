@@ -11,9 +11,13 @@
     ["goods", "r", "app_migrator", false],
     ["goods_inventory", "r", "app_migrator", false],
     ["idempotency_records", "r", "app_migrator", false],
+    ["karaoke_checkins", "r", "app_migrator", false],
     ["karaoke_exclusive_scopes", "r", "app_migrator", false],
+    ["karaoke_holds", "r", "app_migrator", false],
+    ["karaoke_reservations", "r", "app_migrator", false],
     ["karaoke_sales_configurations", "r", "app_migrator", false],
     ["karaoke_slots", "r", "app_migrator", false],
+    ["karaoke_tickets", "r", "app_migrator", false],
     ["order_items", "r", "app_migrator", false],
     ["orders", "r", "app_migrator", false],
     ["payment_bindings", "r", "app_migrator", false],
@@ -302,6 +306,28 @@
       "",
       "(transaction_timestamp() + '24:00:00'::interval)"
     ],
+    ["karaoke_checkins", "id", "bigint", true, "a", "", null],
+    ["karaoke_checkins", "karaoke_ticket_id", "bigint", true, "", "", null],
+    ["karaoke_checkins", "staff_profile_id", "bigint", true, "", "", null],
+    ["karaoke_checkins", "staff_role_assignment_id", "bigint", true, "", "", null],
+    [
+      "karaoke_checkins",
+      "checked_in_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "karaoke_checkins",
+      "created_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
     ["karaoke_exclusive_scopes", "id", "bigint", true, "a", "", null],
     ["karaoke_exclusive_scopes", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
     ["karaoke_exclusive_scopes", "event_id", "bigint", true, "", "", null],
@@ -318,6 +344,99 @@
     ],
     [
       "karaoke_exclusive_scopes",
+      "updated_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["karaoke_holds", "id", "bigint", true, "a", "", null],
+    ["karaoke_holds", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
+    ["karaoke_holds", "order_id", "bigint", true, "", "", null],
+    ["karaoke_holds", "order_item_id", "bigint", true, "", "", null],
+    ["karaoke_holds", "order_purpose", "text", true, "", "", "'KARAOKE_PURCHASE'::text"],
+    ["karaoke_holds", "customer_profile_id", "bigint", true, "", "", null],
+    ["karaoke_holds", "slot_id", "bigint", true, "", "", null],
+    ["karaoke_holds", "state", "text", true, "", "", null],
+    [
+      "karaoke_holds",
+      "hold_acquired_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "karaoke_holds",
+      "hold_expires_at",
+      "timestamp with time zone",
+      false,
+      "",
+      "s",
+      "(((hold_acquired_at AT TIME ZONE 'UTC'::text) + '00:45:00'::interval) AT TIME ZONE 'UTC'::text)"
+    ],
+    ["karaoke_holds", "committed_at", "timestamp with time zone", false, "", "", null],
+    ["karaoke_holds", "released_at", "timestamp with time zone", false, "", "", null],
+    ["karaoke_holds", "expired_at", "timestamp with time zone", false, "", "", null],
+    [
+      "karaoke_holds",
+      "created_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "karaoke_holds",
+      "updated_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["karaoke_reservations", "id", "bigint", true, "a", "", null],
+    ["karaoke_reservations", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
+    ["karaoke_reservations", "order_id", "bigint", true, "", "", null],
+    ["karaoke_reservations", "order_item_id", "bigint", true, "", "", null],
+    ["karaoke_reservations", "hold_id", "bigint", true, "", "", null],
+    ["karaoke_reservations", "customer_profile_id", "bigint", true, "", "", null],
+    ["karaoke_reservations", "slot_id", "bigint", true, "", "", null],
+    ["karaoke_reservations", "state", "text", true, "", "", null],
+    [
+      "karaoke_reservations",
+      "usage_start_snapshot",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      null
+    ],
+    ["karaoke_reservations", "usage_end_snapshot", "timestamp with time zone", true, "", "", null],
+    [
+      "karaoke_reservations",
+      "confirmed_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["karaoke_reservations", "canceled_at", "timestamp with time zone", false, "", "", null],
+    [
+      "karaoke_reservations",
+      "created_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "karaoke_reservations",
       "updated_at",
       "timestamp with time zone",
       true,
@@ -393,6 +512,30 @@
     [
       "karaoke_slots",
       "updated_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["karaoke_tickets", "id", "bigint", true, "a", "", null],
+    ["karaoke_tickets", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
+    ["karaoke_tickets", "reservation_id", "bigint", true, "", "", null],
+    ["karaoke_tickets", "owner_profile_id", "bigint", true, "", "", null],
+    ["karaoke_tickets", "state", "text", true, "", "", null],
+    ["karaoke_tickets", "expires_at", "timestamp with time zone", true, "", "", null],
+    [
+      "karaoke_tickets",
+      "issued_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "karaoke_tickets",
+      "state_changed_at",
       "timestamp with time zone",
       true,
       "",
@@ -846,6 +989,20 @@
       true
     ],
     [
+      "karaoke_checkins",
+      "CREATE UNIQUE INDEX pk_karaoke_checkins ON app.karaoke_checkins USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_checkins",
+      "CREATE UNIQUE INDEX uq_karaoke_checkins_karaoke_ticket_id ON app.karaoke_checkins USING btree (karaoke_ticket_id)",
+      true,
+      true,
+      true
+    ],
+    [
       "karaoke_exclusive_scopes",
       "CREATE UNIQUE INDEX pk_karaoke_exclusive_scopes ON app.karaoke_exclusive_scopes USING btree (id)",
       true,
@@ -855,6 +1012,104 @@
     [
       "karaoke_exclusive_scopes",
       "CREATE UNIQUE INDEX uq_karaoke_exclusive_scopes_public_ref ON app.karaoke_exclusive_scopes USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_holds",
+      "CREATE INDEX ix_karaoke_holds_customer_active ON app.karaoke_holds USING btree (customer_profile_id, slot_id) WHERE (state = 'ACTIVE'::text)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_holds",
+      "CREATE UNIQUE INDEX pk_karaoke_holds ON app.karaoke_holds USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_holds",
+      "CREATE UNIQUE INDEX uq_karaoke_holds_order_item_id ON app.karaoke_holds USING btree (order_item_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_holds",
+      "CREATE UNIQUE INDEX uq_karaoke_holds_public_ref ON app.karaoke_holds USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_holds",
+      "CREATE UNIQUE INDEX uq_karaoke_holds_reservation_target ON app.karaoke_holds USING btree (id, order_id, order_item_id, customer_profile_id, slot_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_holds",
+      "CREATE UNIQUE INDEX ux_karaoke_holds_slot_active ON app.karaoke_holds USING btree (slot_id) WHERE (state = 'ACTIVE'::text)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_reservations",
+      "CREATE INDEX ix_karaoke_reservations_customer_time ON app.karaoke_reservations USING btree (customer_profile_id, usage_start_snapshot DESC)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_reservations",
+      "CREATE INDEX ix_karaoke_reservations_state_time ON app.karaoke_reservations USING btree (state, usage_start_snapshot DESC)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_reservations",
+      "CREATE UNIQUE INDEX pk_karaoke_reservations ON app.karaoke_reservations USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_reservations",
+      "CREATE UNIQUE INDEX uq_karaoke_reservations_hold_id ON app.karaoke_reservations USING btree (hold_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_reservations",
+      "CREATE UNIQUE INDEX uq_karaoke_reservations_id_customer_profile_id ON app.karaoke_reservations USING btree (id, customer_profile_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_reservations",
+      "CREATE UNIQUE INDEX uq_karaoke_reservations_order_item_id ON app.karaoke_reservations USING btree (order_item_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_reservations",
+      "CREATE UNIQUE INDEX uq_karaoke_reservations_public_ref ON app.karaoke_reservations USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_reservations",
+      "CREATE UNIQUE INDEX uq_karaoke_reservations_slot_id ON app.karaoke_reservations USING btree (slot_id)",
       true,
       true,
       true
@@ -918,6 +1173,27 @@
     [
       "karaoke_slots",
       "CREATE UNIQUE INDEX uq_karaoke_slots_scope_times ON app.karaoke_slots USING btree (exclusive_scope_id, usage_start, usage_end, cycle_end)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_tickets",
+      "CREATE UNIQUE INDEX pk_karaoke_tickets ON app.karaoke_tickets USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_tickets",
+      "CREATE UNIQUE INDEX uq_karaoke_tickets_public_ref ON app.karaoke_tickets USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
+      "karaoke_tickets",
+      "CREATE UNIQUE INDEX uq_karaoke_tickets_reservation_id ON app.karaoke_tickets USING btree (reservation_id)",
       true,
       true,
       true
@@ -1202,9 +1478,13 @@
     ["faq_items_id_seq", "bigint", "app_migrator"],
     ["goods_id_seq", "bigint", "app_migrator"],
     ["idempotency_records_id_seq", "bigint", "app_migrator"],
+    ["karaoke_checkins_id_seq", "bigint", "app_migrator"],
     ["karaoke_exclusive_scopes_id_seq", "bigint", "app_migrator"],
+    ["karaoke_holds_id_seq", "bigint", "app_migrator"],
+    ["karaoke_reservations_id_seq", "bigint", "app_migrator"],
     ["karaoke_sales_configurations_id_seq", "bigint", "app_migrator"],
     ["karaoke_slots_id_seq", "bigint", "app_migrator"],
+    ["karaoke_tickets_id_seq", "bigint", "app_migrator"],
     ["order_items_id_seq", "bigint", "app_migrator"],
     ["orders_id_seq", "bigint", "app_migrator"],
     ["payment_bindings_id_seq", "bigint", "app_migrator"],
@@ -1735,6 +2015,43 @@
     ],
     ["idempotency_records", "pk_idempotency_records", "p", "PRIMARY KEY (id)", true, false, false],
     [
+      "karaoke_checkins",
+      "fk_karaoke_checkins_karaoke_ticket",
+      "f",
+      "FOREIGN KEY (karaoke_ticket_id) REFERENCES app.karaoke_tickets(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_checkins",
+      "fk_karaoke_checkins_staff_profile",
+      "f",
+      "FOREIGN KEY (staff_profile_id) REFERENCES app.business_profiles(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_checkins",
+      "fk_karaoke_checkins_staff_role_assignment",
+      "f",
+      "FOREIGN KEY (staff_role_assignment_id) REFERENCES app.role_assignments(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["karaoke_checkins", "pk_karaoke_checkins", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "karaoke_checkins",
+      "uq_karaoke_checkins_karaoke_ticket_id",
+      "u",
+      "UNIQUE (karaoke_ticket_id)",
+      true,
+      false,
+      false
+    ],
+    [
       "karaoke_exclusive_scopes",
       "fk_karaoke_exclusive_scopes_event",
       "f",
@@ -1757,6 +2074,169 @@
       "uq_karaoke_exclusive_scopes_public_ref",
       "u",
       "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_holds",
+      "ck_karaoke_holds_order_purpose",
+      "c",
+      "CHECK ((order_purpose = 'KARAOKE_PURCHASE'::text))",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_holds",
+      "ck_karaoke_holds_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['ACTIVE'::text, 'COMMITTED'::text, 'RELEASED'::text, 'EXPIRED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_holds",
+      "ck_karaoke_holds_state_times",
+      "c",
+      "CHECK ((((state = 'ACTIVE'::text) AND (committed_at IS NULL) AND (released_at IS NULL) AND (expired_at IS NULL)) OR ((state = 'COMMITTED'::text) AND (committed_at IS NOT NULL)) OR ((state = 'RELEASED'::text) AND (released_at IS NOT NULL)) OR ((state = 'EXPIRED'::text) AND (expired_at IS NOT NULL))))",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_holds",
+      "fk_karaoke_holds_order",
+      "f",
+      "FOREIGN KEY (order_id, customer_profile_id) REFERENCES app.orders(id, customer_profile_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_holds",
+      "fk_karaoke_holds_order_item",
+      "f",
+      "FOREIGN KEY (order_item_id, order_id, order_purpose, slot_id) REFERENCES app.order_items(id, order_id, purpose, karaoke_slot_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["karaoke_holds", "pk_karaoke_holds", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "karaoke_holds",
+      "uq_karaoke_holds_order_item_id",
+      "u",
+      "UNIQUE (order_item_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_holds",
+      "uq_karaoke_holds_public_ref",
+      "u",
+      "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_holds",
+      "uq_karaoke_holds_reservation_target",
+      "u",
+      "UNIQUE (id, order_id, order_item_id, customer_profile_id, slot_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "ck_karaoke_reservations_canceled_at",
+      "c",
+      "CHECK (((state = 'CANCELED'::text) = (canceled_at IS NOT NULL)))",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "ck_karaoke_reservations_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['CONFIRMED'::text, 'CANCELED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "ck_karaoke_reservations_usage_snapshot",
+      "c",
+      "CHECK ((usage_start_snapshot < usage_end_snapshot))",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "fk_karaoke_reservations_hold",
+      "f",
+      "FOREIGN KEY (hold_id, order_id, order_item_id, customer_profile_id, slot_id) REFERENCES app.karaoke_holds(id, order_id, order_item_id, customer_profile_id, slot_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "pk_karaoke_reservations",
+      "p",
+      "PRIMARY KEY (id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "uq_karaoke_reservations_hold_id",
+      "u",
+      "UNIQUE (hold_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "uq_karaoke_reservations_id_customer_profile_id",
+      "u",
+      "UNIQUE (id, customer_profile_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "uq_karaoke_reservations_order_item_id",
+      "u",
+      "UNIQUE (order_item_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "uq_karaoke_reservations_public_ref",
+      "u",
+      "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_reservations",
+      "uq_karaoke_reservations_slot_id",
+      "u",
+      "UNIQUE (slot_id)",
       true,
       false,
       false
@@ -1938,6 +2418,43 @@
       "uq_karaoke_slots_scope_times",
       "u",
       "UNIQUE (exclusive_scope_id, usage_start, usage_end, cycle_end)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_tickets",
+      "ck_karaoke_tickets_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['VALID'::text, 'USED'::text, 'CANCELED'::text, 'EXPIRED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_tickets",
+      "fk_karaoke_tickets_reservation",
+      "f",
+      "FOREIGN KEY (reservation_id, owner_profile_id) REFERENCES app.karaoke_reservations(id, customer_profile_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["karaoke_tickets", "pk_karaoke_tickets", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "karaoke_tickets",
+      "uq_karaoke_tickets_public_ref",
+      "u",
+      "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
+      "karaoke_tickets",
+      "uq_karaoke_tickets_reservation_id",
+      "u",
+      "UNIQUE (reservation_id)",
       true,
       false,
       false
