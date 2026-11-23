@@ -57,12 +57,17 @@ function scriptedClient(options: {
    * acknowledgement arrives at once in real time, before any timer callback.
    */
   rollbackAdvanceMs?: number;
+  /** Every ROLLBACK fails (after `rollbackAdvanceMs`): the connection is gone. */
+  rollbackFails?: boolean;
+  /** The first business INSERT fails with this SQLSTATE, after advancing the clock by `advanceMs`. */
+  insertError?: { code: string; advanceMs?: number };
   /** Consumed in order before `xactLock` applies: how long each xact lock takes, and its SQLSTATE. */
   xactLocks?: { advanceMs: number; code?: "40001" | "40P01" | "55P03" }[];
 }) {
   const statements: string[] = [];
   const script = [...(options.xactLocks ?? [])];
   let inserted = 0;
+  let insertError = options.insertError;
   const client = {
     on: () => client,
     end: async () => {},
@@ -91,6 +96,7 @@ function scriptedClient(options: {
       }
       if (/^\s*ROLLBACK/i.test(text)) {
         clock.now += options.rollbackAdvanceMs ?? 0;
+        if (options.rollbackFails) throw new Error("synthetic connection loss");
         return { rows: [] };
       }
       if (/FROM app\.events ORDER BY id LIMIT 2/i.test(text))
@@ -117,6 +123,12 @@ function scriptedClient(options: {
         return { rows: [[`00000000-0000-4000-8000-${String(inserted).padStart(12, "0")}`]] };
       }
       if (/^\s*INSERT INTO app\./i.test(text)) {
+        const failure = insertError;
+        insertError = undefined;
+        if (failure) {
+          clock.now += failure.advanceMs ?? 0;
+          throw Object.assign(new Error("synthetic statement failure"), { code: failure.code });
+        }
         inserted += 1;
         return {
           rows: [
@@ -1051,5 +1063,149 @@ describe("TC-TST-SEED-006-020 a re-check whose ROLLBACK is acknowledged after th
       outcome: "CREATED",
       auditEventIds: ["00000000-0000-4000-8000-0000000000c1"],
     });
+  });
+});
+
+describe("TC-TST-SEED-003-020 a seed transaction that failed and is closed after the wall clock is FAILED by the wall clock (SPEC-150 section 9, DB-SEED-002)", () => {
+  // The error or the ROLLBACK acknowledgement is seen before the timer callback (the event loop was
+  // blocked past the deadline): only the monotonic clock shows that the transaction ran past it.
+  const noReconnect = async (): Promise<Client> => {
+    throw new Error("no new connection expected");
+  };
+  const DEADLINE_FAILURE = {
+    outcome: "FAILED",
+    failureClass: "TEMPORARY_FAILURE",
+    errorCode: "DATABASE_TEMPORARY_FAILURE",
+  };
+
+  it("TC-TST-SEED-003-020 (a) a constraint violation in time, ROLLBACK acknowledged at 8001 ms of the 8 s: FAILED by the wall clock, not INITIAL_DATA_CONSTRAINT_REJECTED", async () => {
+    const main = scriptedClient({
+      xactLock: "grant",
+      insertError: { code: "23514" },
+      rollbackAdvanceMs: 8001,
+    });
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject({ ...DEADLINE_FAILURE, attemptNumber: 1 });
+    expect(commits(main.statements)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-020 (b) a constraint violation in time, ROLLBACK acknowledged at exactly 8000 ms: FAILED by the wall clock", async () => {
+    const main = scriptedClient({
+      xactLock: "grant",
+      insertError: { code: "23514" },
+      rollbackAdvanceMs: 8000,
+    });
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject(DEADLINE_FAILURE);
+  });
+
+  it("TC-TST-SEED-003-020 (c) a constraint violation, ROLLBACK acknowledged at 7999 ms: PERMANENT_FAILURE, INITIAL_DATA_CONSTRAINT_REJECTED", async () => {
+    const main = scriptedClient({
+      xactLock: "grant",
+      insertError: { code: "23514" },
+      rollbackAdvanceMs: 7999,
+    });
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      failureClass: "PERMANENT_FAILURE",
+      errorCode: "INITIAL_DATA_CONSTRAINT_REJECTED",
+    });
+  });
+
+  it("TC-TST-SEED-003-020 (d) a constraint violation seen at 8001 ms: FAILED by the wall clock", async () => {
+    const main = scriptedClient({
+      xactLock: "grant",
+      insertError: { code: "23514", advanceMs: 8001 },
+    });
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject(DEADLINE_FAILURE);
+  });
+
+  it("TC-TST-SEED-003-020 (e) a 55P03 seen at 8001 ms of the first attempt: FAILED by the wall clock, not retried and not a budget exhaustion", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 8001, code: "55P03" }],
+    });
+    const outcome = await seedWith(main.client, noReconnect, logger);
+    expect(outcome).toMatchObject({ ...DEADLINE_FAILURE, attemptNumber: 1 });
+    expect(xactLocks(main.statements)).toHaveLength(1);
+    expect(named(ATTEMPTED)).toEqual([]);
+    expect(named(EXHAUSTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-020 (f) the ROLLBACK after an error fails at 8001 ms (the connection is gone) in a retry bound by the 5 s budget: FAILED, the budget is exhausted", async () => {
+    // Attempt 1 fails with 55P03 at 4800 ms (its ROLLBACK takes no time); after the 49.5 ms backoff
+    // attempt 2 has 150.5 ms left. Its constraint violation is seen in time and its ROLLBACK fails
+    // 151 ms later.
+    const { logger, named } = collectingLogger();
+    let rollbacks = 0;
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }],
+      insertError: { code: "23514" },
+    });
+    const query = main.client.query.bind(main.client) as (q: unknown) => Promise<unknown>;
+    (main.client as unknown as { query: (q: unknown) => Promise<unknown> }).query = async (q) => {
+      const text = typeof q === "string" ? q : (q as { text: string }).text;
+      if (/^\s*ROLLBACK/i.test(text)) {
+        rollbacks += 1;
+        if (rollbacks === 2) {
+          clock.now += 151;
+          throw new Error("synthetic connection loss");
+        }
+      }
+      return await query(q);
+    };
+    const outcome = await seedWith(main.client, noReconnect, logger);
+    expect(outcome).toMatchObject({ ...DEADLINE_FAILURE, attemptNumber: 2 });
+    expect(named(EXHAUSTED)).toEqual([
+      expect.objectContaining({ attempt_number: 2, sqlstate: "55P03" }),
+    ]);
+  });
+});
+
+describe("TC-TST-SEED-006-021 a re-check that failed and is closed after the wall clock decides nothing and is not a budget exhaustion (SPEC-150 section 9, DB-SEED-002 (4))", () => {
+  /** The COMMIT of the seed transaction is lost: the result goes to the re-check. */
+  const lostCommit = () => scriptedClient({ xactLock: "grant", commit: "lost" });
+
+  it("TC-TST-SEED-006-021 (a) a 55P03 seen at 8001 ms of the first re-check: UNKNOWN_RESULT, no other re-check, no budget exhaustion", async () => {
+    const { logger, named } = collectingLogger();
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 8001, code: "55P03" }],
+    });
+    const outcome = await seedWith(lostCommit().client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT", attemptNumber: 1 });
+    expect(xactLocks(recheck.statements)).toHaveLength(1);
+    expect(named(EXHAUSTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-006-021 (b) a 55P03 in time, ROLLBACK acknowledged at 8001 ms: UNKNOWN_RESULT, no budget exhaustion", async () => {
+    const { logger, named } = collectingLogger();
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 7000, code: "55P03" }],
+      rollbackAdvanceMs: 1001,
+    });
+    const outcome = await seedWith(lostCommit().client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT", attemptNumber: 1 });
+    expect(xactLocks(recheck.statements)).toHaveLength(1);
+    expect(named(EXHAUSTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-006-021 (c) a 55P03 at 1000 ms, ROLLBACK in time: the re-check is retried and finds the commit", async () => {
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 1000, code: "55P03" }],
+      committedAudit: true,
+    });
+    const outcome = await seedWith(lostCommit().client, async () => recheck.client);
+    expect(outcome).toMatchObject({
+      outcome: "CREATED",
+      auditEventIds: ["00000000-0000-4000-8000-0000000000c1"],
+    });
+    expect(xactLocks(recheck.statements)).toHaveLength(2);
   });
 });
