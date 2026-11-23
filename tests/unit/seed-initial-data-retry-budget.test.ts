@@ -43,6 +43,13 @@ const lockTimeout = () => Object.assign(new Error("synthetic lock timeout"), { c
 function scriptedClient(options: {
   xactLock: "timeout" | "grant";
   commit?: "lost" | "ok";
+  /**
+   * How long an acknowledged COMMIT "takes" on the controlled clock. The acknowledgement still arrives
+   * at once in real time, before any timer callback: an event loop that was blocked past the deadline.
+   */
+  commitAdvanceMs?: number;
+  /** The re-check finds the Audit Events of the run: its COMMIT took effect. */
+  committedAudit?: boolean;
   /** Consumed in order before `xactLock` applies: how long each xact lock takes, and its SQLSTATE. */
   xactLocks?: { advanceMs: number; code?: "40001" | "40P01" | "55P03" }[];
 }) {
@@ -72,8 +79,19 @@ function scriptedClient(options: {
       }
       if (/^\s*COMMIT/i.test(text)) {
         if (options.commit === "lost") throw new Error("synthetic connection loss");
+        clock.now += options.commitAdvanceMs ?? 0;
         return { rows: [] };
       }
+      if (options.committedAudit && /from app\.audit_events where operation_id/i.test(text))
+        return {
+          rows: [
+            {
+              audit_event_id: "00000000-0000-4000-8000-0000000000c1",
+              target_type: "PUBLIC_CONTENT",
+              target_ref: "00000000-0000-4000-9000-0000000000c1",
+            },
+          ],
+        };
       if (/^\s*insert into "app"\."audit_events"/i.test(text)) {
         inserted += 1;
         return { rows: [[`00000000-0000-4000-8000-${String(inserted).padStart(12, "0")}`]] };
@@ -805,5 +823,87 @@ describe("TC-TST-SEED-003-018 every retry is observable with its cause: the SQLS
     await seedWith(main.client, async () => recheck.client, logger);
     expect(causes(named(ATTEMPTED))).toEqual([{ attempt: 2, unit: RECHECK, sqlstate: "55P03" }]);
     expect(causes(named(EXHAUSTED))).toEqual([{ attempt: 2, unit: RECHECK, sqlstate: "55P03" }]);
+  });
+});
+
+describe("TC-TST-SEED-006-019 a COMMIT acknowledged after the wall clock is an unknown result and is re-checked (SPEC-150 section 9, REL-DB-006, DB-SEED-002)", () => {
+  // The acknowledgement is seen before the timer callback (the event loop was blocked past the
+  // deadline): only the monotonic clock shows that it came too late.
+  const OPENED = "reliability.unknown_result.opened";
+  const RESOLVED = "reliability.unknown_result.resolved";
+  const recheckFinding = () => scriptedClient({ xactLock: "grant", committedAudit: true });
+
+  it("TC-TST-SEED-006-019 (a) acknowledged at 8001 ms of the 8 s: not CREATED from the acknowledgement; the re-check finds the commit", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commitAdvanceMs: 8001 });
+    const recheck = recheckFinding();
+    let connects = 0;
+    const outcome = await seedWith(
+      main.client,
+      async () => {
+        connects += 1;
+        return recheck.client;
+      },
+      logger,
+    );
+    expect(connects).toBe(1);
+    expect(outcome).toMatchObject({
+      outcome: "CREATED",
+      attemptNumber: 1,
+      auditEventIds: ["00000000-0000-4000-8000-0000000000c1"],
+    });
+    expect(named(OPENED)).toEqual([
+      expect.objectContaining({ attempt_number: 1, error_code: "COMMIT_RESULT_UNKNOWN" }),
+    ]);
+    expect(named(RESOLVED)).toEqual([expect.objectContaining({ result: "SUCCESS" })]);
+    // Re-checked, not run again.
+    expect(xactLocks(recheck.statements)).toHaveLength(1);
+    expect(commits(recheck.statements)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-006-019 (b) acknowledged at exactly 8000 ms: the deadline is reached, the result is re-checked", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commitAdvanceMs: 8000 });
+    const recheck = recheckFinding();
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 1 });
+    expect(named(OPENED)).toHaveLength(1);
+    expect(recheck.statements.some((text) => AUDIT_RECHECK.test(text))).toBe(true);
+  });
+
+  it("TC-TST-SEED-006-019 (c) acknowledged at 7999 ms: CREATED from the acknowledgement, no re-check", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", commitAdvanceMs: 7999 });
+    const outcome = await seedWith(
+      main.client,
+      async () => {
+        throw new Error("no re-check expected");
+      },
+      logger,
+    );
+    expect(outcome).toMatchObject({ outcome: "CREATED", attemptNumber: 1 });
+    expect(outcome.outcome === "CREATED" ? outcome.auditEventIds : []).not.toContain(
+      "00000000-0000-4000-8000-0000000000c1",
+    );
+    expect(named(OPENED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-006-019 (d) a retry acknowledged after what was left of the 5 s budget: re-checked, not CREATED from the acknowledgement", async () => {
+    // Attempt 1 ends at 4800 ms with 55P03; after the 49.5 ms backoff attempt 2 has 150.5 ms left.
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }],
+      commitAdvanceMs: 151,
+    });
+    const recheck = recheckFinding();
+    const outcome = await seedWith(main.client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({
+      outcome: "CREATED",
+      attemptNumber: 2,
+      auditEventIds: ["00000000-0000-4000-8000-0000000000c1"],
+    });
+    expect(named(OPENED)).toEqual([expect.objectContaining({ attempt_number: 2 })]);
+    expect(commits(recheck.statements)).toEqual([]);
   });
 });
