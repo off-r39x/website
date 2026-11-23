@@ -18416,6 +18416,40 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-006-020",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock (Math.random 0.99); the COMMIT of the seed transaction is lost, so the result goes to the re-check on a new connection; the re-check ROLLBACK acknowledgement arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): (a) the re-check finds the run's Audit Events, at 8001 ms; (b) another run completed the data, at exactly 8000 ms; (c) nothing is committed, at 8001 ms; (d) the re-check finds the run's Audit Events, at 7999 ms of the 8 s wall clock",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b) and (c) UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) at attempt 1: not CREATED, not NOOP, and the seed transaction is not run again; (d) CREATED from the re-check (its Audit Event ids)",
+        "The re-check runs one transaction on one new connection and sends no COMMIT"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(a): reliability.unknown_result.opened (COMMIT_RESULT_UNKNOWN), and no reliability.unknown_result.resolved SUCCESS"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-002-006",
       "level": "DB",
       "suite": "db",
@@ -18876,6 +18910,40 @@
       "expected_observability": [
         "reliability.retry.attempted (is_retry true) at each retry and reliability.retry.exhausted at exhaustion, each with query_name for the unit retried and sqlstate for the SQLSTATE that caused the retry: (a) attempted 2 and 3, exhausted 3, initial_data.seed 55P03; (b) attempted 2 to 4, exhausted 4, initial_data.seed 40001; (c) attempted 2 with 40P01 and 3 with 40001, no exhaustion; (d) attempted 2 and 3, exhausted 3, initial_data.connect without sqlstate; (e) attempted 2 and 3, exhausted 3, initial_data.recheck 55P03; (f) attempted 2, initial_data.seed without sqlstate; (g) attempted and exhausted 2, initial_data.seed 55P03; (h) attempted and exhausted 2, initial_data.recheck 55P03",
         "In every case of the file, a sqlstate appears only on reliability.retry.attempted or reliability.retry.exhausted, and only as 40001, 40P01 or 55P03"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-019",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with a scripted connection double and a controlled clock (Math.random 0.99); the Event and its Offering already exist (two Events in (e)); every ROLLBACK acknowledgement arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): (a) at 8001 ms, (b) at exactly 8000 ms, (c) at 7999 ms of the 8 s transaction wall clock; (d) a retry after 55P03 (the first attempt's ROLLBACK ending at 4800 ms) and a 49.5 ms backoff, with 150.5 ms left of the 5 s budget, its ROLLBACK taking 151 ms; (e) at 8001 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b) and (e) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1, not NOOP and not the verdict reached before the ROLLBACK, and not retried; (c) NOOP at attempt 1; (d) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 2",
+        "No COMMIT is sent"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(a): no reliability.retry.attempted record; (d): one reliability.retry.exhausted at attempt 2 with sqlstate 55P03"
       ],
       "sensitivity_class": "synthetic",
       "critical": true

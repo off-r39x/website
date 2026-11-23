@@ -5968,7 +5968,9 @@
         "TC-TST-SEED-003-016",
         "TC-TST-SEED-003-017",
         "TC-TST-SEED-003-018",
-        "TC-TST-SEED-006-019"
+        "TC-TST-SEED-006-019",
+        "TC-TST-SEED-003-019",
+        "TC-TST-SEED-006-020"
       ],
       "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits; the first connection is acquired within the SPEC-150 temporary connection budget (3 attempts, 3 seconds, backoff included), else FAILED; a connection that succeeds after the budget is ended, not used; an authentication rejection (SQLSTATE class 28) is not retried"
     },
@@ -6040,9 +6042,11 @@
         "TC-TST-SEED-006-016",
         "TC-TST-SEED-006-017",
         "TC-TST-SEED-006-018",
-        "TC-TST-SEED-006-019"
+        "TC-TST-SEED-006-019",
+        "TC-TST-SEED-003-019",
+        "TC-TST-SEED-006-020"
       ],
-      "notes": "implementation mapping only: transaction advisory lock before the count; re-check on a new connection, under the migration lock, after an unknown COMMIT result, each re-check transaction within the transaction deadline, kept on the client too (a connection that stops answering is abandoned); the reconnect stays within 3 attempts and 3 seconds in total, each attempt bounded by what is left; the retries of the seed and of the re-check, and the retry after an uncommitted re-check (after a full jitter 55P03 backoff), stay within the attempts and elapsed budget, backoff included, each retried transaction running within what is left of the budget and a later SQLSTATE never extending a budget already applied; a COMMIT acknowledged at or after the wall clock of its transaction (the 8 s, or what is left of the retry budget), measured on the monotonic clock once the acknowledgement is seen, is an unknown result and is re-checked, never CREATED from the late acknowledgement"
+      "notes": "implementation mapping only: transaction advisory lock before the count; re-check on a new connection, under the migration lock, after an unknown COMMIT result, each re-check transaction within the transaction deadline, kept on the client too (a connection that stops answering is abandoned); the reconnect stays within 3 attempts and 3 seconds in total, each attempt bounded by what is left; the retries of the seed and of the re-check, and the retry after an uncommitted re-check (after a full jitter 55P03 backoff), stay within the attempts and elapsed budget, backoff included, each retried transaction running within what is left of the budget and a later SQLSTATE never extending a budget already applied; a COMMIT acknowledged at or after the wall clock of its transaction (the 8 s, or what is left of the retry budget), measured on the monotonic clock once the acknowledgement is seen, is an unknown result and is re-checked, never CREATED from the late acknowledgement; a ROLLBACK that ends a transaction whose verdict was reached before COMMIT, acknowledged at or after its wall clock (measured on the monotonic clock once the acknowledgement is seen), ends the transaction by its wall clock: the seed transaction is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), never NOOP, and the re-check decides nothing (UNKNOWN_RESULT)"
     },
     {
       "rule_id": "DB-SEED-003",
