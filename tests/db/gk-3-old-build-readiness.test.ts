@@ -29,14 +29,14 @@ import { testSessionOptions } from "../harness/db/session-options.ts";
 //
 // The old build is reproduced without a production test hook, as in l1-1a-old-build-readiness.test.ts: its
 // migration set is a temporary copy of the repository migrations before 0008 (readiness runs with that directory
-// as cwd), and its required catalog is the fixed fixture fixtures/db/required-catalog-0006.json
-// (schema-contract.json as the 0006 release shipped it). The next release applies only the migrations up to 0008,
+// as cwd), and its required catalog is the fixed fixture fixtures/db/required-catalog-0007.json
+// (schema-contract.json as the 0007 release (PR-GK-2) shipped it). The next release applies only the migrations up to 0008,
 // from its own temporary copy, so later migrations do not change this scenario. The first test proves that the
 // fixture is exactly what a database of the old migrations has. The migration number 0008 is provisional and is
 // fixed just before the merge (plan U-6).
 
 const GK3_VERSION = "0008_goods_fulfillment";
-const OLD_FIXTURE = "fixtures/db/required-catalog-0006.json";
+const OLD_FIXTURE = "fixtures/db/required-catalog-0007.json";
 const GK3_RELATIONS = new Set<string>([
   ...GOODS_FULFILLMENT_TABLES,
   ...GOODS_FULFILLMENT_SEQUENCES,
@@ -48,7 +48,7 @@ vi.mock("../../packages/db/src/schema-contract.ts", async (importOriginal) => {
   const { resolve: resolvePath } = await import("node:path");
   // cwd is tests/ (the backend runner), as REPO_MIGRATIONS below assumes.
   // The path is repeated here because vi.mock is hoisted above OLD_FIXTURE.
-  const fixture = resolvePath(process.cwd(), "fixtures/db/required-catalog-0006.json");
+  const fixture = resolvePath(process.cwd(), "fixtures/db/required-catalog-0007.json");
   return { ...actual, requiredCatalog: JSON.parse(readFileSync(fixture, "utf8")) };
 });
 
@@ -135,7 +135,7 @@ describe("the build before GK-3 stays Ready after 0008 is applied (real PostgreS
     url = scenarioUrl.href;
     const names = (await readdir(REPO_MIGRATIONS)).filter((file) => file.endsWith(".sql")).sort();
     const position = names.indexOf(`${GK3_VERSION}.sql`);
-    if (position < 6) throw new Error(`${GK3_VERSION}.sql must follow 0001-0006`);
+    if (position < 7) throw new Error(`${GK3_VERSION}.sql must follow 0001-0007`);
     const oldNames = names.slice(0, position);
     oldVersions = oldNames.map((file) => file.slice(0, -4));
     const copySet = async (prefix: string, files: readonly string[]) => {

@@ -30856,9 +30856,9 @@
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0008_goods_fulfillment applied (the build released before GK-3); readiness evaluated from a temporary directory holding those migrations, with the fixed 0006 required catalog fixture (asserted equal to the old live catalog); then 0008, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0008",
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0008_goods_fulfillment applied (the build released before GK-3); readiness evaluated from a temporary directory holding those migrations, with the fixed 0007 required catalog fixture (asserted equal to the old live catalog); then 0008, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0008",
       "fixture_ids": [
-        "tests/fixtures/db/required-catalog-0006.json"
+        "tests/fixtures/db/required-catalog-0007.json"
       ],
       "clock_instant": null,
       "concurrency_seed": null,
