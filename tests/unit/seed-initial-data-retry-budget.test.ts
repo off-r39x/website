@@ -10,6 +10,7 @@ import {
 import {
   acquireMigrationLock,
   MigrationLockTimeoutError,
+  MigrationPrincipalError,
 } from "../../packages/db/src/migration-lock.ts";
 import { createLogger } from "../../packages/observability/src/index.ts";
 import { buildInitialDataInput, SEED_ACTOR_REF } from "../harness/db/initial-data.ts";
@@ -1207,5 +1208,110 @@ describe("TC-TST-SEED-006-021 a re-check that failed and is closed after the wal
       auditEventIds: ["00000000-0000-4000-8000-0000000000c1"],
     });
     expect(xactLocks(recheck.statements)).toHaveLength(2);
+  });
+});
+
+describe("TC-TST-SEED-003-021 an error seen after the deadline of a connection or a migration lock is that deadline (REL-DB-011, SPEC-150 section 11, SPEC-180 section 24)", () => {
+  // The error is seen before the timer callback (an event loop blocked past the deadline): only the
+  // monotonic clock shows that it came too late. The result is the one the timer would have given.
+  /** A client whose role check answers `role` and whose `failing` statement fails, after `advanceMs`. */
+  function lockClient(options: { advanceMs: number; role?: string; failing?: RegExp }) {
+    const state = { ended: 0 };
+    const client = {
+      on: () => client,
+      end: async () => {
+        state.ended += 1;
+      },
+      query: async (query: Query) => {
+        const text = textOf(query);
+        if (/current_user/i.test(text)) {
+          if (!options.failing) clock.now += options.advanceMs;
+          return { rows: [{ role: options.role ?? "app_migrator" }] };
+        }
+        if (options.failing?.test(text)) {
+          clock.now += options.advanceMs;
+          throw Object.assign(new Error("synthetic statement failure"), { code: "42501" });
+        }
+        return { rows: [] };
+      },
+    };
+    return { client: client as unknown as Client, state };
+  }
+
+  it("TC-TST-SEED-003-021 (a) an authentication rejection seen at 3001 ms of the connection budget: the budget ran out, not a rejection; no further attempt", async () => {
+    let calls = 0;
+    const exhaustedAfter: number[] = [];
+    const client = await connectWithinBudget(
+      async () => {
+        calls += 1;
+        clock.now += 3001;
+        throw authenticationRejected("28P01");
+      },
+      { onExhausted: (attempts) => exhaustedAfter.push(attempts) },
+    );
+    expect(client).toBeUndefined();
+    expect(calls).toBe(1);
+    expect(exhaustedAfter).toEqual([1]);
+    expect(clock.sleeps).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-021 (b) an authentication rejection seen at exactly 3000 ms: the budget ran out", async () => {
+    const client = await connectWithinBudget(async () => {
+      clock.now += 3000;
+      throw authenticationRejected("28000");
+    });
+    expect(client).toBeUndefined();
+  });
+
+  it("TC-TST-SEED-003-021 (c) an authentication rejection seen at 2999 ms: a rejection, not retried", async () => {
+    await expect(
+      connectWithinBudget(async () => {
+        clock.now += 2999;
+        throw authenticationRejected("28P01");
+      }),
+    ).rejects.toBeInstanceOf(DatabaseAuthenticationRejected);
+  });
+
+  it("TC-TST-SEED-003-021 (d) the command's first connection rejected at 3001 ms: FAILED(TEMPORARY_FAILURE), the budget is exhausted", async () => {
+    const { logger, named } = collectingLogger();
+    const opened = await openSeedConnection(
+      async () => {
+        clock.now += 3001;
+        throw authenticationRejected("28P01");
+      },
+      { executionId: EXECUTION_ID, logger },
+    );
+    expect(opened).toMatchObject({
+      kind: "failed",
+      outcome: { outcome: "FAILED", failureClass: "TEMPORARY_FAILURE" },
+    });
+    expect(opened.kind === "failed" ? opened.outcome : undefined).not.toMatchObject({
+      errorCode: "DATABASE_AUTHENTICATION_FAILED",
+    });
+    expect(named(EXHAUSTED)).toHaveLength(1);
+  });
+
+  it("TC-TST-SEED-003-021 (e) a role check answered at 1001 ms of the migration lock deadline with another role: MigrationLockTimeoutError, the connection is ended", async () => {
+    const late = lockClient({ advanceMs: 1001, role: "app_runtime" });
+    await expect(acquireMigrationLock(late.client, { deadlineMs: 1000 })).rejects.toBeInstanceOf(
+      MigrationLockTimeoutError,
+    );
+    expect(late.state.ended).toBe(1);
+  });
+
+  it("TC-TST-SEED-003-021 (f) a session setting that fails at exactly 1000 ms: MigrationLockTimeoutError, the connection is ended", async () => {
+    const late = lockClient({ advanceMs: 1000, failing: /SET lock_timeout/ });
+    await expect(acquireMigrationLock(late.client, { deadlineMs: 1000 })).rejects.toBeInstanceOf(
+      MigrationLockTimeoutError,
+    );
+    expect(late.state.ended).toBe(1);
+  });
+
+  it("TC-TST-SEED-003-021 (g) another role answered at 999 ms: MigrationPrincipalError, as before", async () => {
+    const inTime = lockClient({ advanceMs: 999, role: "app_runtime" });
+    await expect(acquireMigrationLock(inTime.client, { deadlineMs: 1000 })).rejects.toBeInstanceOf(
+      MigrationPrincipalError,
+    );
+    expect(inTime.state.ended).toBe(0);
   });
 });
