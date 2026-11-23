@@ -18450,6 +18450,40 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-006-021",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock (Math.random 0.99); the COMMIT of the seed transaction is lost, so the result goes to the re-check on a new connection; the error and the ROLLBACK acknowledgement arrive at once in real time, before any timer callback, while the controlled clock advances: (a) a 55P03 on the re-check xact lock seen at 8001 ms of the first re-check; (b) a 55P03 seen at 7000 ms, its ROLLBACK acknowledged 1001 ms later; (c) a 55P03 at 1000 ms, its ROLLBACK in time, then the run's Audit Events are found",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) and (b) UNKNOWN_RESULT (COMMIT_RESULT_UNKNOWN) at attempt 1, after one re-check transaction, not retried; (c) the re-check is retried once and is CREATED from it (its Audit Event ids)"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(a) and (b): no reliability.retry.exhausted record (the first re-check is not bound by a retry budget)"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-002-006",
       "level": "DB",
       "suite": "db",
@@ -18944,6 +18978,40 @@
       "expected_provider_postconditions": [],
       "expected_observability": [
         "(a): no reliability.retry.attempted record; (d): one reliability.retry.exhausted at attempt 2 with sqlstate 55P03"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-020",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with a scripted connection double and a controlled clock (Math.random 0.99); the error and the ROLLBACK acknowledgement arrive at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): a constraint violation (23514) on the first INSERT, its ROLLBACK acknowledged (a) at 8001 ms, (b) at exactly 8000 ms, (c) at 7999 ms of the 8 s transaction wall clock; (d) the constraint violation itself seen at 8001 ms; (e) a 55P03 seen at 8001 ms of the first attempt; (f) a retry after 55P03 at 4800 ms and a 49.5 ms backoff, with 150.5 ms left of the 5 s budget, whose constraint violation is seen in time and whose ROLLBACK fails 151 ms later (the connection is gone)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b), (d) and (e) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1, not INITIAL_DATA_CONSTRAINT_REJECTED and not retried; (c) FAILED (PERMANENT_FAILURE, INITIAL_DATA_CONSTRAINT_REJECTED); (f) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 2",
+        "No COMMIT is sent"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(e): no reliability.retry.attempted and no reliability.retry.exhausted record; (f): one reliability.retry.exhausted at attempt 2 with sqlstate 55P03"
       ],
       "sensitivity_class": "synthetic",
       "critical": true
