@@ -50,6 +50,13 @@ function scriptedClient(options: {
   commitAdvanceMs?: number;
   /** The re-check finds the Audit Events of the run: its COMMIT took effect. */
   committedAudit?: boolean;
+  /** How many Events exist (each with an Offering). 0 when unset. */
+  events?: number;
+  /**
+   * How long each ROLLBACK "takes" on the controlled clock; like `commitAdvanceMs`, the
+   * acknowledgement arrives at once in real time, before any timer callback.
+   */
+  rollbackAdvanceMs?: number;
   /** Consumed in order before `xactLock` applies: how long each xact lock takes, and its SQLSTATE. */
   xactLocks?: { advanceMs: number; code?: "40001" | "40P01" | "55P03" }[];
 }) {
@@ -82,6 +89,19 @@ function scriptedClient(options: {
         clock.now += options.commitAdvanceMs ?? 0;
         return { rows: [] };
       }
+      if (/^\s*ROLLBACK/i.test(text)) {
+        clock.now += options.rollbackAdvanceMs ?? 0;
+        return { rows: [] };
+      }
+      if (/FROM app\.events ORDER BY id LIMIT 2/i.test(text))
+        return {
+          rows: Array.from({ length: options.events ?? 0 }, (_, i) => ({
+            id: String(1000 + i),
+            public_ref: `00000000-0000-4000-9000-${String(1000 + i).padStart(12, "0")}`,
+          })),
+        };
+      if (/FROM app\.entry_ticket_offerings WHERE event_id/i.test(text))
+        return { rows: [{ present: (options.events ?? 0) > 0 }] };
       if (options.committedAudit && /from app\.audit_events where operation_id/i.test(text))
         return {
           rows: [
@@ -905,5 +925,130 @@ describe("TC-TST-SEED-006-019 a COMMIT acknowledged after the wall clock is an u
     });
     expect(named(OPENED)).toEqual([expect.objectContaining({ attempt_number: 2 })]);
     expect(commits(recheck.statements)).toEqual([]);
+  });
+});
+
+describe("TC-TST-SEED-003-019 a seed transaction whose ROLLBACK is acknowledged after the wall clock is FAILED, not NOOP (SPEC-150 section 9, DB-SEED-002)", () => {
+  // The acknowledgement is seen before the timer callback (the event loop was blocked past the
+  // deadline): only the monotonic clock shows that the transaction ran past its wall clock.
+  const noReconnect = async (): Promise<Client> => {
+    throw new Error("no new connection expected");
+  };
+
+  it("TC-TST-SEED-003-019 (a) NOOP verdict, ROLLBACK acknowledged at 8001 ms of the 8 s: FAILED, not retried", async () => {
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({ xactLock: "grant", events: 1, rollbackAdvanceMs: 8001 });
+    const outcome = await seedWith(main.client, noReconnect, logger);
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      attemptNumber: 1,
+      failureClass: "TEMPORARY_FAILURE",
+      errorCode: "DATABASE_TEMPORARY_FAILURE",
+    });
+    expect(xactLocks(main.statements)).toHaveLength(1);
+    expect(commits(main.statements)).toEqual([]);
+    expect(named(ATTEMPTED)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-003-019 (b) NOOP verdict, ROLLBACK acknowledged at exactly 8000 ms: the deadline is reached, FAILED", async () => {
+    const main = scriptedClient({ xactLock: "grant", events: 1, rollbackAdvanceMs: 8000 });
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject({ outcome: "FAILED", failureClass: "TEMPORARY_FAILURE" });
+  });
+
+  it("TC-TST-SEED-003-019 (c) NOOP verdict, ROLLBACK acknowledged at 7999 ms: NOOP", async () => {
+    const main = scriptedClient({ xactLock: "grant", events: 1, rollbackAdvanceMs: 7999 });
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject({ outcome: "NOOP", attemptNumber: 1 });
+  });
+
+  it("TC-TST-SEED-003-019 (d) a retry with a NOOP verdict, ROLLBACK acknowledged after what was left of the 5 s budget: FAILED, budget exhausted", async () => {
+    // Attempt 1 ends at 4800 ms with 55P03; after the 49.5 ms backoff attempt 2 has 150.5 ms left.
+    const { logger, named } = collectingLogger();
+    const main = scriptedClient({
+      xactLock: "grant",
+      xactLocks: [{ advanceMs: 4800, code: "55P03" }],
+      events: 1,
+      rollbackAdvanceMs: 151,
+    });
+    const outcome = await seedWith(main.client, noReconnect, logger);
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      attemptNumber: 2,
+      failureClass: "TEMPORARY_FAILURE",
+      errorCode: "DATABASE_TEMPORARY_FAILURE",
+    });
+    expect(named(EXHAUSTED)).toEqual([
+      expect.objectContaining({ attempt_number: 2, sqlstate: "55P03" }),
+    ]);
+  });
+
+  it("TC-TST-SEED-003-019 (e) the Event is not unique, ROLLBACK acknowledged at 8001 ms: FAILED by the wall clock like any verdict", async () => {
+    const main = scriptedClient({ xactLock: "grant", events: 2, rollbackAdvanceMs: 8001 });
+    const outcome = await seedWith(main.client, noReconnect);
+    expect(outcome).toMatchObject({
+      outcome: "FAILED",
+      failureClass: "TEMPORARY_FAILURE",
+      errorCode: "DATABASE_TEMPORARY_FAILURE",
+    });
+  });
+});
+
+describe("TC-TST-SEED-006-020 a re-check whose ROLLBACK is acknowledged after the wall clock decides nothing: UNKNOWN_RESULT (SPEC-150 section 9, REL-DB-006, DB-SEED-002 (4))", () => {
+  const OPENED = "reliability.unknown_result.opened";
+  const RESOLVED = "reliability.unknown_result.resolved";
+  /** The COMMIT of the seed transaction is lost: the result goes to the re-check. */
+  const lostCommit = () => scriptedClient({ xactLock: "grant", commit: "lost" });
+
+  it("TC-TST-SEED-006-020 (a) the re-check finds the Audit Events, ROLLBACK acknowledged at 8001 ms: UNKNOWN_RESULT, not CREATED", async () => {
+    const { logger, named } = collectingLogger();
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      committedAudit: true,
+      rollbackAdvanceMs: 8001,
+    });
+    const outcome = await seedWith(lostCommit().client, async () => recheck.client, logger);
+    expect(outcome).toMatchObject({
+      outcome: "UNKNOWN_RESULT",
+      attemptNumber: 1,
+      errorCode: "COMMIT_RESULT_UNKNOWN",
+    });
+    expect(named(OPENED)).toHaveLength(1);
+    expect(named(RESOLVED).map((record) => record.result)).not.toContain("SUCCESS");
+    expect(xactLocks(recheck.statements)).toHaveLength(1);
+    expect(commits(recheck.statements)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-006-020 (b) another run completed the data, ROLLBACK acknowledged at exactly 8000 ms: UNKNOWN_RESULT, not NOOP", async () => {
+    const recheck = scriptedClient({ xactLock: "grant", events: 1, rollbackAdvanceMs: 8000 });
+    const outcome = await seedWith(lostCommit().client, async () => recheck.client);
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT", attemptNumber: 1 });
+    expect(commits(recheck.statements)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-006-020 (c) uncommitted, ROLLBACK acknowledged at 8001 ms: UNKNOWN_RESULT, the seed is not run again", async () => {
+    const recheck = scriptedClient({ xactLock: "grant", rollbackAdvanceMs: 8001 });
+    let connects = 0;
+    const outcome = await seedWith(lostCommit().client, async () => {
+      connects += 1;
+      return recheck.client;
+    });
+    expect(outcome).toMatchObject({ outcome: "UNKNOWN_RESULT", attemptNumber: 1 });
+    expect(connects).toBe(1);
+    expect(xactLocks(recheck.statements)).toHaveLength(1);
+    expect(commits(recheck.statements)).toEqual([]);
+  });
+
+  it("TC-TST-SEED-006-020 (d) the re-check finds the Audit Events, ROLLBACK acknowledged at 7999 ms: CREATED from the re-check", async () => {
+    const recheck = scriptedClient({
+      xactLock: "grant",
+      committedAudit: true,
+      rollbackAdvanceMs: 7999,
+    });
+    const outcome = await seedWith(lostCommit().client, async () => recheck.client);
+    expect(outcome).toMatchObject({
+      outcome: "CREATED",
+      auditEventIds: ["00000000-0000-4000-8000-0000000000c1"],
+    });
   });
 });
