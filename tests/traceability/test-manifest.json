@@ -18381,6 +18381,41 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-006-019",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "REL-DB-011",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: seedInitialData with scripted connection doubles and a controlled clock (Math.random 0.99); the COMMIT acknowledgement arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): (a) at 8001 ms, (b) at exactly 8000 ms, (c) at 7999 ms of the 8 s transaction wall clock; (d) a retry after 55P03 at 4800 ms and a 49.5 ms backoff, acknowledged 151 ms later, past the 150.5 ms left of the 5 s budget; the re-check connection finds the run's Audit Events",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) and (b) CREATED at attempt 1 from the re-check (its Audit Event ids), not from the acknowledgement; (c) CREATED at attempt 1 from the acknowledgement, no re-check; (d) CREATED at attempt 2 from the re-check",
+        "(a), (b) and (d): the re-check runs on a new connection and no seed transaction is run again (no COMMIT on it)"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(a), (b) and (d): reliability.unknown_result.opened (COMMIT_RESULT_UNKNOWN, the attempt's attempt_number), then reliability.unknown_result.resolved SUCCESS; (c): no reliability.unknown_result.opened"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-002-006",
       "level": "DB",
       "suite": "db",
