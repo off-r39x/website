@@ -43,6 +43,10 @@ const UNSAFE_URL_CHARACTERS = /[\s\\?#\p{Cc}]/u;
 // "https:host" and "https:/host" parse as https://host/ without a base, but a browser resolves them
 // against the page; requiring "https://" keeps the checked URL and the one the browser uses the same.
 const HTTPS_AUTHORITY_PREFIX = /^https:\/\//i;
+// The authority is the text between "https://" and the first "/" (no "?", "#" or "\" reach this check).
+// The parser drops an empty userinfo ("https://@host", "https://:@host"), leaving username and password
+// empty, so a userinfo delimiter is refused here, before parsing. An "@" in the path is not userinfo.
+const AUTHORITY_WITH_USERINFO = /^https:\/\/[^/]*@/i;
 
 /**
  * SEC-WEB-026: an absolute HTTPS URL parsed as WHATWG URL. No userinfo, no port other than 443 (the
@@ -54,6 +58,7 @@ const HTTPS_AUTHORITY_PREFIX = /^https:\/\//i;
  */
 function isSponsorLogoUrl(value: string): boolean {
   if (UNSAFE_URL_CHARACTERS.test(value) || !HTTPS_AUTHORITY_PREFIX.test(value)) return false;
+  if (AUTHORITY_WITH_USERINFO.test(value)) return false;
   let url: InstanceType<typeof URL>;
   try {
     url = new URL(value);
