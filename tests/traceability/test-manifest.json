@@ -19017,6 +19017,40 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-003-021",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "INF-SEED-004",
+        "REL-DB-011",
+        "TST-SEED-003",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: connectWithinBudget, openSeedConnection and acquireMigrationLock with scripted doubles and a controlled clock; the error arrives at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): an authentication rejection (28P01 / 28000) at (a) 3001 ms, (b) exactly 3000 ms, (c) 2999 ms of the 3 s connection budget, (d) at 3001 ms on the command's first connection; with a 1000 ms migration lock deadline, (e) the role check answered with another role at 1001 ms, (f) a session setting that fails (42501) at exactly 1000 ms, (g) another role answered at 999 ms",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a), (b): no client and no DatabaseAuthenticationRejected; the budget ran out after 1 attempt, no backoff; (c): DatabaseAuthenticationRejected; (d): FAILED (TEMPORARY_FAILURE), not DATABASE_AUTHENTICATION_FAILED",
+        "(e), (f): MigrationLockTimeoutError and the connection is ended; (g): MigrationPrincipalError and the connection is not ended"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(d): one reliability.retry.exhausted record"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-DB-ARC-007-003",
       "level": "Unit",
       "suite": "unit",

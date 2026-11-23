@@ -5924,9 +5924,10 @@
         "TC-TST-SEED-003-011",
         "TC-TST-SEED-006-014",
         "TC-TST-SEED-003-004",
-        "TC-TST-SEED-003-015"
+        "TC-TST-SEED-003-015",
+        "TC-TST-SEED-003-021"
       ],
-      "notes": "implementation mapping only: runs as app_migrator under the migration lock handle, and takes the migration lock again on the new connection before the re-check after an unknown COMMIT result; the lock acquisition is bounded to 60 seconds on the client too (a connection that stops answering is abandoned); the command connects only to the direct endpoint it checked (decoded host, no -pooler host in any case, port fixed to 5432, database name required so that PGDATABASE cannot choose it, no host with a slash, which pg would take as a Unix socket without TLS); SQL limited to the target tables, audit_events, lock and session settings; a lock granted after its deadline is not used (the client is ended)"
+      "notes": "implementation mapping only: runs as app_migrator under the migration lock handle, and takes the migration lock again on the new connection before the re-check after an unknown COMMIT result; the lock acquisition is bounded to 60 seconds on the client too (a connection that stops answering is abandoned); the command connects only to the direct endpoint it checked (decoded host, no -pooler host in any case, port fixed to 5432, database name required so that PGDATABASE cannot choose it, no host with a slash, which pg would take as a Unix socket without TLS); SQL limited to the target tables, audit_events, lock and session settings; a lock granted after its deadline is not used (the client is ended); an error of the migration lock acquisition seen at or after its deadline, measured on the monotonic clock, is a lock timeout whatever the error (the client is ended), as the timer would have made it"
     },
     {
       "rule_id": "INF-SEED-004",
@@ -5972,9 +5973,10 @@
         "TC-TST-SEED-003-019",
         "TC-TST-SEED-006-020",
         "TC-TST-SEED-003-020",
-        "TC-TST-SEED-006-021"
+        "TC-TST-SEED-006-021",
+        "TC-TST-SEED-003-021"
       ],
-      "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits; the first connection is acquired within the SPEC-150 temporary connection budget (3 attempts, 3 seconds, backoff included), else FAILED; a connection that succeeds after the budget is ended, not used; an authentication rejection (SQLSTATE class 28) is not retried"
+      "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits; the first connection is acquired within the SPEC-150 temporary connection budget (3 attempts, 3 seconds, backoff included), else FAILED; a connection that succeeds after the budget is ended, not used; an authentication rejection (SQLSTATE class 28) is not retried; a connection failure seen at or after the end of the connection budget, measured on the monotonic clock, is the budget running out whatever it is, an authentication rejection included"
     },
     {
       "rule_id": "INF-SEED-005",
