@@ -146,7 +146,11 @@ re-check are both acquired within the SPEC-150 budget for a temporary connection
 or a migration lock whose success arrives after its deadline is closed, not used. A COMMIT whose
 acknowledgement arrives at or after the wall clock of its transaction (the 8 seconds, or what was left
 of the retry budget), as measured on the monotonic clock, is an unknown result like a lost one: it is
-re-checked, not reported `CREATED` from the acknowledgement. A server that refuses
+re-checked, not reported `CREATED` from the acknowledgement. Likewise, a transaction whose verdict
+was reached before COMMIT (`NOOP`, a failure, or a re-check verdict) ends with a ROLLBACK, and a
+ROLLBACK acknowledged at or after that wall clock ends the transaction by its wall clock: the seed
+transaction is `FAILED` (`TEMPORARY_FAILURE`, `DATABASE_TEMPORARY_FAILURE`), not `NOOP`, and the
+re-check decides nothing (`UNKNOWN_RESULT`). A server that refuses
 the credentials (SQLSTATE class 28, such as `28P01`) is not retried: the first connection ends as
 `FAILED` (`PERMANENT_FAILURE`, `DATABASE_AUTHENTICATION_FAILED`), the re-check as `UNKNOWN_RESULT`.
 When a retry budget runs out (by attempts or by elapsed time, for the connection, the seed transaction
