@@ -28,6 +28,16 @@ function forge(payload: Uint8Array): string {
 }
 const json = (value: unknown) => new TextEncoder().encode(JSON.stringify(value));
 const goodPayload = { v: 1, kv: 1, k: [TIMESTAMP], r: REF };
+// SPEC-110 section 9 / 12 API-QRY-005 (UCR-110-014): lowercase 36 characters that are still not a
+// canonical UUID (nil, max, version digit outside 1-8, variant digit outside 8/9/a/b).
+const NON_CANONICAL_REFS: [string, string][] = [
+  ["nil UUID", "00000000-0000-0000-0000-000000000000"],
+  ["max UUID", "ffffffff-ffff-ffff-ffff-ffffffffffff"],
+  ["version 0", "00000000-0000-0000-8000-0000000000a1"],
+  ["version 9", "00000000-0000-9000-8000-0000000000a1"],
+  ["variant 7", "00000000-0000-4000-7000-0000000000a1"],
+  ["variant c", "00000000-0000-4000-c000-0000000000a1"],
+];
 
 describe("TC-API-QRY-004-001 cursor round trip and opacity", () => {
   it("decodes to the encoded position, deterministically, in base64url within 512 characters", () => {
@@ -51,6 +61,10 @@ describe("TC-API-QRY-004-001 cursor round trip and opacity", () => {
   it("refuses a position with an internal ID or a non-canonical public reference", () => {
     expect(() => cursor.encode(K1, { ...P, id: 123 } as never, B)).toThrow();
     expect(() => cursor.encode(K1, { ...P, publicRef: REF.toUpperCase() }, B)).toThrow();
+  });
+
+  it.each(NON_CANONICAL_REFS)("refuses to issue a cursor for a %s public reference", (_l, ref) => {
+    expect(() => cursor.encode(K1, { ...P, publicRef: ref }, B)).toThrow();
   });
 
   it("stays within 512 characters with a timestamp and a UUID as sort keys", () => {
@@ -153,6 +167,13 @@ describe("TC-API-QRY-004-002 malformed or tampered tokens never decode and never
       expect(rejected(forge(payload)), `payload ${index}`).toEqual({ ok: false });
     }
   });
+
+  it.each(NON_CANONICAL_REFS)(
+    "rejects a correctly signed payload with a %s reference",
+    (_l, ref) => {
+      expect(rejected(forge(json({ ...goodPayload, r: ref })))).toEqual({ ok: false });
+    },
+  );
 
   it("rejects a correctly signed numeric payload with a fraction or an unsafe integer (F-5)", () => {
     // 1e400 parses to Infinity in JSON.parse.

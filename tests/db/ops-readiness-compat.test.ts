@@ -6,6 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import type { LogEvent } from "@off-r39x/observability";
 import { Client, Pool, type PoolClient } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { INTERVAL_STYLE_OPTION } from "../../packages/db/src/database.ts";
 import {
   checkReadiness,
   computeMigrationSetHash,
@@ -16,6 +17,7 @@ import { observeDatabase } from "../../packages/db/src/observability.ts";
 import { catalogSatisfies, type ReadinessExpectations } from "../../packages/db/src/readiness.ts";
 import { catalogQuery, requiredCatalog } from "../../packages/db/src/schema-contract.ts";
 import { installSyntheticDirectory, prepareFoundationDatabase } from "../harness/db/foundation.ts";
+import { testSessionOptions } from "../harness/db/session-options.ts";
 
 // SPEC-180 INF-HLT-006 (UCR-180-003): an old build (bundled migration set = the repository set) stays
 // Ready after a later backward-compatible expand migration; every other difference stays Not Ready.
@@ -33,7 +35,9 @@ const REPO_MIGRATIONS = resolve(original, "../packages/db/migrations");
 const COMPAT_EXPAND = resolve(original, "fixtures/migrations/compat-expand.sql");
 const EXPAND_SUFFIX = "synthetic_expand";
 
-const READINESS_OPTIONS = "-c timezone=UTC -c lock_timeout=1000";
+const READINESS_OPTIONS = testSessionOptions(
+  `-c timezone=UTC ${INTERVAL_STYLE_OPTION} -c lock_timeout=1000`,
+);
 const REPEATABLE_READ_OPTIONS = `${READINESS_OPTIONS} -c default_transaction_isolation=repeatable\\ read`;
 
 type Migration = { version: string; sql: string };

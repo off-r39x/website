@@ -25,6 +25,8 @@ export type { RejectionCode, ServiceResult, TemporaryCode } from "./result.ts";
 export {
   type CurrentProfileStore,
   type ProfileRecord,
+  type ProvisionCurrentProfileResult,
+  provisionCurrentProfile,
   type ReadCurrentProfileResult,
   readCurrentProfile,
   type UpdateCurrentProfileResult,

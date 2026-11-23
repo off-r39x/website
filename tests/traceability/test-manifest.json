@@ -18179,13 +18179,13 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "@off-r39x/api-contract exports exactly announcementRefParamSchema, createPublicReadRpc, createPublicRpc, currentProfileSchema, emptyPublicQuerySchema, errorRetryable, errorSchema, errorStatuses, listDataSchema, listQuerySchema, pageQuery, principalNavigationSchema, publicAnnouncementListSchema, publicAnnouncementSchema, publicEntryOfferingListSchema, publicEventSchema, publicFaqListSchema, publicSponsorLogoListSchema, successSchema and updateCurrentProfileRequestSchema at runtime (PR-L2-1a added the two profile schemas, PR-S0-3a added errorRetryable, PR-S0-3b added the three list schemas, PR-L2-3 added the public read builder and its eight schemas)",
-        "ErrorCode, PrincipalNavigation, CurrentProfile, UpdateCurrentProfileRequest and AppType keep their compile-time shapes, including the hc client members self.principal.$get, self.profile.$get and self.profile.$patch and (PR-L2-3) public.event.$get, public.faqs.$get, public.announcements.$get, public.announcements[\":announcement_ref\"].$get, public[\"entry-offerings\"].$get and public[\"sponsor-logos\"].$get (enforced by pnpm typecheck)",
-        "createPublicRpc registers only GET /api/v1/self/principal, GET /api/v1/self/profile and PATCH /api/v1/self/profile (guard, body validator and handler entries) and answers them with the data/meta envelope built from the injected principal, profile and request ID; a principal or profile with an extra key, or a profile updated_at without milliseconds, is rejected by the strict schema with 500; POST and PUT on the profile path and other paths are not registered",
-        "Every route of createPublicRpc validates the whole success envelope with successSchema: a request_id that is not a UUID, an upper-case UUID or empty makes GET principal, GET profile and PATCH profile answer 500 with no data",
-        "An upper- or mixed-case profile_ref from the principal or the profile dependency makes the three routes answer 500 without the reference",
-        "A request_id or profile_ref that is the nil UUID or the max UUID makes GET principal, GET profile and PATCH profile answer 500 without the value",
-        "createPublicReadRpc registers only GET on the six public read paths (a guard, a query validator and a handler entry each, in the order API-PUB-001, 002, 003, 004, 005, 012), answers each with the data/meta envelope built from the injected loader, answers no other method (404 from the builder alone) and fails closed (500, no data) for a request_id that is not a canonical UUID"
+        "@off-r39x/api-contract exports exactly announcementRefParamSchema, createPublicReadRpc, createPublicRpc, currentProfileSchema, emptyPublicQuerySchema, errorRetryable, errorSchema, errorStatuses, listDataSchema, listQuerySchema, pageQuery, principalNavigationSchema, provisionCurrentProfileRequestSchema, publicAnnouncementListSchema, publicAnnouncementSchema, publicEntryOfferingListSchema, publicEventSchema, publicFaqListSchema, publicSponsorLogoListSchema, successSchema and updateCurrentProfileRequestSchema at runtime (PR-L2-1a added the two profile schemas, PR-S0-3a added errorRetryable, PR-S0-3b added the three list schemas, PR-L2-1b the provision request schema, PR-L2-3 added the public read builder and its eight schemas)",
+        "ErrorCode, PrincipalNavigation, CurrentProfile, UpdateCurrentProfileRequest and AppType keep their compile-time shapes, including the hc client members self.principal.$get, self.profile.$get, self.profile.$patch and self.profile.provision.$post and (PR-L2-3) public.event.$get, public.faqs.$get, public.announcements.$get, public.announcements[\":announcement_ref\"].$get, public[\"entry-offerings\"].$get and public[\"sponsor-logos\"].$get (enforced by pnpm typecheck)",
+        "createPublicRpc registers only GET /api/v1/self/principal, GET /api/v1/self/profile, PATCH /api/v1/self/profile and POST /api/v1/self/profile/provision (guard, body validator and handler entries) and answers them with the data/meta envelope built from the injected principal, profile and request ID (provision: 201 when created, 200 otherwise); a principal or profile with an extra key, or a profile updated_at without milliseconds, is rejected by the strict schema with 500; POST and PUT on the profile path, GET and PATCH on the provision path and other paths are not registered",
+        "createPublicReadRpc registers only GET on the six public read paths (a guard, a query validator and a handler entry each, in the order API-PUB-001, 002, 003, 004, 005, 012), answers each with the data/meta envelope built from the injected loader, answers no other method (404 from the builder alone) and fails closed (500, no data) for a request_id that is not a canonical UUID",
+        "Every route of createPublicRpc validates the whole success envelope with successSchema: a request_id that is not a UUID, an upper-case UUID or empty makes GET principal, GET profile, PATCH profile and POST profile/provision answer 500 with no data",
+        "An upper- or mixed-case profile_ref from the principal or the profile dependency makes the four routes answer 500 without the reference",
+        "A request_id or profile_ref that is the nil UUID or the max UUID makes GET principal, GET profile, PATCH profile and POST profile/provision answer 500 without the value"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -19609,11 +19609,16 @@
       "test_case_id": "TC-TST-OBS-001-001",
       "level": "API",
       "suite": "api",
-      "upstream_rule_ids": ["TST-OBS-001", "SPEC-160-15", "OBS-LOG-006"],
+      "upstream_rule_ids": [
+        "TST-OBS-001",
+        "SPEC-160-15",
+        "OBS-LOG-006"
+      ],
       "system_invariant_ids": [],
       "api_operation_ids": [
         "API-AUTH-001",
         "API-AUTH-002",
+        "API-AUTH-003",
         "API-AUTH-004",
         "API-PUB-001",
         "API-PUB-002",
@@ -19628,13 +19633,22 @@
       "clock_instant": null,
       "concurrency_seed": null,
       "fault_points": [],
-      "expected_http": [200, 400, 401, 404, 405, 503],
+      "expected_http": [
+        200,
+        400,
+        401,
+        404,
+        405,
+        503
+      ],
       "expected_domain_postconditions": [
-        "Each request emits exactly one http.request.completed record, last; http_route is one of the 25 registered templates (2 health, the 6 public read routes, the principal route, the profile route and 15 auth routes) or '/' otherwise, with the recorded key set, method, status, level and result"
+        "Each request emits exactly one http.request.completed record, last; http_route is one of the 26 registered templates (2 health, the 6 public read routes, the principal route, the profile route, the profile provision route and 15 auth routes) or '/' otherwise, with the recorded key set, method, status, level and result"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
-      "expected_observability": ["http.request.completed"],
+      "expected_observability": [
+        "http.request.completed"
+      ],
       "sensitivity_class": "synthetic",
       "critical": false
     },
@@ -19739,11 +19753,17 @@
       "test_case_id": "TC-DEV-API-002-002",
       "level": "API",
       "suite": "api",
-      "upstream_rule_ids": ["DEV-API-002", "DEV-RLM-005", "SPEC-110-14", "SPEC-110-15"],
+      "upstream_rule_ids": [
+        "DEV-API-002",
+        "DEV-RLM-005",
+        "SPEC-110-14",
+        "SPEC-110-15"
+      ],
       "system_invariant_ids": [],
       "api_operation_ids": [
         "API-AUTH-001",
         "API-AUTH-002",
+        "API-AUTH-003",
         "API-AUTH-004",
         "API-PUB-001",
         "API-PUB-002",
@@ -19761,7 +19781,7 @@
       "expected_http": null,
       "expected_domain_postconditions": [
         "app.ts exports exactly ApiFailure, createApp, requireCapability, requirePrincipal and requireVerifiedEmail at runtime and keeps its type exports",
-        "The ordered (method, path) list of createApp().routes for both configurations equals the list recorded before the split plus the PR-L2-1a profile entries (GET guard and handler, PATCH guard, body validator and handler) plus the PR-L2-3 public read entries (GET guard, query validator and handler for each of the six public paths, mounted first); no staff, admin or webhook path, no public path but the six public read paths and no self path other than /api/v1/self/principal and /api/v1/self/profile is mounted"
+        "The ordered (method, path) list of createApp().routes for both configurations equals the list recorded before the split plus the PR-L2-1a profile entries (GET guard and handler, PATCH guard, body validator and handler), the PR-L2-1b provision entries (POST guard, body validator and handler) and the PR-L2-3 public read entries (GET guard, query validator and handler for each of the six public paths, mounted first); no staff, admin or webhook path, no public path but the six public read paths and no self path other than /api/v1/self/principal, /api/v1/self/profile and /api/v1/self/profile/provision is mounted"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -26950,6 +26970,382 @@
       "critical": false
     },
     {
+      "test_case_id": "TC-DB-AUTH-001-001",
+      "level": "API",
+      "suite": "api",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "API-AUTH-003",
+        "AR-ID-004",
+        "AR-ID-001",
+        "AR-ID-002",
+        "SPEC-110-19",
+        "SPEC-110-21",
+        "SPEC-110-51",
+        "SPEC-110-13",
+        "SPEC-110-16",
+        "SPEC-110-24",
+        "SPEC-110-24.1",
+        "SEC-API-022",
+        "API-IDM-003",
+        "AR-ID-006",
+        "REL-AUTH-005"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": ["API-AUTH-003"],
+      "db_constraint_names": [],
+      "preconditions": "createApp with a stub Principal store, a recording CurrentProfileStore (AppDependencies.profiles) with DI fault injection and the in-memory rate limit; synthetic subjects and refs only; no database (G4 slice; the real PostgreSQL slice is TC-DB-AUTH-001-004/005/006). The success data has the shape of API-AUTH-002, as SPEC-110 v2.10.0 section 25 API-AUTH-003 states (UCR-110-010, INCORPORATED)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": ["FP.DB.INSIDE_STATEMENT", "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"],
+      "expected_http": [200, 201, 400, 401, 405, 413, 415, 500, 503],
+      "expected_domain_postconditions": [
+        "201 for a verified subject without a Profile and 200 for an existing one (Role holders included), with { data: { profile_ref, display_name, updated_at }, meta: { request_id } }; a new Profile has display_name null and the data never carries the Email or Auth Subject; the store is called once with the verified subject, also for a Profile that exists",
+        "The second request is 200 with the first request's profile_ref; Idempotency-Key is ignored (the store is called twice, 201 then 200); an unknown query is ignored and the token's subject is used",
+        "Unknown fields, display_name, null, array, string and boolean bodies are 400 VALIDATION_FAILED; empty, broken and duplicate-key JSON is 400 MALFORMED_REQUEST; non-JSON media types are 415; more than 64 KiB is 413; none of them provisions, and body validation follows authentication (no token with a bad body is 401 without a Principal read)",
+        "GET, PUT, PATCH and DELETE on the path are 405 with Allow: POST; POST /api/v1/self/profile keeps Allow: GET, HEAD, PATCH",
+        "Store unavailable is 503 DATABASE_TEMPORARY_FAILURE (retryable); commit_unknown is 503 and the resend is 200 with the same profile_ref and one row; a throwing store and an empty reselect are 500 INTERNAL_ERROR (not retryable); without the profiles dependency it is 503 TEMPORARY_UNAVAILABLE before the Principal store",
+        "The completion log carries operation_id API-AUTH-003, http_route /api/v1/self/profile/provision, http_method POST and the status; there is no authorization.decision.completed (no Capability) and no BUSINESS_PROFILE_UNRESOLVED rejection for a request that proceeds without a Profile"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "http.request.completed",
+        "auth.email_verified_resolution.completed"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-AUTH-001-002",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "API-AUTH-003",
+        "API-RLC-001",
+        "API-RLC-002",
+        "API-RLC-005",
+        "SEC-ABU-017",
+        "SEC-API-029",
+        "DEV-RLM-005",
+        "DEV-API-003",
+        "SPEC-110-54"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": ["API-AUTH-003"],
+      "db_constraint_names": [],
+      "preconditions": "Static import of @off-r39x/api-contract, apps/api/src/api/routes.ts and @off-r39x/security; synthetic values; no network, database or environment variables",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "provisionCurrentProfileRequestSchema accepts {} only; every unknown field (display_name, profile_ref, auth_subject, role, roles, email), a parsed __proto__ key, null, arrays, strings, numbers and undefined are rejected",
+        "ROUTES holds POST /api/v1/self/profile/provision as API-AUTH-003 / profile_mutation once, without resource references; assertRouteRegistry passes; classifyRequest maps POST to profile_mutation / API-AUTH-003 and leaves GET, HEAD, PUT, PATCH and DELETE unclassified; LOGGED_ROUTE_TEMPLATES carries the path once"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-AUTH-001-003",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "API-AUTH-003",
+        "AR-ID-001",
+        "AR-ID-006",
+        "SEC-AUTH-003",
+        "SPEC-110-24",
+        "SPEC-110-24.1",
+        "SPEC-060-8.3"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": ["API-AUTH-003"],
+      "db_constraint_names": [],
+      "preconditions": "Static import of @off-r39x/auth; an in-memory PrincipalStore; synthetic subjects only; no network, database or environment variables",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "resolveProvisioningPrincipal and resolvePrincipal give the same result for every row except a verified Email without a Profile: no directory row is unauthenticated, a directory row of another subject or a non-boolean verified state is consistency, an unverified Email is email whatever the Profile, a Profile of another subject, an invalid public reference or an unknown role is consistency, a store failure is database, a consistent Profile (no role, STAFF, ADMINISTRATOR) gives the same Principal; each makes one store call",
+        "A verified Email without a Profile is denied for resolvePrincipal and { profile: missing, subject } for the provisioning resolver; no Profile with a Role row is consistency (fail closed)",
+        "onEmailVerified is called once when the Email check passes, before the Profile decision, by both functions, and not for an unverified Email, a missing directory row or a store failure; the Email check cannot be switched off (no requireVerifiedEmail option in the type, a runtime false is ignored)"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-AUTH-001-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "API-AUTH-003",
+        "AR-ID-004",
+        "AR-ID-005",
+        "REL-AUTH-005",
+        "TST-GEN-004",
+        "DEV-DB-002",
+        "DEV-DB-003",
+        "SPEC-030-9.2",
+        "SPEC-100-14.1",
+        "SPEC-110-50",
+        "SPEC-110-51"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": [],
+      "db_constraint_names": ["uq_business_profiles_auth_subject"],
+      "preconditions": "Real PostgreSQL 17 (TEST_DATABASE_URL, TEST_DATABASE_CA, own database per file); migrations applied; fixture rows committed by the setup identity; the repository runs as app_api_runtime over verified TLS; fails, never skips, without the settings",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": ["FP.DB.BEFORE_TRANSACTION"],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "provisionCurrentBusinessProfile returns created for a subject without a row and existing for a row that is there (a name and an old updated_at returned as is, a Role holder included); a subject that is not a UUID throws without touching the database",
+        "An unreachable database (a closed port), a saturated pool (max 1), a closed pool and a lock wait that outlasts the 55P03 retry budget are returned as unavailable and not thrown"
+      ],
+      "expected_db_postconditions": [
+        "The created row has auth_subject = the subject, display_name NULL, a lowercase UUID public_ref and created_at = updated_at inside the call window (the DB defaults, not a client value); the returned publicRef and updatedAt (milliseconds) equal the row; the row count rises by one and every other row is unchanged in every column; role_assignments are not touched",
+        "A repeated call leaves every column, updated_at included, and the row count unchanged; unavailable cases leave no row, and after the holder's ROLLBACK there is no partial row"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-AUTH-001-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "API-AUTH-003",
+        "AR-ID-004",
+        "REL-AUTH-004",
+        "TST-CON-001",
+        "TST-CON-002",
+        "TST-CON-003",
+        "TST-GEN-004"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": [],
+      "db_constraint_names": ["uq_business_profiles_auth_subject"],
+      "preconditions": "Real PostgreSQL 17 (own database per file); a pg.Pool of app_api_runtime over verified TLS sized N + 1 in the test only; a setup session holds an uncommitted INSERT of the subject's row; N provisions start together and the test waits until pg_stat_activity shows N runtime backends in a Lock wait before it releases the holder (no sleep); N = 2 binary race and N = 20 hot contention; fails, never skips, without the settings",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Holder ROLLBACK: exactly one created, the others existing, all with the same publicRef; holder COMMIT: no created and every call existing with the holder's public_ref; no call is unavailable, commit_unknown or thrown (no 23505 exposed)"
+      ],
+      "expected_db_postconditions": [
+        "The subject has exactly one row, the table gains one row and every other row is unchanged in every column; after a rollback the surviving row is not the holder's"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-AUTH-001-006",
+      "level": "Integration",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "API-AUTH-003",
+        "AR-ID-001",
+        "AR-ID-002",
+        "AR-ID-004",
+        "AR-ID-005",
+        "SEC-AUTH-003",
+        "DEV-API-005",
+        "SPEC-030-9.2",
+        "SPEC-100-14.1",
+        "TST-GEN-004"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": ["API-AUTH-003", "API-AUTH-002"],
+      "db_constraint_names": ["uq_business_profiles_auth_subject"],
+      "preconditions": "Real PostgreSQL 17 with the synthetic Identity directory view; signed EdDSA JWT verified by createTokenVerifier; createPrincipalRepository and createCurrentProfileRepository on app_api_runtime; fresh in-memory rate limit per app; subjects A (Profile), C (Email unverified), D (verified, no Profile), E (no directory row), F (ACTIVE ADMINISTRATOR), G (a new subject with A's Email), H (HTTP race); fails, never skips, without the settings",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": [200, 201, 400, 401, 403],
+      "expected_domain_postconditions": [
+        "D is 201 with display_name null and no directory Email in the response, then GET /api/v1/self/profile and /api/v1/self/principal show the same profile_ref and a second POST is 200 with the same data; C is 403 EMAIL_VERIFICATION_REQUIRED, E is 401 AUTHENTICATION_REQUIRED, A and the ADMINISTRATOR F are 200 with their own values",
+        "G is 201 with a profile_ref different from A's; a body with another person's auth_subject and profile_ref plus a role claim is 400 VALIDATION_FAILED; a role claim in the token gives D no Role; two simultaneous POSTs of H are one 201 and one 200 with the same data"
+      ],
+      "expected_db_postconditions": [
+        "D gets exactly one row (display_name NULL, public_ref = the returned profile_ref) and a repeat changes nothing; C and E get no row; A and F rows and F's role_assignments are unchanged; G's creation leaves A's row unchanged (no re-pointing by Email); refusals leave every row unchanged; H has one row"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-AUTH-001-007",
+      "level": "Security",
+      "suite": "security",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "API-AUTH-003",
+        "API-AUTH-004",
+        "AR-ID-001",
+        "AR-ID-002",
+        "AR-AZ-002",
+        "SEC-AUTH-003",
+        "SEC-API-029",
+        "DEV-API-004",
+        "SPEC-110-24",
+        "SPEC-110-24.1",
+        "SEC-ABU-017",
+        "SEC-ABU-019",
+        "SEC-ABU-020",
+        "API-RLC-001",
+        "OBS-AUTH-001",
+        "SPEC-160-49.1"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": ["API-AUTH-003", "API-AUTH-004", "API-AUTH-002"],
+      "db_constraint_names": [],
+      "preconditions": "createApp with a stub Principal store, a recording CurrentProfileStore, the in-memory rate limit and DI fault injection (FP.RATELIMIT.*, FP.DB.*); synthetic subjects, refs, token and Email only; no database. The parity partner is PATCH /api/v1/self/profile (same mutation, same profile_mutation class, same guard front half)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.RATELIMIT.STORE_UNAVAILABLE",
+        "FP.DB.INSIDE_STATEMENT",
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": [201, 400, 401, 403, 404, 409, 429, 500, 503],
+      "expected_domain_postconditions": [
+        "Parity: for no token, an invalid token, no directory row, a directory row of another subject, a non-boolean emailVerified, an unverified Email with and without a Profile, a Principal store failure, a Profile of another subject, an invalid public reference, an unknown role, a rate limit store failure, no Origin, a mismatched Origin and Sec-Fetch-Site cross-site, POST provision and PATCH give the same status, error code, security events (name, reason code, result), guard counter and Principal reads, and neither the store's update nor its provision is called; GET /api/v1/self/profile agrees on status and code for the directory, Email, inconsistency and database rows",
+        "The single difference is a verified Email without a Profile: PATCH and GET are 403 AUTHORIZATION_DENIED, provision is 201",
+        "Bodies with profile_ref, auth_subject, role, roles, owner, capabilities, display_name or __proto__ are 400 and provision nothing; no query, header or path segment names another person (the token's subject is used; a path segment is 404)",
+        "The 4th provision within 10 s is 429 RATE_LIMIT_EXCEEDED with an integer Retry-After and a Stage 2 rejection stops before the Principal read; no log line or response carries an Email, a raw Auth Subject or a token"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "http.request.completed",
+        "auth.email_verified_resolution.completed",
+        "auth.business_profile_resolution.completed"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-AUTH-001-008",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "API-AUTH-003",
+        "REL-AUTH-005",
+        "DEV-DB-002",
+        "SPEC-110-50",
+        "SPEC-110-51"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": ["API-AUTH-003"],
+      "db_constraint_names": [],
+      "preconditions": "createCurrentProfileRepository over node-postgres pools pointed at local TCP servers that misbehave (closed by the peer right after connect, accepts and never answers, pool used after end); no PostgreSQL. an errno such as EAI_AGAIN is not raised; transaction() types it as DatabaseUnavailableError, which the provision path treats as unavailable (Issue #69 remains on the read path outside transaction())",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": ["FP.DB.BEFORE_TRANSACTION"],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Each case first asserts that the raw pool error has no code and the node-postgres message (Connection terminated unexpectedly, Connection terminated due to connection timeout, Cannot use a pool after calling end on the pool)",
+        "provisionCurrentBusinessProfile then returns { status: unavailable } and does not throw",
+        "The transaction is observed in the database log under query_name profile.provision_current (fake pool with the pool logger; no other query_name appears)"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-AUTH-001-009",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "API-AUTH-003",
+        "DEV-API-002",
+        "SPEC-110-15",
+        "SPEC-110-16"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-AUTH-003"],
+      "db_constraint_names": [],
+      "preconditions": "Compile-time only: hc<AppType> from @off-r39x/api-contract inside a function that is never called; enforced by pnpm typecheck of the tests workspace; no network",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The public RPC type of POST /api/v1/self/profile/provision carries the JSON input {} (InferRequestType<...$post>[json]) and the response data equals CurrentProfile",
+        "$post accepts { json: {} }; an omitted body and unknown keys (display_name, auth_subject) are type errors"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-AUTH-001-010",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-AUTH-001",
+        "AR-ID-004",
+        "REL-AUTH-005",
+        "DEV-DB-004",
+        "API-AUTH-003"
+      ],
+      "system_invariant_ids": ["INV-010-08"],
+      "api_operation_ids": ["API-AUTH-003"],
+      "db_constraint_names": [],
+      "preconditions": "createCurrentProfileRepository over a recording pool that answers each statement in node-postgres array row mode; no PostgreSQL (what the database does with the statements is TC-DB-AUTH-001-004/005)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A new subject sends exactly one statement inside BEGIN, SET LOCAL and COMMIT, built from the Drizzle table: INSERT INTO app.business_profiles (id, public_ref, auth_subject, display_name, created_at, updated_at) VALUES (default, default, $1, default, default, default) ON CONFLICT (auth_subject) DO NOTHING RETURNING public_ref, display_name, updated_at, with the verified subject as the only value, and returns created",
+        "An existing subject (the INSERT returns no row) sends one reselect SELECT public_ref, display_name, updated_at FROM app.business_profiles WHERE auth_subject = $1 in the same transaction and returns existing with the row unchanged",
+        "No statement contains DELETE, DO UPDATE or a row lock clause",
+        "A reselect with zero or several rows throws the reselect cardinality violation after exactly two statements, without COMMIT and without a second INSERT (REL-AUTH-005: never re-created)",
+        "updated_at is decoded with node-postgres's timestamptz parser on both results: year 0001 keeps its year and an offset other than +00 gives the same instant in UTC"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-API-007-010",
       "level": "Unit",
       "suite": "unit",
@@ -27402,7 +27798,7 @@
       "test_case_id": "TC-API-QRY-004-001",
       "level": "Security",
       "suite": "security",
-      "upstream_rule_ids": ["API-QRY-004", "SPEC-110-12", "SPEC-110-9", "SEC-ERR-001"],
+      "upstream_rule_ids": ["API-QRY-004", "API-QRY-005", "SPEC-110-12", "SPEC-110-9", "SEC-ERR-001"],
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
@@ -27418,7 +27814,7 @@
       "preconditions": "Synthetic 32-byte cursor keys from tests/harness/pagination.ts; no environment variables, network, database or Redis",
       "expected_domain_postconditions": [
         "encode then decode returns the same sort keys and public_ref; the token is deterministic base64url within 512 characters; numeric sort keys are safe integers only (1.5, 2**53, NaN and infinities make encode throw)",
-        "The payload holds only v, kv, k and r and none of the filter value, Operation ID or key bytes; an internal ID or uppercase public_ref makes encode throw"
+        "The payload holds only v, kv, k and r and none of the filter value, Operation ID or key bytes; an internal ID, an uppercase public_ref or a lowercase public_ref that is not a SPEC-110 section 9 canonical UUID (nil, max, version 0 or 9, variant 7 or c) makes encode throw (API-QRY-005)"
       ],
       "critical": true
     },
@@ -27426,7 +27822,7 @@
       "test_case_id": "TC-API-QRY-004-002",
       "level": "Security",
       "suite": "security",
-      "upstream_rule_ids": ["API-QRY-004", "SEC-DEP-007", "SEC-API-011"],
+      "upstream_rule_ids": ["API-QRY-004", "API-QRY-005", "SEC-DEP-007", "SEC-API-011"],
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
@@ -27442,7 +27838,7 @@
       "preconditions": "Synthetic 32-byte cursor keys from tests/harness/pagination.ts; no environment variables, network, database or Redis",
       "expected_domain_postconditions": [
         "Single-character substitutions, truncation, extension, non-base64url characters, non-canonical base64url, 513 characters, empty and too-short tokens decode to { ok: false }",
-        "A correctly signed token with a payload that breaks the strict schema, or a numeric key that is a fraction or an unsafe integer, decodes to { ok: false }; 1,000 seeded arbitrary strings never throw"
+        "A correctly signed token with a payload that breaks the strict schema (including a public_ref r that is nil, max, version 0 or 9, or variant 7 or c, API-QRY-005), or a numeric key that is a fraction or an unsafe integer, decodes to { ok: false }; 1,000 seeded arbitrary strings never throw"
       ],
       "critical": true
     },
@@ -29469,6 +29865,753 @@
       ],
       "expected_db_postconditions": [
         "Before 0004 the old build is Ready with an exact catalog; after 0004 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-001",
+        "DB-MIG-002",
+        "DB-MIG-003",
+        "DB-TIM-001",
+        "DB-TIM-002",
+        "DB-ID-003",
+        "DB-IDX-001",
+        "DEV-DB-013",
+        "SPEC-170-22",
+        "SPEC-100-16",
+        "SPEC-100-17",
+        "SPEC-100-18",
+        "SPEC-100-20",
+        "SPEC-100-21",
+        "SPEC-100-22",
+        "SPEC-100-23",
+        "SPEC-100-45.2",
+        "SPEC-100-59"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person). The catalog goldens are tests/harness/db/orders-payments-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Applied migrations are immutable: 0001-0005 equal their committed hashes, and 0006 statically creates only the seven tables in parent-first order and the nine separately named section 45 indexes, with one REVOKE ALL and no ALTER, GRANT, DROP, TRUNCATE, DELETE, INSERT, trigger, function, extension, role, view, OWNER TO or row level security; the four existing tables appear only as REFERENCES targets"
+      ],
+      "expected_db_postconditions": [
+        "The journal lists 0001_foundation to 0006_orders_payments once each with the bundled source hashes, and a second runMigrations leaves it unchanged",
+        "The seven tables have 12 + 13 + 10 + 11 + 15 + 13 + 15 columns in attnum order equal to the golden (types, NOT NULL, identity always on id, defaults, and the generated columns line_total_amount and payment_deadline_at with their expressions)",
+        "Exactly 69 named constraints and 41 valid indexes equal the golden definitions, all validated and not deferrable; owner app_migrator, row level security off, seven bigint identity sequences, 25 time columns all timestamptz; the live catalog equals requiredCatalog",
+        "public_ref of orders and checkout_attempts is a database generated v4 UUID refused as a duplicate by uq_<table>_public_ref; ids are GENERATED ALWAYS (428C9) and a duplicate id is 23505 pk_orders"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-008",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-002",
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-TIM-001",
+        "DEV-DB-001",
+        "DEV-DB-006",
+        "SPEC-100-55",
+        "SPEC-100-56",
+        "SPEC-100-57"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Static Drizzle declaration check of the seven Order / payment tables against the reviewed schema-contract.json and the hand-written goldens of tests/harness/db/orders-payments-golden.ts; not a database execution test; DB enforcement is TC-DB-ARC-007-007 and the other DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The contract rows of the seven tables equal the golden columns, constraints and indexes; the golden Order states and purposes equal @off-r39x/domain ORDER_STATES and ORDER_PURPOSES",
+        "For each table the Drizzle name, schema app, column order, SQL type, NOT NULL, identity on id only, defaults (none on a state column), lossless PgBigInt64 for every bigint and the two generated expressions equal the golden",
+        "Constraint names, kinds and UNIQUE column lists equal the golden and the contract; CHECK text equals the golden exactly and matches the contract by column, literal and number; the foreign keys (including the three composite ones) reference the golden parent columns with ON DELETE RESTRICT; the declared indexes carry the golden columns, order, uniqueness and partial predicate; the seven exports are in the schema barrel"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-STA-002-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-MIG-004",
+        "SPEC-100-10",
+        "SPEC-100-16",
+        "SPEC-100-18",
+        "SPEC-100-20",
+        "SPEC-100-22",
+        "SPEC-100-23"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_orders_purpose",
+        "ck_orders_state",
+        "ck_entry_sales_allocations_purpose",
+        "ck_entry_sales_allocations_state",
+        "ck_checkout_attempts_creation_result",
+        "ck_webhook_receipts_processing_state",
+        "ck_refund_records_state"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The stored names are exactly those of SPEC-030 (Order, Allocation) and SPEC-070 section 17 / 37 (Webhook Receipt, Refund); creation_result is a processing result"
+      ],
+      "expected_db_postconditions": [
+        "The 7 Order states, 4 purposes, 3 Allocation states, 2 Allocation purposes, 4 creation results, 5 Webhook processing states and 5 Refund states are accepted",
+        "Lower case, padded, suffixed and other near misses are refused with 23514 by the named allowlist CHECK; an omitted state, purpose or creation_result is 23502 (no default)"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-ORD-001-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ORD-001",
+        "DB-TIM-002",
+        "BR-ORD-001",
+        "SPEC-100-16"
+      ],
+      "system_invariant_ids": [
+        "INV-010-02"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_orders_confirmed_at",
+        "ck_orders_terminal_at",
+        "uq_orders_purchase_cause_key"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "CONFIRMED without confirmed_at and every other state with confirmed_at are 23514 ck_orders_confirmed_at; PAYMENT_FAILED, CANCELED and EXPIRED without terminal_at are 23514 ck_orders_terminal_at; PREPARED, AWAITING_PAYMENT, CONFIRMED and REVIEW_REQUIRED are accepted with or without terminal_at (plan U-2)",
+        "A state UPDATE without the matching timestamp is refused by the same CHECK; with it, PREPARED -> AWAITING_PAYMENT -> CONFIRMED succeeds",
+        "A repeated purchase_cause_key is 23505 uq_orders_purchase_cause_key; customer, currency and total are NOT NULL",
+        "created_at / updated_at and the held_at, bound_at, received_at and requested_at defaults of the seven tables are the transaction's transaction_timestamp(); is_active defaults to true"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ORD-002-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ORD-002",
+        "DB-ORD-004",
+        "BR-ORD-001",
+        "SPEC-100-17",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-09"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_order_items_source",
+        "ck_order_items_line_no",
+        "ck_order_items_quantity",
+        "uq_order_items_order_id_line_no",
+        "fk_order_items_entry_offering",
+        "fk_order_items_karaoke_slot",
+        "fk_order_items_goods"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "Of the 32 purpose x (Entry Offering, Karaoke Slot, Goods) combinations exactly five are accepted (Entry only, Slot only, Goods only, and Entry or Goods for ENTRY_GOODS_PURCHASE); the other 27 are 23514 ck_order_items_source",
+        "A Karaoke item with quantity 2 is 23514 ck_order_items_source; Entry and Goods items accept quantity 4",
+        "line_no 0 and quantity 0 / -1 are refused by name; a repeated line_no of the same Order is 23505 uq_order_items_order_id_line_no; an absent Offering, Slot or Goods is 23503 by its foreign key; the required columns are NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ORD-003-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ORD-001",
+        "DB-ORD-003",
+        "DB-ORD-004",
+        "DB-MNY-001",
+        "SPEC-100-9",
+        "SPEC-100-17"
+      ],
+      "system_invariant_ids": [
+        "INV-010-09"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "fk_order_items_order"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "An item whose purpose or currency differs from its Order's, or whose Order is absent, is 23503 fk_order_items_order; a composite-purpose Order takes an Entry item and a Goods item",
+        "Once an item exists, changing the Order's currency or purpose is 23503 fk_order_items_order and the Order is unchanged",
+        "line_total_amount equals unit_amount * quantity in bigint (3000000000 x 3 = 9000000000), cannot be written (428C9), follows an UPDATE of quantity, and a bigint overflow is 22003"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ENT-001-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ENT-001",
+        "DI-030-004",
+        "SPEC-100-18"
+      ],
+      "system_invariant_ids": [
+        "INV-010-07"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_entry_sales_allocations_state_times",
+        "ck_entry_sales_allocations_quantity",
+        "uq_entry_sales_allocations_order_item_id",
+        "fk_entry_sales_allocations_order_item",
+        "fk_entry_sales_allocations_offering"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "HELD with a commit or release time, COMMITTED without committed_at or with released_at, and RELEASED without released_at or with committed_at are 23514 ck_entry_sales_allocations_state_times, on INSERT and on UPDATE",
+        "A second Allocation of an item is 23505; quantity 0 is 23514; another Order or purpose than the item's is 23503 fk_entry_sales_allocations_order_item; another Offering, or the Goods item of a composite Order, is 23503 fk_entry_sales_allocations_offering; changing the item's Offering under its Allocation is refused with 23503"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-PAY-001-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-PAY-001",
+        "PAY-CHK-008",
+        "SPEC-100-20"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_checkout_attempts_attempt_no",
+        "uq_checkout_attempts_order_id_attempt_no",
+        "uq_checkout_attempts_stripe_idempotency_key",
+        "fk_checkout_attempts_order"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "attempt_no 0 is 23514; a repeated attempt_no of the same Order is 23505 (another Order may reuse it); a repeated Stripe idempotency key is 23505 across Orders; an absent Order is 23503; the key is NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-PAY-002-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-PAY-002",
+        "PAY-CHK-005",
+        "PAY-WHK-014",
+        "SPEC-100-21",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_payment_bindings_stripe_checkout_session_id",
+        "uq_payment_bindings_stripe_payment_intent_id",
+        "uq_payment_bindings_stripe_charge_id",
+        "uq_payment_bindings_checkout_attempt_id",
+        "fk_payment_bindings_checkout_attempt"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A Checkout Session, PaymentIntent or Charge ID already bound to one Order is 23505 by its UNIQUE constraint for another Order; several unset PaymentIntent / Charge IDs are accepted",
+        "Binding an Attempt of another Order, or an absent Attempt, is 23503 fk_payment_bindings_checkout_attempt; a second binding of an Attempt is 23505 uq_payment_bindings_checkout_attempt_id; the Session ID, creation time, amount and currency are NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-PAY-003-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-PAY-003",
+        "PAY-CHK-004",
+        "SPEC-100-21",
+        "SPEC-100-67",
+        "TST-DB-004"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ux_payment_bindings_order_active",
+        "ck_payment_bindings_active"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second active binding of an Order is 23505 ux_payment_bindings_order_active; another Order's active binding, inactive bindings and a new active binding after deactivation are accepted; re-activating the old binding beside the new one is 23505",
+        "is_active true with deactivated_at, false without it, or deactivating without the timestamp is 23514 ck_payment_bindings_active"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-PAY-003-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-PAY-003",
+        "PAY-CHK-006",
+        "SPEC-070-11",
+        "SPEC-100-21",
+        "SPEC-100-57",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person). The generated expression takes the sum in UTC because timestamptz + interval is STABLE and PostgreSQL 17 refuses it in a generated column (plan U-1, the SPEC-100 revision is a separate specification PR)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "Under session TimeZone UTC, Asia/Tokyo, America/New_York and Europe/Berlin, including instants next to a daylight saving change, payment_deadline_at - checkout_session_created_at is exactly 1800 seconds, equals checkout_session_created_at + interval '30 minutes', and keeps the microseconds",
+        "payment_deadline_at cannot be inserted or updated (428C9) and follows an UPDATE of checkout_session_created_at"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-PAY-005-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-PAY-005",
+        "PAY-WHK-007",
+        "PAY-WHK-008",
+        "SEC-PAY-008",
+        "SPEC-100-22"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_webhook_receipts_stripe_event_id",
+        "ck_webhook_receipts_payload_sha256"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A redelivered Stripe Event ID is 23505 uq_webhook_receipts_stripe_event_id whatever the processing state of the first receipt",
+        "A payload digest of 0, 31, 33 or 64 bytes is 23514 ck_webhook_receipts_payload_sha256; the Event ID, type, livemode, digest and snapshot are NOT NULL; object and account IDs may be unset"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-PAY-006-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-PAY-006",
+        "DB-PAY-007",
+        "PAY-IDM-008",
+        "PAY-RFD-005",
+        "SPEC-100-23",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ux_refund_records_order_live_full",
+        "uq_refund_records_business_cause_key",
+        "uq_refund_records_stripe_idempotency_key",
+        "uq_refund_records_stripe_refund_id",
+        "ck_refund_records_requested_amount",
+        "fk_refund_records_order",
+        "fk_refund_records_requested_by_profile"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "With a full refund in REQUESTED, PENDING, SUCCEEDED or REVIEW_REQUIRED, a second full refund in any of those states is 23505 ux_refund_records_order_live_full (16 pairs)",
+        "After FAILED full refunds a new full refund is accepted; partial refunds and other Orders are not limited; moving a FAILED record back to PENDING beside a live full refund is 23505; a SUCCEEDED full refund blocks later full refunds",
+        "A repeated Business Cause, Stripe idempotency key or Stripe Refund ID is 23505 by name (unset Refund IDs do not collide); amount 0 / -1 is 23514; an absent Order or requester is 23503; is_full_refund is NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-CON-001-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-PAY-003",
+        "TST-CON-001",
+        "TST-DB-004",
+        "SPEC-170-24",
+        "SPEC-100-21"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ux_payment_bindings_order_active"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied; an Order and two Checkout Attempts committed by the administrator and deleted again in finally; two additional connections X and Y checked to run in UTC and READ COMMITTED, a barrier on pg_stat_activity instead of sleep that fails at once if Y's INSERT finishes without waiting, statement_timeout 10s on Y; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "X inserts an active binding uncommitted; Y's active binding for the same Order waits on X's lock; after X COMMIT, Y is 23505 ux_payment_bindings_order_active and one binding remains; after X ROLLBACK, Y is accepted; nothing remains after the case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-CON-001-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "PAY-IDM-008",
+        "TST-CON-001",
+        "TST-DB-004",
+        "SPEC-170-24",
+        "SPEC-100-23"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ux_refund_records_order_live_full"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied; an Order committed by the administrator and deleted again in finally; two additional connections X and Y checked to run in UTC and READ COMMITTED, a barrier on pg_stat_activity instead of sleep, statement_timeout 10s on Y; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "X inserts a full refund uncommitted; Y's full refund of the same Order waits on X's lock; after X COMMIT, Y is 23505 ux_refund_records_order_live_full and one record remains; after X ROLLBACK, Y is accepted; nothing remains after the case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-MNY-001-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-MNY-001",
+        "DB-MNY-002",
+        "SPEC-100-9"
+      ],
+      "system_invariant_ids": [
+        "INV-010-09"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_orders_total_amount",
+        "ck_order_items_unit_amount",
+        "ck_payment_bindings_amount_total",
+        "ck_orders_currency",
+        "ck_order_items_currency",
+        "ck_payment_bindings_currency",
+        "ck_refund_records_currency"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "0 is accepted and -1 is 23514 for total_amount, unit_amount and amount_total; a fractional amount is refused by bigint input (22P02)",
+        "jpy, Jpy, JP, JPYY, J1Y, a padded and an empty currency are 23514 by the currency CHECK of orders, order_items (before the composite foreign key), payment_bindings and refund_records; USD is accepted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-FK-002-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-FK-001",
+        "DB-FK-002",
+        "DB-FK-004",
+        "SPEC-100-11",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "fk_orders_customer_profile",
+        "fk_order_items_order",
+        "fk_order_items_entry_offering",
+        "fk_order_items_karaoke_slot",
+        "fk_order_items_goods",
+        "fk_entry_sales_allocations_order_item",
+        "fk_entry_sales_allocations_offering",
+        "fk_checkout_attempts_order",
+        "fk_payment_bindings_order",
+        "fk_payment_bindings_checkout_attempt",
+        "fk_refund_records_order",
+        "fk_refund_records_requested_by_profile"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, Event, Entry Offerings, Karaoke Slot, Goods) created in the same transaction; synthetic data only (no real Stripe ID, Email address or person)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "All twelve foreign keys of the seven tables are ON DELETE RESTRICT and ON UPDATE NO ACTION",
+        "Deleting an Order with an item, an Attempt or a refund, an Offering, Slot or Goods with an item, an Attempt with a binding, or a customer or requester Profile is 23503 by name (where two keys refer to the row either name is accepted), and no row of the seven tables is lost"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-SEC-DB-001-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "SEC-DB-001",
+        "SEC-DB-003",
+        "DB-FK-004",
+        "SPEC-100-53",
+        "SPEC-180-22.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied; runtime pools of app_api_runtime, app_email_runtime and app_reconciliation_runtime over verified TLS; plan U-4: no mounted Operation uses the seven tables yet, so no grant is expected",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the seven tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the seven identity sequences",
+        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE by the three runtime pools are refused with 42501 on all seven tables"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-011",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "DB-MIG-003"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0006_orders_payments applied (the build released before L1-1a); readiness evaluated from a temporary directory holding those migrations, with the fixed 0005 required catalog fixture (asserted equal to the 0001-0005 live catalog); then 0006, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0006",
+      "fixture_ids": [
+        "tests/fixtures/db/required-catalog-0005.json"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "Before 0006 the old build is Ready with an exact catalog; after 0006 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-012",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "REL-DB-012"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_idempotency_records_expiry"
+      ],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED with the repository migrations applied; IntervalStyle set to iso_8601, sql_standard or postgres_verbose as the database default (ALTER DATABASE) or as the default of the admin and the three runtime login roles in that database (ALTER ROLE ... IN DATABASE), one at a time and reset after each case; a second disposable database for the migration case; the options of TEST_DATABASE_URL are moved out of the isolated URL into PGOPTIONS and TEST_DATABASE_OPTIONS",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "A session without the startup option sees the configured IntervalStyle, pg_get_expr / pg_get_constraintdef write the payment_deadline_at generation expression, the idempotency_records.expires_at default and ck_idempotency_records_expiry in that style, and the live catalog does not equal the required catalog",
+        "The harness session (PGOPTIONS) and the createDatabase pools of app_api_runtime, app_email_runtime and app_reconciliation_runtime run in the postgres IntervalStyle, read those expressions as the hand-written goldens and the required catalog exactly, and checkReadiness is Ready with no failures",
+        "Migrations run by a session that starts in sql_standard execute every CREATE TABLE statement in the postgres IntervalStyle, and the migrated database reads the goldens and the required catalog exactly"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [

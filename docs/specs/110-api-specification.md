@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-110
 title: API Specification
-version: 2.13.0
+version: 2.14.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -177,13 +177,27 @@ JSON field名は `snake_case` とする。
 
 ## 9. Public Reference wire format
 
-Public Referenceはlowercase canonical UUID stringとして返す。
+Public Referenceの形式は §17 のcanonical UUID（16進数字の小文字36文字、version桁 `1`〜`8`、variant桁 `8`／`9`／`a`／`b`。nil UUIDとmax UUIDを含まない）とする（`UCR-110-014`）。
+
+- **応答:** HTTP / RPC responseのPublic Referenceは常にcanonical UUIDで返す。
+- **request:** path、query、JSON bodyのPublic Referenceは、ASCII英字 `A`〜`F` の大文字・小文字を区別せずに受け付ける。小文字へ正規化した値がcanonical UUIDであれば、以降の照会・重複判定・counter key（`SPEC-140` `SEC-ABU-015`）・request digest（§18）には正規化した値を使う。canonical UUIDでない値（nil UUID、max UUID、範囲外のversion桁・variant桁、長さ・区切りの違い、前後の空白・括弧・URN prefixを含む値）は、各Operationが定める `400 VALIDATION_FAILED` とし、存在確認をしない。§17 の「大文字を含む値は正規化しない」は `X-Request-Id` の規則であり、Public Referenceには適用しない。
 
 Zod:
 
 ```ts
-z.string().uuid()
+const canonicalUuid = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+
+// request: ASCIIの16進数字とhyphenだけの36文字を小文字にしてから同じ検証をする
+const publicRefInput = z
+  .string()
+  .regex(/^[0-9A-Fa-f-]{36}$/)
+  .transform((value) => value.toLowerCase())
+  .pipe(canonicalUuid);
 ```
+
+`z.string().uuid()`（`z.uuid()`）は使わない。nil UUID・max UUIDと大文字を含むUUIDを受け付け、canonical UUIDと一致しないためである。
 
 Internal `bigint` PKはHTTP / RPC responseへ出さない。
 
@@ -261,9 +275,9 @@ filterはallowlist query parameterだけを受け、任意column名、raw SQL、
 
 **API-QRY-004:** `cursor`はopaqueとして扱い、Filter変更時はcursorを破棄して先頭pageを再取得する。offset paginationは提供しない。
 
-**API-QRY-005:** cursorは `SPEC-180` §28.3 の `LIST_CURSOR_HMAC_KEY` によるHMAC-SHA-256で署名し、署名に使った鍵のversion（`LIST_CURSOR_HMAC_KEY_VERSION`）を含める。署名は、少なくともOperation ID、sort mode（§48.3でmodeを持つlist）、正規化したfilterの値に結び付け、`limit` には結び付けない。cursorはInternal IDと鍵を含まない。Serverは次のいずれかに当たるcursorを `400 VALIDATION_FAILED`（`details: null`）とし、cursorを無視して先頭pageを返すことはしない。
+**API-QRY-005:** cursorは `SPEC-180` §28.3 の `LIST_CURSOR_HMAC_KEY` によるHMAC-SHA-256で署名し、署名に使った鍵のversion（`LIST_CURSOR_HMAC_KEY_VERSION`）を含める。署名は、少なくともOperation ID、sort mode（§48.3でmodeを持つlist）、正規化したfilterの値に結び付け、`limit` には結び付けない。cursorはInternal IDと鍵を含まない。cursorに含めるPublic Referenceは §9 のcanonical UUIDとし、canonical UUIDでない参照を含むcursorを発行しない（`UCR-110-014`）。Serverは次のいずれかに当たるcursorを `400 VALIDATION_FAILED`（`details: null`）とし、cursorを無視して先頭pageを返すことはしない。
 
-- 形式または長さが不正（§48.3 `pageQuery` の1〜512文字を外れる場合を含む）
+- 形式または長さが不正（§48.3 `pageQuery` の1〜512文字を外れる場合、署名が一致しても含まれるPublic Referenceが §9 のcanonical UUIDでない場合を含む）
 - 署名が一致しない（発行時とOperation ID、sort mode、filterの値のいずれかが異なる場合を含む）
 - 鍵versionが現在の `LIST_CURSOR_HMAC_KEY_VERSION` と異なる（旧versionのcursorを受け付けない。`SPEC-180` §28.3 のrotationにgraceはない）
 
@@ -810,7 +824,7 @@ Karaokeの購入を開始するOperation（`API-PUR-KRK-001`）が、当該relea
 }
 ```
 
-- **Zod:** `offering_ref.uuid()`, `quantity.int().min(1)`。上限はDomain settingをserver-side評価。
+- **Zod:** `offering_ref` は §9 のrequest用schema（`publicRefInput`）, `quantity.int().min(1)`。上限はDomain settingをserver-side評価。
 - **Owner resolution:** token → profile。bodyにprofileなし。
 - **Domain preconditions:** sale enabled、Sales Period、capacity、Purchase Limit。
 - **DB transaction A:** `READ COMMITTED`; Profile `FOR UPDATE` → Offering `FOR UPDATE`; capacity counter検査; Entry Allocation `HELD`; Order `PREPARED`; Order Item snapshot。`capacity CHECK`, allocation uniqueがfallback。
@@ -1751,7 +1765,7 @@ Capability `karaoke_sales.manage`（`SPEC-060 AR-ROLE-016〜018`）。`karaoke_s
 
 ## 48.3 Administrator list query allowlist
 
-各Admin listは以下のZod schemaのallowlist queryだけを受け、strict（`.strict()`相当）で未知parameterを拒否する。`sort` / `order_by` / raw SQL / offset / arbitrary columnは定義しない。日時rangeは`from` inclusion / `to` inclusionとし、serverで`Asia/Tokyo`業務日をinstantへ正規化する。Public Reference boundはすべて`z.string().uuid()`。
+各Admin listは以下のZod schemaのallowlist queryだけを受け、strict（`.strict()`相当）で未知parameterを拒否する。`sort` / `order_by` / raw SQL / offset / arbitrary columnは定義しない。日時rangeは`from` inclusion / `to` inclusionとし、serverで`Asia/Tokyo`業務日をinstantへ正規化する。Public Reference boundはすべて §9 のrequest用schema（`publicRefInput`。大文字・小文字を区別せずに受け付けて小文字へ正規化し、nil UUID・max UUIDを含むcanonical UUIDでない値を `400 VALIDATION_FAILED` とする）。
 
 各schemaは単一のcomplete canonical sort tupleを持ち、その全sort keyは`SPEC-100`に実在するcolumn / `SPEC-130`が定義した意味からなる。`cursor`は選択されたsort modeのsort key + `public_ref`をserver-signedにencodeし（§12 `API-QRY-005`）、modeを切り替えた場合はcursorを破棄して先頭pageを再取得する。
 
@@ -1768,11 +1782,11 @@ const pageQuery = {
 
 ```ts
 z.object({
-  order_ref: z.string().uuid().optional(),
+  order_ref: publicRefInput.optional(),
   purpose: z.enum(["ENTRY_TICKET_PURCHASE", "KARAOKE_PURCHASE", "GOODS_PURCHASE", "ENTRY_GOODS_PURCHASE"]).optional(),
   state: z.enum(["PREPARED", "AWAITING_PAYMENT", "CONFIRMED", "PAYMENT_FAILED", "CANCELED", "EXPIRED", "REVIEW_REQUIRED"]).optional(),
   refund_state: z.enum(["REQUESTED", "PENDING", "SUCCEEDED", "FAILED", "REVIEW_REQUIRED"]).optional(),
-  customer_profile_ref: z.string().uuid().optional(),
+  customer_profile_ref: publicRefInput.optional(),
   created_from: z.string().datetime().optional(),
   created_to: z.string().datetime().optional(),
   ...pageQuery,
@@ -1785,11 +1799,11 @@ Sort: `created_at DESC, public_ref DESC`。
 
 ```ts
 z.object({
-  ticket_ref: z.string().uuid().optional(),
+  ticket_ref: publicRefInput.optional(),
   state: z.enum(["VALID", "USED", "CANCELED", "EXPIRED"]).optional(),
-  offering_ref: z.string().uuid().optional(),
-  order_ref: z.string().uuid().optional(),
-  owner_profile_ref: z.string().uuid().optional(),
+  offering_ref: publicRefInput.optional(),
+  order_ref: publicRefInput.optional(),
+  owner_profile_ref: publicRefInput.optional(),
   checkin: z.enum(["USED", "UNUSED"]).optional(),
   issued_from: z.string().datetime().optional(),
   issued_to: z.string().datetime().optional(),
@@ -1804,8 +1818,8 @@ Sort: `issued_at DESC, public_ref DESC`（`app.entry_tickets.issued_at`）。
 ```ts
 z.object({
   state: z.enum(["AVAILABLE", "HELD", "SOLD", "SALES_STOPPED"]).optional(),
-  exclusive_scope_ref: z.string().uuid().optional(),
-  sales_configuration_ref: z.string().uuid().optional(),
+  exclusive_scope_ref: publicRefInput.optional(),
+  sales_configuration_ref: publicRefInput.optional(),
   usage_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   usage_from: z.string().datetime().optional(),
   usage_to: z.string().datetime().optional(),
@@ -1819,11 +1833,11 @@ Sort: `usage_start ASC, public_ref ASC`。
 
 ```ts
 z.object({
-  reservation_ref: z.string().uuid().optional(),
+  reservation_ref: publicRefInput.optional(),
   state: z.enum(["CONFIRMED", "CANCELED"]).optional(),
-  slot_ref: z.string().uuid().optional(),
-  order_ref: z.string().uuid().optional(),
-  customer_profile_ref: z.string().uuid().optional(),
+  slot_ref: publicRefInput.optional(),
+  order_ref: publicRefInput.optional(),
+  customer_profile_ref: publicRefInput.optional(),
   usage_from: z.string().datetime().optional(),
   usage_to: z.string().datetime().optional(),
   ticket_state: z.enum(["VALID", "USED", "CANCELED", "EXPIRED"]).optional(),
@@ -1843,7 +1857,7 @@ Sort tuple（modeごとに厳密に対応。`usage_from` / `usage_to`は`app.kar
 
 ```ts
 z.object({
-  goods_ref: z.string().uuid().optional(),
+  goods_ref: publicRefInput.optional(),
   sale_control_state: z.enum(["ENABLED", "SUSPENDED"]).optional(),
   ...pageQuery,
 }).strict();
@@ -1855,10 +1869,10 @@ Sort: `created_at DESC, public_ref DESC`（`app.goods.created_at`）。Clientか
 
 ```ts
 z.object({
-  handoff_ref: z.string().uuid().optional(),
+  handoff_ref: publicRefInput.optional(),
   state: z.enum(["PENDING", "COMPLETED", "VOID"]).optional(),
-  goods_ref: z.string().uuid().optional(),
-  customer_profile_ref: z.string().uuid().optional(),
+  goods_ref: publicRefInput.optional(),
+  customer_profile_ref: publicRefInput.optional(),
   created_from: z.string().datetime().optional(),
   created_to: z.string().datetime().optional(),
   completed_from: z.string().datetime().optional(),
@@ -1875,7 +1889,7 @@ Sort: `created_at DESC, public_ref DESC`。
 z.object({
   role: z.enum(["STAFF", "ADMINISTRATOR"]).optional(),
   state: z.enum(["ACTIVE", "REVOKED"]).optional(),
-  target_profile_ref: z.string().uuid().optional(),
+  target_profile_ref: publicRefInput.optional(),
   granted_from: z.string().datetime().optional(),
   granted_to: z.string().datetime().optional(),
   ...pageQuery,
@@ -1904,7 +1918,7 @@ z.object({
     "EML_RECIPIENT_RELATION_INCONSISTENT", "EML_RENDER_CONTEXT_INVALID",
     "EML_WEBHOOK_UNMATCHED", "SECURITY_KEY_VERSION_INCONSISTENT",
   ]).optional(),
-  related_resource_ref: z.string().uuid().optional(),
+  related_resource_ref: publicRefInput.optional(),
   opened_from: z.string().datetime().optional(),
   opened_to: z.string().datetime().optional(),
   ...pageQuery,
@@ -2463,6 +2477,7 @@ resolveConsistencyReviewCase()
 48. Owner / Admin listのcursorは §12 `API-QRY-005` のとおり署名・検証し、形式・長さ・署名・鍵version・Operation ID・sort mode・filterの不一致を `400 VALIDATION_FAILED`（`details: null`）とし、先頭pageへ黙って戻さない。
 49. `API-AUTH-003` の再select 0件は500ではなく、Caseをcommitした後の `409 CONSISTENCY_REVIEW_REQUIRED` であり、0件を観測したtransactionではProfileを作らず、内部reason・Auth Subjectを返さない（`REL-AUTH-009`）。
 50. `API-PUB-001`〜`005`・`012` は §26.1 のとおり返す。FAQ・Announcement・Sponsor Logoは `PUBLISHED` の行だけをserver-sideのquery条件で返し、Publication Stateを持たないEventとEntry Ticket Offeringは当該Eventの行を返す。未設定値は `null` のまま返す。Eventが0件のとき、一覧（`002`・`003`・`005`・`012`）は `items: []`、単一resource（`001`・`004`）は `404`。非公開と不存在のAnnouncementは区別せず `404`。Eventが2件以上なら行を選ばず `500`、未知queryは `400`、DB障害は `503 DATABASE_TEMPORARY_FAILURE`、schemaを満たさない行は `503 TEMPORARY_UNAVAILABLE` であり、空成功に偽装しない。
+51. Public Referenceは §9 のとおり扱う。応答は常にcanonical UUIDで返す。requestの大文字・小文字の表記は同じ参照として小文字へ正規化し、nil UUID・max UUIDを含むcanonical UUIDでない値は存在確認の前に `400 VALIDATION_FAILED` とする。list cursorに含めるPublic Referenceも同じ形式とする（§12 `API-QRY-005`）。
 
 ---
 
@@ -2685,3 +2700,21 @@ retry count / backoff / queue / operator RunbookはSPEC-150。本書§48.5はSPE
 - 理由: 応答の形がないと、実装は §16 / `SPEC-190` `DEV-API-003` のZod応答schemaを仕様なしに決めることになり、Web（公開Page）が接続先の形を決められない。Eventの件数と販売状態の扱いを誤ると、未公開・存在しない情報を推測で出す（`BR-EVT-001`、`FR-PUB-010`）。応答fieldはDB列（`SPEC-100` §13・§15.1）とAdmin read応答から管理専用の列を除いたものであり、§55の範囲に収まる。
 - 変更しない場合の影響: `API-PUB-001`〜`005` を実装・試験できない（期待値を仕様から導けない）。実装が独自にfieldと状態語彙を決めて仕様と乖離する。
 - 影響を受ける可能性がある仕様書: SPEC-170（§27.2 に `TST-API-009` を同じ改訂で追加）、SPEC-050（§11.2 の「本文冒頭の要約」は `excerpt` で満たし、本文の変更は不要）、SPEC-200（`ACC-BIZ-010` は変更不要）、SPEC-030（§7.6。変更不要）、SPEC-100（§13.3 の `published_at` のCHECKは本UCRの範囲外。変更不要）、SPEC-140（変更不要）
+
+### UCR-110-014 — INCORPORATED
+
+- **Status:** `INCORPORATED`。本改訂（v2.14.0）で案Aを §9 と §61 Acceptance 51へ反映し、`z.string().uuid()` を使っていた §28 の `offering_ref` と §48.3 のPublic Reference bound（18箇所）を §9 のrequest用schema（`publicRefInput`）へ改めた。Pull Request #89 のレビューを受けて、§12 `API-QRY-005` にcursorに含めるPublic Referenceの形式を明記した（プロジェクト所有者の決定、2026-11-22。`SPEC-000` §8）。§17、§18、§26.1、`SPEC-140` `SEC-ABU-015` の本文は変更していない。`SPEC-170` `TC-API-009-001` の記述には、§9 のcanonical UUIDでないref（nil・maxを含む）が照会前に `400 VALIDATION_FAILED` になることを明記した（`SPEC-170` v2.9.2。意味を変えない明確化のためPATCH）。新しいerror code・state・Capability・Operation・DB列は追加していない。取り込み前の実装のうち、`packages/api-contract` の `lowerCaseUuidSchema` とPull Request #85 の `API-PUB-004` のpathは案Aの挙動であり、変更を要しない。`apps/api/src/api/pagination.ts` のcursor内の参照の検証（`PUBLIC_REF`。小文字16進の8-4-4-4-12だけを確かめ、nil・maxや範囲外のversion桁・variant桁を通す）は §12 に揃える必要がある。取り込み時点でcursorを使うrouteはなく、別の実装のPull Requestで直す。現在の契約は本文を正とし、以下の要求はその経緯の記録である。
+- 対象: SPEC-110 §9（Public Reference wire format）。§17（`request_id`）、§26.1 `API-PUB-004`、`SPEC-140` `SEC-ABU-015` の本文は、案Aでは変更しない。
+- 現在の仕様（改訂前）: §9 は「Public Referenceはlowercase canonical UUID stringとして返す」とし、Zodの例に `z.string().uuid()` を挙げる。本書でcanonical UUIDを定義するのは §17 だけであり（`UCR-110-006` で追加）、16進数字の小文字36文字（8-4-4-4-12）、version桁 `1`〜`8`、variant桁 `8`／`9`／`a`／`b` とし、nil UUIDとmax UUIDを含まず、大文字を含む値を正規化しない。一方、Zod 4（このrepositoryのv4.6.7で確認）の `z.string().uuid()`（`z.uuid()` と同じ）は、小文字のnil UUID・max UUIDを受け付け、大文字を含むUUIDも受け付ける（大文字のmax UUIDは拒否する）。このため §9 の文（lowercase canonical）とZodの例は、nil・maxと大文字の両方で受け付ける値が異なる。requestのPublic Referenceの大文字・小文字については、§9 は定めず、`SPEC-140` `SEC-ABU-015` が「requestのUUIDは大文字・小文字の表記を受け付け、検証後にlowercase canonical形式へ正規化する」とし、§26.1 `API-PUB-004` が「大文字を含むUUIDは小文字のcanonical形式へ正規化して照会し、UUIDでない値は `400`」とする。nil UUID・max UUIDが「UUIDでない値」（`400`）か、存在しない参照（`404`）かは、§9 の文と例のどちらを取るかで分かれる。
+- 要求する変更: 次のどちらかを §9 に明記する（所有者は案Aを選んだ）。
+  1. 案A（推奨、採用）: §9 の「canonical UUID」を §17 の定義に揃え、Zodの例を改める。
+     - Public Referenceの形式は §17 のcanonical UUIDとする。応答・RPC outputのPublic Referenceは常にこの形式で返す。
+     - requestのPublic Reference（path、query、JSON body）は、ASCII英字 `A`〜`F` の大文字・小文字を区別せずに受け付ける。小文字へ正規化した値がcanonical UUIDであれば、以降の照会・重複判定・counter key（`SEC-ABU-015`）・request digest（§18）には正規化した値を使う。canonical UUIDでない値（nil UUID、max UUID、範囲外のversion桁・variant桁、長さ・区切りの違い、前後の空白・括弧・URN prefixを含む値）は、各Operationが定める `400 VALIDATION_FAILED` とし、存在確認をしない。§17 の「大文字を含む値は正規化しない」は `X-Request-Id` の規則として残し、Public Referenceへ適用しない。
+     - Zodの例を、`z.string().uuid()` から §17 の正規表現（`/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/`）による検証に改め、requestでは小文字化した後に同じ検証をすることを示す。`z.string().uuid()` / `z.uuid()` を使わない理由（nil・maxと大文字を受け付ける）を併記する。
+  2. 案B: §9 のPublic Referenceの形式を `z.string().uuid()` の受理範囲（小文字で、version桁 `1`〜`8` とvariant桁 `8`／`9`／`a`／`b`、またはnil UUID・max UUID）とし、nil UUID・max UUIDを有効なPublic Referenceとする。requestは英字を小文字へ正規化した後にこの範囲で検証する。§17 の `request_id` の定義は変えないため、本書にcanonical UUIDとPublic Referenceの2つの形式が並び、§9 の「canonical」の語を改める必要がある。
+- 各案の影響:
+  - 案A — 仕様: §9 の文とZodの例を改め、同じ例を使う §28・§48.3 のZod schemaを §9 のrequest用schemaへ揃え、§12 `API-QRY-005` にcursor内のPublic Referenceの形式を明記する。§17、§18、§26.1、`SEC-ABU-015`、`SPEC-100` §7.2、`SPEC-170` `TST-DAT-005` は変更しない。SemVerはMINOR（受け付ける値を例より狭める明確化。`UCR-030-001`、`UCR-180-004` の前例と同じ）。実装: `apps/api/src/api/pagination.ts` のcursor内の参照の検証を §12 に揃える（cursorを使うrouteはまだない）。それ以外は変更しない。テスト: nil・maxの拒否を検証する既存のcase（`TC-DEV-API-003-001` の `request_id`・`profile_ref`、`TC-DEV-API-003-002` の `request_id`・`target_ref`、`TC-API-007-003` の `profile_ref`）はそのまま成り立つ。Pull Request #85 の公開readでは、`TC-API-009-002` が応答のrefについて大文字だけを検証し、nil・maxを検証していない。pathのnil・maxは、本UCRの決定後にPull Request #85（commit 7235fc7）で `TC-API-006-103`（path schema）と `TC-API-009-001`（HTTP。照会前の `400 VALIDATION_FAILED`）へ追加した。API応答: 変わらない。DB: 変わらない。`public_ref` は `gen_random_uuid()`（version 4）で生成され、nil・maxは作られない。手作業などでnil・maxが保存された行はAPIから参照できず、応答の検証で既存の失敗（公開readは `API-PUB-READ-006` の `503 TEMPORARY_UNAVAILABLE`、本人Profileは `500 INTERNAL_ERROR`）になる。DBのCHECK制約は追加しない。
+  - 案B — 仕様: §9 を書き換え、canonical UUID（§17）と別のPublic Referenceの形式を定める。「lowercase canonical形式」を使う `SEC-ABU-015`、§18 のrequest digest、`SPEC-160` の `business_cause_ref`、`SPEC-170` `TST-DAT-005` を、どちらの形式を指すか読み直して改める必要がある。実装: `lowerCaseUuidSchema` は `request_id` とPublic Reference（`profile_ref`、`target_ref`、公開readの各ref）を兼ねているため、Public Reference用のschemaを分け、`packages/application` の `lowerUuid`、Pull Request #85 の `announcementRefParamSchema` も改める。テスト: 上記3 caseのPublic Referenceの部分を、nil・maxの受理へ書き換える（`request_id` の部分は残す）。API応答: nil・maxのpathが `400` から存在確認の結果（通常は `404 RESOURCE_NOT_FOUND`）になり、応答のnil・maxを有効な値として返す。DB: 変わらない（通常の運用ではnil・maxの行は作られないため、参照できる行は実質的に増えない）。
+- 理由（案Aを推奨する）: §9 自身が「canonical UUID」と書き、本書で唯一の定義が §17 にあるため、同じ語に2つの意味を持たせない（`SPEC-000` §9.3 のCanonical Termの維持）。Zodの例は §9 の「lowercase」とも食い違う（大文字を受け付ける）ので、例をそのまま規範にする案Bも §9 の文の修正を避けられない。nil UUIDはRFC 9562で「値がない」ことを表す特別な値であり、本書は値がないことを `null` で表す（§8）ため、参照として受け付ける利点がない。DBはversion 4だけを生成するので、案Aで拒否しても正常な行には影響しない。案Aは現行の実装・テスト・`SEC-ABU-015`・`API-PUB-004` と一致し、変更は §9 の記述だけで済む。
+- 変更しない場合の影響: 実装者が §9 の例に従うとnil・maxと大文字の応答を受け付け、§17 の定義に従うと拒否するため、Operationごとに受け付ける値と `400` / `404` の境界が分かれる。Pull Request #85 のレビューのように、同じ指摘が実装のたびに繰り返される。
+- 影響を受ける可能性がある仕様書: SPEC-140（`SEC-ABU-015`。案Aでは変更不要）、SPEC-170（`TST-DAT-005` は変更不要。`TC-API-009-001` の記述へnil・maxの `400` を明記）、SPEC-100（§7.2。変更不要）、SPEC-160（`business_cause_ref`。案Aでは変更不要）、SPEC-050（§5.2。形式を `SPEC-110` に委ねており変更不要）

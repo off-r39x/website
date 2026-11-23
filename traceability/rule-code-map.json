@@ -2936,7 +2936,8 @@
         "packages/db/migrations/0001_foundation.sql",
         "packages/db/migrations/0003_public_content_sales.sql",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/migrations/0005_idempotency_records.sql"
+        "packages/db/migrations/0005_idempotency_records.sql",
+        "packages/db/migrations/0006_orders_payments.sql"
       ],
       "test_case_ids": [
         "TC-DB-FOUNDATION-001",
@@ -2947,7 +2948,9 @@
         "TC-DB-ARC-007-005",
         "TC-DB-ARC-007-006",
         "TC-DB-IDM-001-001",
-        "TC-DB-IDM-001-002"
+        "TC-DB-IDM-001-002",
+        "TC-DB-ARC-007-007",
+        "TC-DB-ARC-007-008"
       ],
       "notes": "Explicit named constraints and lossless bigint schema"
     },
@@ -2973,10 +2976,18 @@
         "packages/db/src/schema/public-content.ts",
         "packages/db/src/schema/sales.ts",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/src/schema/karaoke.ts"
+        "packages/db/src/schema/karaoke.ts",
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts",
+        "packages/db/src/schema/payments.ts"
       ],
-      "test_case_ids": ["TC-DB-STA-002-001", "TC-DB-ARC-007-003", "TC-DB-STA-002-002"],
-      "notes": "implementation mapping only: CHECK constraints allow the Publication State (DRAFT, PUBLISHED, ARCHIVED) and Sale Control State (ENABLED, SUSPENDED) values only; Karaoke Slot State allows AVAILABLE, HELD, SOLD and SALES_STOPPED only"
+      "test_case_ids": [
+        "TC-DB-STA-002-001",
+        "TC-DB-ARC-007-003",
+        "TC-DB-STA-002-002",
+        "TC-DB-STA-002-003"
+      ],
+      "notes": "implementation mapping only: CHECK constraints allow the Publication State (DRAFT, PUBLISHED, ARCHIVED) and Sale Control State (ENABLED, SUSPENDED) values only; Karaoke Slot State allows AVAILABLE, HELD, SOLD and SALES_STOPPED only; Order State and Purpose, Allocation State, Checkout creation result, Webhook processing state and Refund State allow the SPEC-030 / SPEC-070 values only (0006)"
     },
     {
       "rule_id": "DB-TIM-001",
@@ -2986,15 +2997,19 @@
         "packages/db/src/schema/sales.ts",
         "packages/db/src/schema/goods.ts",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/src/schema/karaoke.ts"
+        "packages/db/src/schema/karaoke.ts",
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts",
+        "packages/db/src/schema/payments.ts"
       ],
       "test_case_ids": [
         "TC-DB-TIM-001-001",
         "TC-DB-ARC-007-004",
         "TC-KRK-001-001",
-        "TC-DB-ARC-007-006"
+        "TC-DB-ARC-007-006",
+        "TC-DB-ARC-007-007"
       ],
-      "notes": "implementation mapping only: every time column of the public content and sales tables (0003) and the Karaoke Exclusive Scope and Slot tables (0004) is timestamptz"
+      "notes": "implementation mapping only: every time column of the public content and sales tables (0003) and the Karaoke Exclusive Scope and Slot tables (0004) is timestamptz; every time column of the seven Order / payment tables (0006) is timestamptz"
     },
     {
       "rule_id": "DB-TIM-002",
@@ -3036,10 +3051,13 @@
         "packages/db/src/schema/sales.ts",
         "packages/db/src/schema/goods.ts",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/src/schema/karaoke.ts"
+        "packages/db/src/schema/karaoke.ts",
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts",
+        "packages/db/src/schema/payments.ts"
       ],
-      "test_case_ids": ["TC-DB-FK-002-001", "TC-DB-FK-002-002"],
-      "notes": "implementation mapping only: Event and Goods foreign keys (0003) and the Karaoke foreign keys fk_karaoke_exclusive_scopes_event, fk_karaoke_slots_exclusive_scope and fk_karaoke_slots_sales_configuration (0004) are ON DELETE RESTRICT, never cascade"
+      "test_case_ids": ["TC-DB-FK-002-001", "TC-DB-FK-002-002", "TC-DB-FK-002-003"],
+      "notes": "implementation mapping only: Event and Goods foreign keys (0003) and the Karaoke foreign keys fk_karaoke_exclusive_scopes_event, fk_karaoke_slots_exclusive_scope and fk_karaoke_slots_sales_configuration (0004) are ON DELETE RESTRICT, never cascade; the twelve Order / payment foreign keys of 0006 are ON DELETE RESTRICT"
     },
     {
       "rule_id": "DB-GDS-001",
@@ -3082,10 +3100,16 @@
       "code_paths": [
         "packages/db/migrations/0003_public_content_sales.sql",
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
-        "packages/db/migrations/0005_idempotency_records.sql"
+        "packages/db/migrations/0005_idempotency_records.sql",
+        "packages/db/migrations/0006_orders_payments.sql"
       ],
-      "test_case_ids": ["TC-SEC-DB-001-001", "TC-SEC-DB-001-002", "TC-DB-IDM-003-001"],
-      "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role)"
+      "test_case_ids": [
+        "TC-SEC-DB-001-001",
+        "TC-SEC-DB-001-002",
+        "TC-DB-IDM-003-001",
+        "TC-SEC-DB-001-003"
+      ],
+      "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role); 0006 revokes every runtime privilege on the seven Order / payment tables and grants none (plan U-4)"
     },
     {
       "rule_id": "DB-KRK-001",
@@ -3225,7 +3249,11 @@
     },
     {
       "rule_id": "INF-HLT-006",
-      "code_paths": ["packages/db/src/readiness.ts"],
+      "code_paths": [
+        "packages/db/src/readiness.ts",
+        "packages/db/src/database.ts",
+        "packages/db/src/migrations.ts"
+      ],
       "test_case_ids": [
         "TC-INF-HLT-006-001",
         "TC-INF-HLT-006-002",
@@ -3235,9 +3263,11 @@
         "TC-INF-HLT-006-006",
         "TC-INF-HLT-006-007",
         "TC-INF-HLT-006-008",
-        "TC-INF-HLT-006-009"
+        "TC-INF-HLT-006-009",
+        "TC-INF-HLT-006-011",
+        "TC-INF-HLT-006-012"
       ],
-      "notes": "Backward-compatible readiness: journal, catalog, journal read outside a transaction within the SPEC-150 55P03 budget; bundled migration set (byte order) is a prefix of the journal; required catalog contained in the live catalog only when the journal is ahead, exact otherwise; a required constraint validated after NOT VALID is accepted (UCR-180-003)"
+      "notes": "Backward-compatible readiness: journal, catalog, journal read outside a transaction within the SPEC-150 55P03 budget; bundled migration set (byte order) is a prefix of the journal; required catalog contained in the live catalog only when the journal is ahead, exact otherwise; a required constraint validated after NOT VALID is accepted (UCR-180-003); catalog-reading connections fix IntervalStyle=postgres (the notation of the required catalog) with a startup option that overrides database and role defaults"
     },
     {
       "rule_id": "REL-DB-012",
@@ -3658,7 +3688,13 @@
     {
       "rule_id": "SEC-AUTH-003",
       "code_paths": ["packages/auth/src/index.ts", "apps/api/src/api/middleware/principal.ts"],
-      "test_case_ids": ["TC-SEC-AUTH-003-001", "TC-SEC-AUTH-003-002"],
+      "test_case_ids": [
+        "TC-SEC-AUTH-003-001",
+        "TC-SEC-AUTH-003-002",
+        "TC-DB-AUTH-001-003",
+        "TC-DB-AUTH-001-006",
+        "TC-DB-AUTH-001-007"
+      ],
       "notes": "Email verified check from the restricted directory view, before Business Profile resolution (SPEC-110 section 24.1)"
     },
     {
@@ -3679,7 +3715,7 @@
         "apps/api/src/api/middleware/principal.ts",
         "apps/api/src/api/routes/self-profile.ts"
       ],
-      "test_case_ids": ["TC-SEC-AZ-013-050", "TC-API-007-007"],
+      "test_case_ids": ["TC-SEC-AZ-013-050", "TC-API-007-007", "TC-DB-AUTH-001-007"],
       "notes": "Backend foundation only; does not assert completion of business flows or live Provider contracts"
     },
     {
@@ -3700,7 +3736,7 @@
         "apps/api/src/api/middleware/principal.ts",
         "apps/api/src/api/routes/self-profile.ts"
       ],
-      "test_case_ids": ["TC-SEC-AZ-013-050", "TC-API-007-007"],
+      "test_case_ids": ["TC-SEC-AZ-013-050", "TC-API-007-007", "TC-DB-AUTH-001-007"],
       "notes": "Backend foundation only; does not assert completion of business flows or live Provider contracts"
     },
     {
@@ -3760,6 +3796,8 @@
         "TC-DEV-API-003-004",
         "TC-DEV-API-003-005",
         "TC-DEV-API-002-001",
+        "TC-DB-AUTH-001-002",
+        "TC-DB-AUTH-001-009",
         "TC-API-009-002",
         "TC-API-009-008",
         "TC-API-006-103"
@@ -3785,6 +3823,8 @@
         "TC-DEV-API-002-001",
         "TC-DEV-API-002-002",
         "TC-API-007-009",
+        "TC-DB-AUTH-001-002",
+        "TC-DB-AUTH-001-009",
         "TC-API-009-008"
       ],
       "notes": "Backend foundation only; does not assert completion of business flows or live Provider contracts"
@@ -4809,6 +4849,7 @@
         "TC-RLM-007-003",
         "TC-RLM-004-239",
         "TC-API-007-004",
+        "TC-DB-AUTH-001-002",
         "TC-API-009-004"
       ],
       "notes": "Shared rate limit (UCR-140-003) implementation mapping; synthetic evidence only, Railway ingress/Redis external facts (SPEC-180 §17.2) are not asserted"
@@ -5480,9 +5521,17 @@
       "code_paths": [
         "apps/api/src/api/routes/self-profile.ts",
         "apps/api/src/api/services/self-profile.ts",
-        "packages/db/src/transactions/profile.ts"
+        "packages/db/src/transactions/profile.ts",
+        "apps/api/src/api/middleware/principal.ts"
       ],
-      "test_case_ids": ["TC-API-007-001", "TC-API-007-006", "TC-API-007-007"],
+      "test_case_ids": [
+        "TC-API-007-001",
+        "TC-API-007-006",
+        "TC-API-007-007",
+        "TC-DB-AUTH-001-001",
+        "TC-DB-AUTH-001-006",
+        "TC-DB-AUTH-001-007"
+      ],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
     },
     {
@@ -5492,7 +5541,7 @@
         "apps/api/src/api/services/self-profile.ts",
         "packages/db/src/transactions/profile.ts"
       ],
-      "test_case_ids": ["TC-API-007-006"],
+      "test_case_ids": ["TC-API-007-006", "TC-DB-AUTH-001-006"],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
     },
     {
@@ -5507,7 +5556,7 @@
         "packages/db/src/transactions/profile.ts",
         "packages/db/src/transactions/public-content.ts"
       ],
-      "test_case_ids": ["TC-API-007-005", "TC-API-009-005"],
+      "test_case_ids": ["TC-API-007-005", "TC-DB-AUTH-001-004", "TC-API-009-005"],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
     },
     {
@@ -5516,14 +5565,93 @@
         "packages/db/src/transactions/profile.ts",
         "packages/db/src/transactions/public-content.ts"
       ],
-      "test_case_ids": ["TC-API-007-005", "TC-API-009-005"],
+      "test_case_ids": ["TC-API-007-005", "TC-DB-AUTH-001-004", "TC-API-009-005"],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-AUTH-003",
+      "code_paths": [
+        "packages/api-contract/src/rpc.ts",
+        "packages/api-contract/src/schemas/profile.ts",
+        "apps/api/src/api/routes/self-profile.ts",
+        "apps/api/src/api/services/self-profile.ts",
+        "apps/api/src/api/routes.ts",
+        "apps/api/src/api/middleware/principal.ts",
+        "packages/auth/src/index.ts",
+        "packages/db/src/transactions/profile.ts"
+      ],
+      "test_case_ids": [
+        "TC-DB-AUTH-001-001",
+        "TC-DB-AUTH-001-002",
+        "TC-DB-AUTH-001-003",
+        "TC-DB-AUTH-001-004",
+        "TC-DB-AUTH-001-005",
+        "TC-DB-AUTH-001-006",
+        "TC-DB-AUTH-001-007",
+        "TC-DB-AUTH-001-008",
+        "TC-DB-AUTH-001-009"
+      ],
+      "notes": "implementation mapping only: PR-L2-1b self Profile provisioning (API-AUTH-003); synthetic evidence, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "DB-AUTH-001",
+      "code_paths": ["packages/db/src/transactions/profile.ts"],
+      "test_case_ids": [
+        "TC-DB-AUTH-001-004",
+        "TC-DB-AUTH-001-005",
+        "TC-DB-AUTH-001-006",
+        "TC-DB-AUTH-001-010"
+      ],
+      "notes": "implementation mapping only: PR-L2-1b self Profile provisioning (API-AUTH-003); synthetic evidence, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "AR-ID-004",
+      "code_paths": [
+        "packages/db/src/transactions/profile.ts",
+        "apps/api/src/api/services/self-profile.ts"
+      ],
+      "test_case_ids": [
+        "TC-DB-AUTH-001-001",
+        "TC-DB-AUTH-001-004",
+        "TC-DB-AUTH-001-005",
+        "TC-DB-AUTH-001-006",
+        "TC-DB-AUTH-001-010"
+      ],
+      "notes": "implementation mapping only: PR-L2-1b self Profile provisioning (API-AUTH-003); synthetic evidence, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "REL-AUTH-004",
+      "code_paths": ["packages/db/src/transactions/profile.ts"],
+      "test_case_ids": ["TC-DB-AUTH-001-005", "TC-DB-AUTH-001-006"],
+      "notes": "implementation mapping only: PR-L2-1b self Profile provisioning (API-AUTH-003); synthetic evidence, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "REL-AUTH-005",
+      "code_paths": ["packages/db/src/transactions/profile.ts"],
+      "test_case_ids": ["TC-DB-AUTH-001-004", "TC-DB-AUTH-001-008", "TC-DB-AUTH-001-010"],
+      "notes": "implementation mapping only: PR-L2-1b self Profile provisioning (API-AUTH-003); synthetic evidence, G8 (production-like E2E) not executed; the missing-row case is not re-created but answered 500; the Consistency Review case and the 409 after commit (UCR-100-004, REL-AUTH-009, SPEC-110 section 25) are not implemented and follow in a separate PR after PR-L1-1c adds the case table"
+    },
+    {
+      "rule_id": "AR-ID-001",
+      "code_paths": [
+        "packages/auth/src/index.ts",
+        "apps/api/src/api/middleware/principal.ts",
+        "apps/api/src/api/routes/self-profile.ts"
+      ],
+      "test_case_ids": ["TC-DB-AUTH-001-001", "TC-DB-AUTH-001-003", "TC-DB-AUTH-001-007"],
+      "notes": "implementation mapping only: PR-L2-1b self Profile provisioning (API-AUTH-003); synthetic evidence, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "AR-ID-005",
+      "code_paths": ["packages/db/src/transactions/profile.ts"],
+      "test_case_ids": ["TC-DB-AUTH-001-006"],
+      "notes": "implementation mapping only: PR-L2-1b self Profile provisioning (API-AUTH-003); synthetic evidence, G8 (production-like E2E) not executed"
     },
     {
       "rule_id": "DEV-DB-004",
       "code_paths": ["packages/db/src/transactions/profile.ts"],
-      "test_case_ids": ["TC-API-007-010"],
-      "notes": "implementation mapping only: the self Profile SELECT and UPDATE ... RETURNING are built from the Drizzle table declaration; transaction_timestamp() stays an SQL expression in the same UPDATE"
+      "test_case_ids": ["TC-API-007-010", "TC-DB-AUTH-001-010"],
+      "notes": "implementation mapping only: the self Profile SELECT, UPDATE ... RETURNING and the provisioning INSERT ... ON CONFLICT DO NOTHING RETURNING and reselect are built from the Drizzle table declaration; transaction_timestamp() stays an SQL expression in the same UPDATE"
     },
     {
       "rule_id": "DEV-API-010",
@@ -6086,10 +6214,11 @@
         "TC-INF-SEC-007-007",
         "TC-API-QRY-005-001",
         "TC-API-QRY-004-001",
+        "TC-API-QRY-004-002",
         "TC-API-QRY-004-003",
         "TC-API-QRY-001-002"
       ],
-      "notes": "Cursor signed with LIST_CURSOR_HMAC_KEY and carrying its version (codec from S0-3b); no list Operation is mounted yet"
+      "notes": "Cursor signed with LIST_CURSOR_HMAC_KEY and carrying its version (codec from S0-3b); the public_ref is a SPEC-110 section 9 canonical UUID on encode and decode (UCR-110-014); no list Operation is mounted yet"
     },
     {
       "rule_id": "SEC-KEY-006",
@@ -6102,6 +6231,97 @@
       "code_paths": ["packages/config/src/index.ts"],
       "test_case_ids": ["TC-INF-SEC-007-005"],
       "notes": "Workers refuse the list cursor key"
+    },
+    {
+      "rule_id": "DB-ORD-001",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ORD-001-001", "TC-DB-ORD-003-001"],
+      "notes": "implementation mapping only (no repository code yet): the Order timestamps follow the state; purpose and currency cannot change under an Order Item (composite foreign key)"
+    },
+    {
+      "rule_id": "DB-ORD-002",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ORD-002-001"],
+      "notes": "implementation mapping only (no repository code yet): ck_order_items_source fixes a Karaoke item to one Slot and quantity 1; the one-item count is a purchase transaction precondition"
+    },
+    {
+      "rule_id": "DB-ORD-003",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ORD-003-001"],
+      "notes": "implementation mapping only (no repository code yet): generated line totals and purpose / currency equality by the composite foreign key; Order-wide totals are transaction preconditions"
+    },
+    {
+      "rule_id": "DB-ORD-004",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ORD-002-001", "TC-DB-ORD-003-001"],
+      "notes": "implementation mapping only (no repository code yet): each item repeats its Order's purpose; Entry / Goods sources are exclusive"
+    },
+    {
+      "rule_id": "DB-ENT-001",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts"
+      ],
+      "test_case_ids": ["TC-DB-ENT-001-001"],
+      "notes": "implementation mapping only (no repository code yet): HELD / COMMITTED / RELEASED with their timestamps; the no-return-to-HELD transition is a repository conditional update"
+    },
+    {
+      "rule_id": "DB-MNY-001",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/orders.ts",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-MNY-001-001", "TC-DB-ORD-003-001"],
+      "notes": "implementation mapping only (no repository code yet): bigint amounts, currency CHECKs and generated line totals"
+    },
+    {
+      "rule_id": "DB-PAY-001",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-PAY-001-001"],
+      "notes": "implementation mapping only (no repository code yet): one Stripe idempotency key per Checkout Attempt and attempt numbers unique per Order"
+    },
+    {
+      "rule_id": "DB-PAY-002",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-PAY-002-001"],
+      "notes": "implementation mapping only (no repository code yet): Session, PaymentIntent and Charge IDs are UNIQUE and an Attempt binds once to its own Order"
+    },
+    {
+      "rule_id": "DB-PAY-003",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-PAY-003-001", "TC-DB-PAY-003-002", "TC-CON-001-002"],
+      "notes": "implementation mapping only (no repository code yet): ux_payment_bindings_order_active and the generated 30 minute payment deadline"
+    },
+    {
+      "rule_id": "DB-PAY-005",
+      "code_paths": [
+        "packages/db/migrations/0006_orders_payments.sql",
+        "packages/db/src/schema/payments.ts"
+      ],
+      "test_case_ids": ["TC-DB-PAY-005-001"],
+      "notes": "implementation mapping only (no repository code yet): uq_webhook_receipts_stripe_event_id dedupes redelivered Events; the same-transaction commit is the Webhook handler's job (PR-L1-3)"
     }
   ]
 }

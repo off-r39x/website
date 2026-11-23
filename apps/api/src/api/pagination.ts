@@ -19,7 +19,10 @@ const DOMAIN = "r39x/list-cursor/v1";
 const MAX_TOKEN_LENGTH = 512;
 const MAC_LENGTH = 32;
 const OPERATION_ID = /^API-[A-Z0-9]+(-[A-Z0-9]+)*$/;
-const PUBLIC_REF = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+// SPEC-110 section 9 canonical UUID (UCR-110-014, the regex of lowerCaseUuidSchema in api-contract):
+// lowercase, version 1-8, variant 8/9/a/b, so nil and max are excluded. API-QRY-005: encode refuses a
+// non-canonical reference, and decode treats one as a malformed cursor even when the MAC matches.
+const PUBLIC_REF = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 
 const safeScalar = (value: unknown): boolean =>

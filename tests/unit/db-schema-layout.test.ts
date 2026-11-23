@@ -118,7 +118,7 @@ const EXPECTED_ROOT_EXPORTS = [
 ];
 
 describe("TC-DEV-DB-001-001 db package public surface", () => {
-  it("TC-DEV-DB-001-001 @off-r39x/db/schema exports exactly app and the fourteen table declarations by name", async () => {
+  it("TC-DEV-DB-001-001 @off-r39x/db/schema exports exactly app and the twenty-one table declarations by name", async () => {
     const schemaModule = await import("@off-r39x/db/schema");
 
     // (1) no helper or extra name leaks through the barrel (DEV-DB-001).
@@ -127,6 +127,8 @@ describe("TC-DEV-DB-001-001 db package public surface", () => {
       "app",
       "auditEvents",
       "businessProfiles",
+      "checkoutAttempts",
+      "entrySalesAllocations",
       "entryTicketOfferings",
       "events",
       "faqItems",
@@ -136,8 +138,13 @@ describe("TC-DEV-DB-001-001 db package public surface", () => {
       "karaokeExclusiveScopes",
       "karaokeSalesConfigurations",
       "karaokeSlots",
+      "orderItems",
+      "orders",
+      "paymentBindings",
+      "refundRecords",
       "roleAssignments",
       "sponsorLogos",
+      "webhookReceipts",
     ]);
 
     // (2) the shared pgSchema object is the "app" schema.
@@ -587,6 +594,8 @@ describe("TC-DB-ARC-007-001 Drizzle declarations match schema-contract.json", ()
       "announcements",
       "audit_events",
       "business_profiles",
+      "checkout_attempts",
+      "entry_sales_allocations",
       "entry_ticket_offerings",
       "events",
       "faq_items",
@@ -596,8 +605,13 @@ describe("TC-DB-ARC-007-001 Drizzle declarations match schema-contract.json", ()
       "karaoke_exclusive_scopes",
       "karaoke_sales_configurations",
       "karaoke_slots",
+      "order_items",
+      "orders",
+      "payment_bindings",
+      "refund_records",
       "role_assignments",
       "sponsor_logos",
+      "webhook_receipts",
     ]);
   });
 });

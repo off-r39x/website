@@ -5,6 +5,14 @@ import { Pool } from "pg";
 import { type DatabaseLogger, logDatabase, observeDatabase } from "./observability.ts";
 import * as schema from "./schema/index.ts";
 
+/**
+ * pg_get_expr and pg_get_constraintdef write interval literals in the session IntervalStyle
+ * ('00:30:00'::interval under postgres, 'PT30M'::interval under iso_8601). The required catalog
+ * (schema-contract.json, INF-HLT-006) records the postgres style, so every connection that reads
+ * the catalog fixes it. A startup option overrides database and role settings.
+ */
+export const INTERVAL_STYLE_OPTION = "-c intervalstyle=postgres";
+
 export type DatabaseOptions = {
   connectionString: string;
   environment: "production" | "staging" | "development" | "test";
@@ -54,7 +62,7 @@ export function createDatabase(options: DatabaseOptions) {
       ...(options.ca ? { ca: options.ca } : {}),
     },
     application_name: `r39x/${options.environment}/${options.service}`,
-    options: `-c timezone=UTC -c statement_timeout=${TIMEOUTS.statementMs} -c lock_timeout=${TIMEOUTS.lockMs} -c idle_in_transaction_session_timeout=${TIMEOUTS.transactionMs}`,
+    options: `-c timezone=UTC ${INTERVAL_STYLE_OPTION} -c statement_timeout=${TIMEOUTS.statementMs} -c lock_timeout=${TIMEOUTS.lockMs} -c idle_in_transaction_session_timeout=${TIMEOUTS.transactionMs}`,
   });
   // Pool errors must not leak connection strings through an unhandled event.
   if (options.logger) observeDatabase(pool, options.logger);
