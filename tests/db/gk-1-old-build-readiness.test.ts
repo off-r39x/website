@@ -16,6 +16,7 @@ import { observeDatabase } from "../../packages/db/src/observability.ts";
 import { catalogSatisfies, type ReadinessExpectations } from "../../packages/db/src/readiness.ts";
 import { catalogQuery, requiredCatalog } from "../../packages/db/src/schema-contract.ts";
 import { installSyntheticDirectory, prepareFoundationDatabase } from "../harness/db/foundation.ts";
+import { testSessionOptions } from "../harness/db/session-options.ts";
 
 // SPEC-180 INF-HLT-006 (UCR-180-003), PR #73 review: the build released before GK-1 bundles
 // 0001-0003 and the required catalog without the two Karaoke tables of 0004. Applying the real 0004
@@ -53,7 +54,9 @@ if (!sourceUrl || !caPath)
   throw new Error("Real PG17 requires TEST_DATABASE_URL and TEST_DATABASE_CA");
 
 const REPO_MIGRATIONS = resolve(process.cwd(), "../packages/db/migrations");
-const READINESS_OPTIONS = `-c timezone=UTC ${INTERVAL_STYLE_OPTION} -c lock_timeout=1000`;
+const READINESS_OPTIONS = testSessionOptions(
+  `-c timezone=UTC ${INTERVAL_STYLE_OPTION} -c lock_timeout=1000`,
+);
 const TIMEOUT = 90_000;
 
 async function inCwd<T>(dir: string, fn: () => Promise<T>): Promise<T> {

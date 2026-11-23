@@ -29924,7 +29924,7 @@
       "db_constraint_names": [
         "ck_idempotency_records_expiry"
       ],
-      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED with the repository migrations applied; IntervalStyle set to iso_8601, sql_standard or postgres_verbose as the database default (ALTER DATABASE) or as the default of the admin and the three runtime login roles in that database (ALTER ROLE ... IN DATABASE), one at a time and reset after each case",
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED with the repository migrations applied; IntervalStyle set to iso_8601, sql_standard or postgres_verbose as the database default (ALTER DATABASE) or as the default of the admin and the three runtime login roles in that database (ALTER ROLE ... IN DATABASE), one at a time and reset after each case; a second disposable database for the migration case; the options of TEST_DATABASE_URL are moved out of the isolated URL into PGOPTIONS and TEST_DATABASE_OPTIONS",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
@@ -29935,7 +29935,8 @@
       ],
       "expected_db_postconditions": [
         "A session without the startup option sees the configured IntervalStyle, pg_get_expr / pg_get_constraintdef write the payment_deadline_at generation expression, the idempotency_records.expires_at default and ck_idempotency_records_expiry in that style, and the live catalog does not equal the required catalog",
-        "The harness session (PGOPTIONS) and the createDatabase pools of app_api_runtime, app_email_runtime and app_reconciliation_runtime run in the postgres IntervalStyle, read those expressions as the hand-written goldens and the required catalog exactly, and checkReadiness is Ready with no failures"
+        "The harness session (PGOPTIONS) and the createDatabase pools of app_api_runtime, app_email_runtime and app_reconciliation_runtime run in the postgres IntervalStyle, read those expressions as the hand-written goldens and the required catalog exactly, and checkReadiness is Ready with no failures",
+        "Migrations run by a session that starts in sql_standard execute every CREATE TABLE statement in the postgres IntervalStyle, and the migrated database reads the goldens and the required catalog exactly"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [

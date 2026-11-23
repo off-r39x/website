@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { LogEvent } from "@off-r39x/observability";
-import { Client } from "pg";
+import { Client, type QueryResult } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { INTERVAL_STYLE_OPTION } from "../../packages/db/src/database.ts";
 import {
@@ -13,6 +13,7 @@ import { catalogQuery, requiredCatalog } from "../../packages/db/src/schema-cont
 import { installSyntheticDirectory, prepareFoundationDatabase } from "../harness/db/foundation.ts";
 import { GOLDEN_COLUMNS, GOLDEN_CONSTRAINTS } from "../harness/db/idempotency-golden.ts";
 import { PAYMENT_DEADLINE_EXPRESSION } from "../harness/db/orders-payments-golden.ts";
+import { testSessionOptions } from "../harness/db/session-options.ts";
 
 // SPEC-180 INF-HLT-006 (Common 7): pg_get_expr and pg_get_constraintdef write interval literals in the
 // session IntervalStyle, and the required catalog (schema-contract.json) and the harness goldens record
@@ -24,14 +25,19 @@ import { PAYMENT_DEADLINE_EXPRESSION } from "../harness/db/orders-payments-golde
 // the harness PGOPTIONS does not apply) sees the other style and a catalog that differs from the
 // required one. Then the harness session and the three runtime pools see the postgres style, the
 // required catalog exactly and the goldens, and readiness is Ready with no fail-closed event.
+// Migrations run in a session that starts in sql_standard (which also changes how signed interval
+// input is read) and must still run their DDL in the postgres style.
 
 const url = process.env.TEST_DATABASE_URL;
 const caPath = process.env.TEST_DATABASE_CA;
 if (!url || !caPath) throw new Error("Real PG17 requires TEST_DATABASE_URL and TEST_DATABASE_CA");
 
 const TIMEOUT = 90_000;
-/** Startup options of a session that does not fix IntervalStyle (and so bypasses PGOPTIONS). */
-const UNFIXED_OPTIONS = "-c timezone=UTC";
+/**
+ * Startup options of a session that does not fix IntervalStyle (and so bypasses PGOPTIONS). It keeps
+ * the options the runner was given for the test database.
+ */
+const UNFIXED_OPTIONS = testSessionOptions("-c timezone=UTC");
 
 const POSTGRES_DEADLINE = "'00:30:00'::interval";
 const POSTGRES_EXPIRY = "'24:00:00'::interval";
@@ -162,6 +168,10 @@ describe("readiness and the catalog goldens under a non-default IntervalStyle (r
 
   it("TC-INF-HLT-006-012 the goldens and the required catalog hold the postgres IntervalStyle literals", async () => {
     expect(INTERVAL_STYLE_OPTION).toBe("-c intervalstyle=postgres");
+    // Options in the connection string would override PGOPTIONS, so the isolated URL has none and
+    // PGOPTIONS ends with the IntervalStyle option.
+    expect(new URL(url as string).searchParams.has("options")).toBe(false);
+    expect(process.env.PGOPTIONS?.endsWith(INTERVAL_STYLE_OPTION)).toBe(true);
     expect(PAYMENT_DEADLINE_EXPRESSION).toContain(POSTGRES_DEADLINE);
     expect(goldenExpiryDefault).toContain(POSTGRES_EXPIRY);
     expect(goldenExpiryCheck).toContain(POSTGRES_EXPIRY);
@@ -174,6 +184,63 @@ describe("readiness and the catalog goldens under a non-default IntervalStyle (r
     });
     expect(catalogSatisfies(live.catalog, requiredCatalog, "exact")).toBe(true);
   });
+
+  it(
+    "TC-INF-HLT-006-012 INF-HLT-006 migrations started in a sql_standard session run their DDL in the postgres IntervalStyle and create the required catalog",
+    async () => {
+      const target = `${database}_ivs`;
+      const targetUrl = new URL(url as string);
+      targetUrl.pathname = `/${target}`;
+      await admin.query(`CREATE DATABASE ${quoteIdent(target)} TEMPLATE template0`);
+      try {
+        // The IntervalStyle in effect when each CREATE TABLE statement of the migrations runs.
+        const ddlStyles: string[] = [];
+        await withClient(
+          {
+            connectionString: targetUrl.href,
+            options: testSessionOptions("-c timezone=UTC -c intervalstyle=sql_standard"),
+          },
+          async (client) => {
+            expect(
+              (await client.query("SELECT current_setting('IntervalStyle') AS style")).rows[0]
+                .style,
+            ).toBe("sql_standard");
+            const query = client.query.bind(client) as (...args: unknown[]) => Promise<QueryResult>;
+            client.query = (async (...args: unknown[]) => {
+              const [text] = args;
+              const sql =
+                typeof text === "string" ? text : ((text as { text?: string } | null)?.text ?? "");
+              if (/\bCREATE\s+TABLE\b/i.test(sql))
+                ddlStyles.push(
+                  (await query("SELECT current_setting('IntervalStyle') AS style")).rows[0].style,
+                );
+              return query(...args);
+            }) as unknown as Client["query"];
+            await prepareFoundationDatabase(client);
+          },
+        );
+        expect(ddlStyles.length).toBeGreaterThan(0);
+        expect(new Set(ddlStyles)).toEqual(new Set(["postgres"]));
+
+        // The required catalog also covers the identity directory, which beforeAll installs in the
+        // first database.
+        const migrated = await withClient({ connectionString: targetUrl.href }, async (client) => {
+          await installSyntheticDirectory(client);
+          return catalogExpressions(client);
+        });
+        expect(migrated).toMatchObject({
+          style: "postgres",
+          deadline: PAYMENT_DEADLINE_EXPRESSION,
+          expiry_default: goldenExpiryDefault,
+          expiry_check: goldenExpiryCheck,
+        });
+        expect(catalogSatisfies(migrated.catalog, requiredCatalog, "exact")).toBe(true);
+      } finally {
+        await admin.query(`DROP DATABASE ${quoteIdent(target)} WITH (FORCE)`);
+      }
+    },
+    TIMEOUT,
+  );
 
   for (const scope of SCOPES)
     for (const { style, deadline, expiry } of STYLES)
