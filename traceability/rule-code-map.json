@@ -2899,7 +2899,8 @@
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
         "packages/db/migrations/0005_idempotency_records.sql",
         "packages/db/migrations/0006_orders_payments.sql",
-        "packages/db/migrations/0007_karaoke_reservations.sql"
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/migrations/0008_goods_fulfillment.sql"
       ],
       "test_case_ids": [
         "TC-DB-FOUNDATION-001",
@@ -2914,7 +2915,9 @@
         "TC-DB-ARC-007-007",
         "TC-DB-ARC-007-008",
         "TC-DB-ARC-007-009",
-        "TC-DB-ARC-007-010"
+        "TC-DB-ARC-007-010",
+        "TC-DB-ARC-007-011",
+        "TC-DB-ARC-007-012"
       ],
       "notes": "Explicit named constraints and lossless bigint schema"
     },
@@ -2944,16 +2947,19 @@
         "packages/db/migrations/0006_orders_payments.sql",
         "packages/db/src/schema/orders.ts",
         "packages/db/src/schema/payments.ts",
-        "packages/db/migrations/0007_karaoke_reservations.sql"
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/migrations/0008_goods_fulfillment.sql",
+        "packages/db/src/schema/goods.ts"
       ],
       "test_case_ids": [
         "TC-DB-STA-002-001",
         "TC-DB-ARC-007-003",
         "TC-DB-STA-002-002",
         "TC-DB-STA-002-003",
-        "TC-DB-STA-002-004"
+        "TC-DB-STA-002-004",
+        "TC-DB-STA-002-005"
       ],
-      "notes": "implementation mapping only: CHECK constraints allow the Publication State (DRAFT, PUBLISHED, ARCHIVED) and Sale Control State (ENABLED, SUSPENDED) values only; Karaoke Slot State allows AVAILABLE, HELD, SOLD and SALES_STOPPED only; Order State and Purpose, Allocation State, Checkout creation result, Webhook processing state and Refund State allow the SPEC-030 / SPEC-070 values only (0006); Karaoke Hold, Reservation and Ticket State allow the SPEC-030 / SPEC-090 values only (0007)"
+      "notes": "implementation mapping only: CHECK constraints allow the Publication State (DRAFT, PUBLISHED, ARCHIVED) and Sale Control State (ENABLED, SUSPENDED) values only; Karaoke Slot State allows AVAILABLE, HELD, SOLD and SALES_STOPPED only; Order State and Purpose, Allocation State, Checkout creation result, Webhook processing state and Refund State allow the SPEC-030 / SPEC-070 values only (0006); Karaoke Hold, Reservation and Ticket State allow the SPEC-030 / SPEC-090 values only (0007); Goods Order Item State and Purpose, Goods Allocation State and Goods Handoff State allow the SPEC-030 values only (0008)"
     },
     {
       "rule_id": "DB-TIM-001",
@@ -2967,7 +2973,8 @@
         "packages/db/migrations/0006_orders_payments.sql",
         "packages/db/src/schema/orders.ts",
         "packages/db/src/schema/payments.ts",
-        "packages/db/migrations/0007_karaoke_reservations.sql"
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/migrations/0008_goods_fulfillment.sql"
       ],
       "test_case_ids": [
         "TC-DB-TIM-001-001",
@@ -2975,9 +2982,10 @@
         "TC-KRK-001-001",
         "TC-DB-ARC-007-006",
         "TC-DB-ARC-007-007",
-        "TC-DB-ARC-007-009"
+        "TC-DB-ARC-007-009",
+        "TC-DB-ARC-007-011"
       ],
-      "notes": "implementation mapping only: every time column of the public content and sales tables (0003) and the Karaoke Exclusive Scope and Slot tables (0004) is timestamptz; every time column of the seven Order / payment tables (0006) is timestamptz; every time column of the four Karaoke reservation tables (0007) is timestamptz"
+      "notes": "implementation mapping only: every time column of the public content and sales tables (0003) and the Karaoke Exclusive Scope and Slot tables (0004) is timestamptz; every time column of the seven Order / payment tables (0006) is timestamptz; every time column of the four Karaoke reservation tables (0007) is timestamptz; every time column of the three Goods fulfillment tables (0008) is timestamptz"
     },
     {
       "rule_id": "DB-TIM-002",
@@ -3024,15 +3032,17 @@
         "packages/db/migrations/0006_orders_payments.sql",
         "packages/db/src/schema/orders.ts",
         "packages/db/src/schema/payments.ts",
-        "packages/db/migrations/0007_karaoke_reservations.sql"
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/migrations/0008_goods_fulfillment.sql"
       ],
       "test_case_ids": [
         "TC-DB-FK-002-001",
         "TC-DB-FK-002-002",
         "TC-DB-FK-002-003",
-        "TC-DB-FK-002-004"
+        "TC-DB-FK-002-004",
+        "TC-DB-FK-002-005"
       ],
-      "notes": "implementation mapping only: Event and Goods foreign keys (0003) and the Karaoke foreign keys fk_karaoke_exclusive_scopes_event, fk_karaoke_slots_exclusive_scope and fk_karaoke_slots_sales_configuration (0004) are ON DELETE RESTRICT, never cascade; the twelve Order / payment foreign keys of 0006 are ON DELETE RESTRICT; the seven Karaoke reservation foreign keys of 0007 are ON DELETE RESTRICT"
+      "notes": "implementation mapping only: Event and Goods foreign keys (0003) and the Karaoke foreign keys fk_karaoke_exclusive_scopes_event, fk_karaoke_slots_exclusive_scope and fk_karaoke_slots_sales_configuration (0004) are ON DELETE RESTRICT, never cascade; the twelve Order / payment foreign keys of 0006 are ON DELETE RESTRICT; the seven Karaoke reservation foreign keys of 0007 are ON DELETE RESTRICT; the eight Goods fulfillment foreign keys of 0008 are ON DELETE RESTRICT"
     },
     {
       "rule_id": "DB-GDS-001",
@@ -3047,10 +3057,11 @@
       "rule_id": "DB-GDS-003",
       "code_paths": [
         "packages/db/migrations/0003_public_content_sales.sql",
-        "packages/db/src/schema/goods.ts"
+        "packages/db/src/schema/goods.ts",
+        "packages/db/migrations/0008_goods_fulfillment.sql"
       ],
-      "test_case_ids": ["TC-DB-GDS-003-001"],
-      "notes": "implementation mapping only: ck_goods_inventory_capacity keeps held + committed within saleable_capacity"
+      "test_case_ids": ["TC-DB-GDS-003-001", "TC-DB-GDS-004-001"],
+      "notes": "implementation mapping only: ck_goods_inventory_capacity keeps held + committed within saleable_capacity; the Goods Allocation (0008) holds a positive quantity, one per Goods Order Item, for the item's Goods; the counter update in the same transaction belongs to the purchase path"
     },
     {
       "rule_id": "DI-030-004",
@@ -3077,16 +3088,18 @@
         "packages/db/migrations/0004_karaoke_scopes_slots.sql",
         "packages/db/migrations/0005_idempotency_records.sql",
         "packages/db/migrations/0006_orders_payments.sql",
-        "packages/db/migrations/0007_karaoke_reservations.sql"
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/migrations/0008_goods_fulfillment.sql"
       ],
       "test_case_ids": [
         "TC-SEC-DB-001-001",
         "TC-SEC-DB-001-002",
         "TC-DB-IDM-003-001",
         "TC-SEC-DB-001-003",
-        "TC-SEC-DB-001-004"
+        "TC-SEC-DB-001-004",
+        "TC-SEC-DB-001-005"
       ],
-      "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role); 0006 revokes every runtime privilege on the seven Order / payment tables and grants none (plan U-4); 0007 revokes every runtime privilege on the four Karaoke reservation tables and grants none (plan U-4)"
+      "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role); 0006 revokes every runtime privilege on the seven Order / payment tables and grants none (plan U-4); 0007 revokes every runtime privilege on the four Karaoke reservation tables and grants none (plan U-4); 0008 revokes every runtime privilege on the three Goods fulfillment tables and grants none (plan U-5)"
     },
     {
       "rule_id": "DB-KRK-001",
@@ -3306,7 +3319,8 @@
         "TC-INF-HLT-006-009",
         "TC-INF-HLT-006-011",
         "TC-INF-HLT-006-012",
-        "TC-INF-HLT-006-013"
+        "TC-INF-HLT-006-013",
+        "TC-INF-HLT-006-014"
       ],
       "notes": "Backward-compatible readiness: journal, catalog, journal read outside a transaction within the SPEC-150 55P03 budget; bundled migration set (byte order) is a prefix of the journal; required catalog contained in the live catalog only when the journal is ahead, exact otherwise; a required constraint validated after NOT VALID is accepted (UCR-180-003); catalog-reading connections fix IntervalStyle=postgres (the notation of the required catalog) with a startup option that overrides database and role defaults"
     },
@@ -6316,6 +6330,33 @@
         "TC-TST-SEED-006-006"
       ],
       "notes": "implementation mapping only: Audit Event per created row; none for NOOP, FAILED or UNKNOWN_RESULT"
+    },
+    {
+      "rule_id": "DB-GDS-002",
+      "code_paths": [
+        "packages/db/migrations/0008_goods_fulfillment.sql",
+        "packages/db/src/schema/goods.ts"
+      ],
+      "test_case_ids": ["TC-DB-GDS-002-001"],
+      "notes": "implementation mapping only (no repository code yet): fk_goods_order_items_order_customer keeps the Goods Order Item customer equal to the Order customer; the base item's Order, Purpose and Goods by the two other composite foreign keys"
+    },
+    {
+      "rule_id": "DB-GDS-004",
+      "code_paths": [
+        "packages/db/migrations/0008_goods_fulfillment.sql",
+        "packages/db/src/schema/goods.ts"
+      ],
+      "test_case_ids": ["TC-DB-GDS-004-001"],
+      "notes": "implementation mapping only (no repository code yet): the Allocation states HELD, COMMITTED and RELEASED; the conditional update on state = 'HELD' that gates the counter change belongs to the purchase, commit and release paths (not in the simplified scope)"
+    },
+    {
+      "rule_id": "DB-GDS-005",
+      "code_paths": [
+        "packages/db/migrations/0008_goods_fulfillment.sql",
+        "packages/db/src/schema/goods.ts"
+      ],
+      "test_case_ids": ["TC-DB-GDS-005-001"],
+      "notes": "implementation mapping only (no repository code yet): one Handoff per Goods Order Item and ck_goods_handoffs_state_times; never returning COMPLETED to PENDING is the handoff path's conditional update (not in the simplified scope)"
     }
   ]
 }

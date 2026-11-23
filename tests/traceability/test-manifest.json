@@ -32708,6 +32708,346 @@
       ],
       "sensitivity_class": "synthetic",
       "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-011",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-001",
+        "DB-MIG-002",
+        "DB-MIG-003",
+        "DB-TIM-001",
+        "DB-TIM-002",
+        "DB-ID-003",
+        "DB-IDX-001",
+        "DEV-DB-013",
+        "SPEC-170-22",
+        "SPEC-100-39",
+        "SPEC-100-40",
+        "SPEC-100-41",
+        "SPEC-100-45.1",
+        "SPEC-100-45.6",
+        "SPEC-100-59"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (Business Profiles, a STAFF Role Assignment, Event, Entry Offering, two Goods, Orders and Order Items) created in the same transaction; synthetic data only (no real Email address or person). The catalog goldens are tests/harness/db/goods-fulfillment-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0008 is provisional until the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Applied migrations are immutable: 0001-0006 equal their committed hashes, and 0008 statically creates only the three tables in parent-first order and the three separately named section 45 indexes, with one REVOKE ALL and no ALTER, GRANT, DROP, TRUNCATE, DELETE, INSERT, UPDATE, generated column, trigger, function, extension, role, view, OWNER TO or row level security; the four existing tables appear only as REFERENCES targets"
+      ],
+      "expected_db_postconditions": [
+        "The journal lists every migration once with the bundled source hashes, including 0008_goods_fulfillment, and a second runMigrations leaves it unchanged",
+        "The three tables have 9 + 8 + 10 columns in attnum order equal to the golden (types, NOT NULL, identity always on id of the Allocation and Handoff only, goods_order_items keyed by order_item_id, defaults, no generated column)",
+        "Exactly 22 named constraints and 11 valid indexes equal the golden definitions, all validated and not deferrable; owner app_migrator, row level security off, two bigint identity sequences, 9 time columns all timestamptz; the live catalog equals requiredCatalog",
+        "public_ref of goods_order_items and goods_handoffs is a database generated v4 UUID refused as a duplicate by uq_<table>_public_ref; Allocation and Handoff ids are GENERATED ALWAYS (428C9); created_at, updated_at and held_at default to the transaction's transaction_timestamp()"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-012",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-002",
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-TIM-001",
+        "DEV-DB-001",
+        "DEV-DB-006",
+        "SPEC-100-55",
+        "SPEC-100-56",
+        "SPEC-100-57"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Static Drizzle declaration check of the three Goods fulfillment tables against the reviewed schema-contract.json and the hand-written goldens of tests/harness/db/goods-fulfillment-golden.ts; not a database execution test; DB enforcement is TC-DB-ARC-007-011 and the other DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The contract rows of the three tables equal the golden columns, constraints and indexes; the golden Goods Order Item and Handoff states equal @off-r39x/domain GOODS_ITEM_STATES and GOODS_HANDOFF_STATES",
+        "For each table the Drizzle name, schema app, column order, SQL type, NOT NULL, identity only on the golden identity column, no generated column, defaults (none on a state column) and lossless PgBigInt64 for every bigint equal the golden",
+        "Constraint names, kinds, the primary key column and UNIQUE column lists equal the golden and the contract; CHECK text equals the golden exactly and matches the contract by column, literal and number; the foreign keys (including the four composite ones) reference the golden parent columns with ON DELETE RESTRICT; the declared indexes carry the golden columns, order, uniqueness and partial predicate; the three exports are in the schema barrel"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-STA-002-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-MIG-004",
+        "SPEC-100-10",
+        "SPEC-100-39",
+        "SPEC-100-40",
+        "SPEC-100-41"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_goods_order_items_order_purpose",
+        "ck_goods_order_items_state",
+        "ck_goods_sales_allocations_state",
+        "ck_goods_handoffs_state"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "PENDING_PAYMENT, FULFILLABLE and CANCELED and the purposes GOODS_PURCHASE and ENTRY_GOODS_PURCHASE are accepted for a Goods Order Item; near misses, ENTRY_TICKET_PURCHASE and KARAOKE_PURCHASE are 23514 by the named CHECK",
+        "HELD, COMMITTED and RELEASED are accepted for an Allocation and PENDING, COMPLETED and VOID for a Handoff; near misses are 23514 ck_goods_sales_allocations_state and ck_goods_handoffs_state",
+        "No state column has a default: an omitted state is 23502"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-GDS-002-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-GDS-002",
+        "BR-GDS-008",
+        "SPEC-100-39"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "pk_goods_order_items",
+        "fk_goods_order_items_order_item",
+        "fk_goods_order_items_order_customer",
+        "fk_goods_order_items_goods"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A customer other than the Order's is 23503 fk_goods_order_items_order_customer, and the Order's or the item's customer cannot be changed afterwards (23503)",
+        "Another Order or a purpose other than the base item's is 23503 fk_goods_order_items_order_item; another Goods, or the Entry line of an Entry + Goods Order, is 23503 fk_goods_order_items_goods, and the base item's Goods cannot be changed afterwards",
+        "A second Goods Order Item of the same base item is 23505 pk_goods_order_items; an absent base item is 23503; the key, Order, purpose, customer and Goods columns are NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-GDS-004-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-GDS-003",
+        "DB-GDS-004",
+        "BR-GDS-002",
+        "SPEC-100-40"
+      ],
+      "system_invariant_ids": [
+        "INV-010-07"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_goods_sales_allocations_goods_order_item_id",
+        "fk_goods_sales_allocations_goods_order_item",
+        "fk_goods_sales_allocations_goods",
+        "ck_goods_sales_allocations_quantity"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents created in the same transaction; synthetic data only. The Inventory acquire / commit / release transactions and their conditional updates are not implemented (simplified scope) and are not covered here",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Allocation of a Goods Order Item is 23505 uq_goods_sales_allocations_goods_order_item_id; a base item without a Goods Order Item is refused with 23503",
+        "A Goods other than the item's, on INSERT or UPDATE of the Allocation, is 23503 fk_goods_sales_allocations_goods; the item's Goods cannot be changed under its Allocation",
+        "quantity 0 or -1 is 23514 ck_goods_sales_allocations_quantity; goods_order_item_id, goods_id, quantity and held_at are NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-GDS-005-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-GDS-005",
+        "BR-GDS-011",
+        "SPEC-100-41"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_goods_handoffs_goods_order_item_id",
+        "fk_goods_handoffs_goods_order_item",
+        "fk_goods_handoffs_completed_by_profile",
+        "fk_goods_handoffs_completed_role_assignment",
+        "ck_goods_handoffs_state_times"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents (including a STAFF Role Assignment) created in the same transaction; synthetic data only. The handoff completion transaction is not implemented (simplified scope) and is not covered here",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Handoff of a Goods Order Item, in any state, is 23505 uq_goods_handoffs_goods_order_item_id; a base item without a Goods Order Item is 23503 fk_goods_handoffs_goods_order_item",
+        "PENDING with completed_at or voided_at, COMPLETED without either actor column or completed_at or with voided_at, and VOID without voided_at or with completed_at are 23514 ck_goods_handoffs_state_times, on INSERT and on UPDATE; COMPLETED with both actor columns and completed_at is accepted; the actor columns are not constrained in PENDING and VOID (plan U-2)",
+        "An absent completing Profile or Role Assignment is 23503 by its foreign key"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-FK-002-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-FK-001",
+        "DB-FK-002",
+        "DB-FK-004",
+        "SPEC-100-11",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "fk_goods_order_items_order_item",
+        "fk_goods_order_items_order_customer",
+        "fk_goods_order_items_goods",
+        "fk_goods_sales_allocations_goods_order_item",
+        "fk_goods_sales_allocations_goods",
+        "fk_goods_handoffs_goods_order_item",
+        "fk_goods_handoffs_completed_by_profile",
+        "fk_goods_handoffs_completed_role_assignment"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt; parents created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "All eight foreign keys of the three tables are ON DELETE RESTRICT and ON UPDATE NO ACTION",
+        "Deleting a Goods Order Item with an Allocation or a Handoff, its base Order Item, its Order, the completing Profile or the completing Role Assignment is refused with 23503 by name, and no row is lost"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-SEC-DB-001-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "SEC-DB-001",
+        "SEC-DB-003",
+        "DB-FK-004",
+        "SPEC-100-53",
+        "SPEC-180-22.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; the app_api_runtime, app_email_runtime and app_reconciliation_runtime pools connect over verified TLS with the test CA",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the three tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the two identity sequences",
+        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE from the three runtime pools are 42501 on every table"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-014",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "DB-MIG-003"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0008_goods_fulfillment applied (the build released before GK-3); synthetic history committed under 0007 before 0008 runs (Business Profiles, a Role Assignment, Goods and its Inventory, Goods, Entry + Goods and Karaoke Orders with their Order Items, an Entry Allocation, a committed Karaoke Hold with its Reservation, Ticket and Check-in, a Checkout Attempt, a Payment Binding, a Webhook Receipt and a Refund Record); readiness evaluated from a temporary directory holding those migrations, with the fixed 0007 required catalog fixture (asserted equal to the old live catalog); then 0008, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0008",
+      "fixture_ids": [
+        "tests/fixtures/db/required-catalog-0007.json"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "SPEC-170 section 22 item 8: every table that existed before 0008 keeps exactly its rows, ids and values (generated columns included); the only new tables are the three of 0008 and they are empty",
+        "Before 0008 the old build is Ready with an exact catalog; after 0008 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
     }
   ]
 }

@@ -9,7 +9,10 @@
     ["events", "r", "app_migrator", false],
     ["faq_items", "r", "app_migrator", false],
     ["goods", "r", "app_migrator", false],
+    ["goods_handoffs", "r", "app_migrator", false],
     ["goods_inventory", "r", "app_migrator", false],
+    ["goods_order_items", "r", "app_migrator", false],
+    ["goods_sales_allocations", "r", "app_migrator", false],
     ["idempotency_records", "r", "app_migrator", false],
     ["karaoke_checkins", "r", "app_migrator", false],
     ["karaoke_exclusive_scopes", "r", "app_migrator", false],
@@ -268,6 +271,32 @@
     ["goods", "purchase_limit", "integer", true, "", "", null],
     ["goods", "created_at", "timestamp with time zone", true, "", "", "transaction_timestamp()"],
     ["goods", "updated_at", "timestamp with time zone", true, "", "", "transaction_timestamp()"],
+    ["goods_handoffs", "id", "bigint", true, "a", "", null],
+    ["goods_handoffs", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
+    ["goods_handoffs", "goods_order_item_id", "bigint", true, "", "", null],
+    ["goods_handoffs", "state", "text", true, "", "", null],
+    ["goods_handoffs", "completed_by_profile_id", "bigint", false, "", "", null],
+    ["goods_handoffs", "completed_role_assignment_id", "bigint", false, "", "", null],
+    ["goods_handoffs", "completed_at", "timestamp with time zone", false, "", "", null],
+    ["goods_handoffs", "voided_at", "timestamp with time zone", false, "", "", null],
+    [
+      "goods_handoffs",
+      "created_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "goods_handoffs",
+      "updated_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
     ["goods_inventory", "goods_id", "bigint", true, "", "", null],
     ["goods_inventory", "saleable_capacity", "integer", true, "", "", null],
     ["goods_inventory", "held_quantity", "integer", true, "", "", "0"],
@@ -281,6 +310,47 @@
       "",
       "transaction_timestamp()"
     ],
+    ["goods_order_items", "order_item_id", "bigint", true, "", "", null],
+    ["goods_order_items", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
+    ["goods_order_items", "order_id", "bigint", true, "", "", null],
+    ["goods_order_items", "order_purpose", "text", true, "", "", null],
+    ["goods_order_items", "customer_profile_id", "bigint", true, "", "", null],
+    ["goods_order_items", "goods_id", "bigint", true, "", "", null],
+    ["goods_order_items", "state", "text", true, "", "", null],
+    [
+      "goods_order_items",
+      "created_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "goods_order_items",
+      "updated_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["goods_sales_allocations", "id", "bigint", true, "a", "", null],
+    ["goods_sales_allocations", "goods_order_item_id", "bigint", true, "", "", null],
+    ["goods_sales_allocations", "goods_id", "bigint", true, "", "", null],
+    ["goods_sales_allocations", "quantity", "integer", true, "", "", null],
+    ["goods_sales_allocations", "state", "text", true, "", "", null],
+    [
+      "goods_sales_allocations",
+      "held_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["goods_sales_allocations", "committed_at", "timestamp with time zone", false, "", "", null],
+    ["goods_sales_allocations", "released_at", "timestamp with time zone", false, "", "", null],
     ["idempotency_records", "id", "bigint", true, "a", "", null],
     ["idempotency_records", "principal_profile_id", "bigint", true, "", "", null],
     ["idempotency_records", "operation_id", "text", true, "", "", null],
@@ -968,8 +1038,85 @@
       true
     ],
     [
+      "goods_handoffs",
+      "CREATE INDEX ix_goods_handoffs_pending ON app.goods_handoffs USING btree (created_at) WHERE (state = 'PENDING'::text)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_handoffs",
+      "CREATE UNIQUE INDEX pk_goods_handoffs ON app.goods_handoffs USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_handoffs",
+      "CREATE UNIQUE INDEX uq_goods_handoffs_goods_order_item_id ON app.goods_handoffs USING btree (goods_order_item_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_handoffs",
+      "CREATE UNIQUE INDEX uq_goods_handoffs_public_ref ON app.goods_handoffs USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
       "goods_inventory",
       "CREATE UNIQUE INDEX pk_goods_inventory ON app.goods_inventory USING btree (goods_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_order_items",
+      "CREATE INDEX ix_goods_order_items_customer_created ON app.goods_order_items USING btree (customer_profile_id, created_at DESC)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_order_items",
+      "CREATE UNIQUE INDEX pk_goods_order_items ON app.goods_order_items USING btree (order_item_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_order_items",
+      "CREATE UNIQUE INDEX uq_goods_order_items_order_item_id_goods_id ON app.goods_order_items USING btree (order_item_id, goods_id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_order_items",
+      "CREATE UNIQUE INDEX uq_goods_order_items_public_ref ON app.goods_order_items USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_sales_allocations",
+      "CREATE INDEX ix_goods_allocations_goods_state ON app.goods_sales_allocations USING btree (goods_id, state)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_sales_allocations",
+      "CREATE UNIQUE INDEX pk_goods_sales_allocations ON app.goods_sales_allocations USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "goods_sales_allocations",
+      "CREATE UNIQUE INDEX uq_goods_sales_allocations_goods_order_item_id ON app.goods_sales_allocations USING btree (goods_order_item_id)",
       true,
       true,
       true
@@ -1476,7 +1623,9 @@
     ["entry_ticket_offerings_id_seq", "bigint", "app_migrator"],
     ["events_id_seq", "bigint", "app_migrator"],
     ["faq_items_id_seq", "bigint", "app_migrator"],
+    ["goods_handoffs_id_seq", "bigint", "app_migrator"],
     ["goods_id_seq", "bigint", "app_migrator"],
+    ["goods_sales_allocations_id_seq", "bigint", "app_migrator"],
     ["idempotency_records_id_seq", "bigint", "app_migrator"],
     ["karaoke_checkins_id_seq", "bigint", "app_migrator"],
     ["karaoke_exclusive_scopes_id_seq", "bigint", "app_migrator"],
@@ -1923,6 +2072,70 @@
     ["goods", "pk_goods", "p", "PRIMARY KEY (id)", true, false, false],
     ["goods", "uq_goods_public_ref", "u", "UNIQUE (public_ref)", true, false, false],
     [
+      "goods_handoffs",
+      "ck_goods_handoffs_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['PENDING'::text, 'COMPLETED'::text, 'VOID'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_handoffs",
+      "ck_goods_handoffs_state_times",
+      "c",
+      "CHECK ((((state = 'PENDING'::text) AND (completed_at IS NULL) AND (voided_at IS NULL)) OR ((state = 'COMPLETED'::text) AND (completed_by_profile_id IS NOT NULL) AND (completed_role_assignment_id IS NOT NULL) AND (completed_at IS NOT NULL) AND (voided_at IS NULL)) OR ((state = 'VOID'::text) AND (voided_at IS NOT NULL) AND (completed_at IS NULL))))",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_handoffs",
+      "fk_goods_handoffs_completed_by_profile",
+      "f",
+      "FOREIGN KEY (completed_by_profile_id) REFERENCES app.business_profiles(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_handoffs",
+      "fk_goods_handoffs_completed_role_assignment",
+      "f",
+      "FOREIGN KEY (completed_role_assignment_id) REFERENCES app.role_assignments(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_handoffs",
+      "fk_goods_handoffs_goods_order_item",
+      "f",
+      "FOREIGN KEY (goods_order_item_id) REFERENCES app.goods_order_items(order_item_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["goods_handoffs", "pk_goods_handoffs", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "goods_handoffs",
+      "uq_goods_handoffs_goods_order_item_id",
+      "u",
+      "UNIQUE (goods_order_item_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_handoffs",
+      "uq_goods_handoffs_public_ref",
+      "u",
+      "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
       "goods_inventory",
       "ck_goods_inventory_capacity",
       "c",
@@ -1968,6 +2181,132 @@
       false
     ],
     ["goods_inventory", "pk_goods_inventory", "p", "PRIMARY KEY (goods_id)", true, false, false],
+    [
+      "goods_order_items",
+      "ck_goods_order_items_order_purpose",
+      "c",
+      "CHECK ((order_purpose = ANY (ARRAY['GOODS_PURCHASE'::text, 'ENTRY_GOODS_PURCHASE'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_order_items",
+      "ck_goods_order_items_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['PENDING_PAYMENT'::text, 'FULFILLABLE'::text, 'CANCELED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_order_items",
+      "fk_goods_order_items_goods",
+      "f",
+      "FOREIGN KEY (order_item_id, goods_id) REFERENCES app.order_items(id, goods_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_order_items",
+      "fk_goods_order_items_order_customer",
+      "f",
+      "FOREIGN KEY (order_id, customer_profile_id) REFERENCES app.orders(id, customer_profile_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_order_items",
+      "fk_goods_order_items_order_item",
+      "f",
+      "FOREIGN KEY (order_item_id, order_id, order_purpose) REFERENCES app.order_items(id, order_id, purpose) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_order_items",
+      "pk_goods_order_items",
+      "p",
+      "PRIMARY KEY (order_item_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_order_items",
+      "uq_goods_order_items_order_item_id_goods_id",
+      "u",
+      "UNIQUE (order_item_id, goods_id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_order_items",
+      "uq_goods_order_items_public_ref",
+      "u",
+      "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_sales_allocations",
+      "ck_goods_sales_allocations_quantity",
+      "c",
+      "CHECK ((quantity > 0))",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_sales_allocations",
+      "ck_goods_sales_allocations_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['HELD'::text, 'COMMITTED'::text, 'RELEASED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_sales_allocations",
+      "fk_goods_sales_allocations_goods",
+      "f",
+      "FOREIGN KEY (goods_order_item_id, goods_id) REFERENCES app.goods_order_items(order_item_id, goods_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_sales_allocations",
+      "fk_goods_sales_allocations_goods_order_item",
+      "f",
+      "FOREIGN KEY (goods_order_item_id) REFERENCES app.goods_order_items(order_item_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_sales_allocations",
+      "pk_goods_sales_allocations",
+      "p",
+      "PRIMARY KEY (id)",
+      true,
+      false,
+      false
+    ],
+    [
+      "goods_sales_allocations",
+      "uq_goods_sales_allocations_goods_order_item_id",
+      "u",
+      "UNIQUE (goods_order_item_id)",
+      true,
+      false,
+      false
+    ],
     [
       "idempotency_records",
       "ck_idempotency_records_expiry",
