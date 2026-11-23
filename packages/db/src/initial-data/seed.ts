@@ -250,7 +250,8 @@ async function beginTransaction(client: Client): Promise<void> {
  * pg destroys the socket of a client with a query in flight, so that query fails at once, and the
  * backend ends with its locks (the migration lock included). `abandoned()` then tells the caller that
  * the connection is gone. `disarm()` before COMMIT is sent: a COMMIT in flight has its own wait, and its
- * expiry makes the result unknown (REL-DB-006), not a failure.
+ * expiry makes the result unknown (REL-DB-006), not a failure. An acknowledgement that arrives at or
+ * after the deadline (`remainingMs()` checked once it is seen) is not in time either.
  */
 function transactionDeadline(client: Client, deadlineMs: number) {
   const startedAt = performance.now();
@@ -709,6 +710,11 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         ]);
         // COMMIT is sent and not acknowledged in time: the result is unknown, never a plain failure.
         if (settled === "late") return { kind: "unknown" };
+        // The acknowledgement can be seen before the timer callback (an event loop blocked past the
+        // deadline): the wall clock is checked on the monotonic clock too, as for the connection and
+        // the migration lock. Acknowledged at or after the deadline is not acknowledged in time
+        // (SPEC-150 section 9): the result is re-checked, never CREATED from the late acknowledgement.
+        if (remainingMs() <= 0) return { kind: "unknown" };
       } finally {
         if (timer) clearTimeout(timer);
       }
