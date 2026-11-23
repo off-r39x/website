@@ -3074,6 +3074,69 @@
       "notes": "implementation mapping only: the exclusion has no predicate; every Slot State stays in it"
     },
     {
+      "rule_id": "DB-KRK-006",
+      "code_paths": [
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/src/schema/karaoke.ts"
+      ],
+      "test_case_ids": ["TC-DB-KRK-006-001", "TC-DB-ARC-007-009"],
+      "notes": "implementation mapping only (no repository code yet): hold_expires_at is generated at hold_acquired_at + 45 minutes in UTC (UCR-100-006) and cannot be written"
+    },
+    {
+      "rule_id": "DB-KRK-007",
+      "code_paths": [
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/src/schema/karaoke.ts"
+      ],
+      "test_case_ids": ["TC-DB-KRK-007-001", "TC-DB-KRK-007-002", "TC-CON-001-004"],
+      "notes": "implementation mapping only (no repository code yet): ux_karaoke_holds_slot_active (one ACTIVE Hold per Slot) and uq_karaoke_holds_order_item_id; the acquire transaction (SPEC-100 section 31) is not implemented"
+    },
+    {
+      "rule_id": "DB-KRK-011",
+      "code_paths": [
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/src/schema/karaoke.ts"
+      ],
+      "test_case_ids": ["TC-DB-KRK-011-001"],
+      "notes": "implementation mapping only (no repository code yet): UNIQUE order_item_id, slot_id and hold_id, and fk_karaoke_reservations_hold to uq_karaoke_holds_reservation_target"
+    },
+    {
+      "rule_id": "DB-KRK-012",
+      "code_paths": [
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/src/schema/karaoke.ts"
+      ],
+      "test_case_ids": ["TC-DB-KRK-012-001"],
+      "notes": "implementation mapping only (no repository code yet): ck_karaoke_reservations_state allows CONFIRMED and CANCELED only"
+    },
+    {
+      "rule_id": "DB-KRK-013",
+      "code_paths": [
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/src/schema/karaoke.ts"
+      ],
+      "test_case_ids": ["TC-DB-KRK-013-001"],
+      "notes": "implementation mapping only (no repository code yet): the Reservation UNIQUEs have no predicate and every foreign key restricts deletes; no cancellation path exists yet"
+    },
+    {
+      "rule_id": "DB-KRK-014",
+      "code_paths": [
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/src/schema/karaoke.ts"
+      ],
+      "test_case_ids": ["TC-DB-KRK-014-001"],
+      "notes": "implementation mapping only (no repository code yet): uq_karaoke_tickets_reservation_id"
+    },
+    {
+      "rule_id": "DB-KRK-015",
+      "code_paths": [
+        "packages/db/migrations/0007_karaoke_reservations.sql",
+        "packages/db/src/schema/karaoke.ts"
+      ],
+      "test_case_ids": ["TC-DB-KRK-015-001"],
+      "notes": "implementation mapping only (no repository code yet): fk_karaoke_tickets_reservation (reservation_id, owner_profile_id) -> karaoke_reservations(id, customer_profile_id)"
+    },
+    {
       "rule_id": "INF-DB-008",
       "code_paths": [
         "packages/db/src/migrations.ts",

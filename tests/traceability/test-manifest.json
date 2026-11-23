@@ -29944,6 +29944,590 @@
       ],
       "sensitivity_class": "synthetic",
       "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-009",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-001",
+        "DB-MIG-002",
+        "DB-MIG-003",
+        "DB-TIM-001",
+        "DB-TIM-002",
+        "DB-ID-003",
+        "DB-IDX-001",
+        "DEV-DB-013",
+        "SPEC-170-22",
+        "SPEC-100-30",
+        "SPEC-100-33",
+        "SPEC-100-34",
+        "SPEC-100-37",
+        "SPEC-100-45.4",
+        "SPEC-100-59"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only. The catalog goldens are tests/harness/db/karaoke-reservations-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration; pg_get_expr is read with IntervalStyle=postgres",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Applied migrations are immutable: 0001-0006 equal their committed hashes, and 0007 statically creates only the four tables in parent-first order and the four separately named section 45 indexes, with one REVOKE ALL and no ALTER, GRANT, DROP, TRUNCATE, DELETE, INSERT, trigger, function, extension, role, view, OWNER TO or row level security; order_items, orders, business_profiles and role_assignments appear only as REFERENCES targets"
+      ],
+      "expected_db_postconditions": [
+        "The journal lists 0001_foundation to 0007_karaoke_reservations once each with the bundled source hashes, and a second runMigrations leaves it unchanged",
+        "The four tables have 15 + 14 + 8 + 6 columns in attnum order equal to the golden (types, NOT NULL, identity always on id, defaults including order_purpose 'KARAOKE_PURCHASE', and the generated hold_expires_at with the UCR-100-006 expression)",
+        "29 constraints and 19 valid indexes equal the golden by name and definition, all validated and not deferrable, every name within 63 bytes; owner app_migrator, no row level security, four bigint identity sequences, 18 time columns all timestamptz",
+        "The live catalog equals requiredCatalog; public_ref of Holds, Reservations and Tickets is a database generated v4 UUID unique by name; an explicit id is 428C9 on all four tables"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-010",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-002",
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-TIM-001",
+        "DEV-DB-001",
+        "DEV-DB-006",
+        "SPEC-100-55",
+        "SPEC-100-56",
+        "SPEC-100-57"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Static Drizzle declaration check of the four Karaoke reservation tables against the reviewed schema-contract.json and the hand-written goldens of tests/harness/db/karaoke-reservations-golden.ts; not a database execution test; DB enforcement is TC-DB-ARC-007-009 and the other DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The contract rows of the four tables equal the golden columns, constraints and indexes; the golden Hold, Reservation and Karaoke Ticket states equal @off-r39x/domain KARAOKE_HOLD_STATES, RESERVATION_STATES and KARAOKE_TICKET_STATES",
+        "For each table the Drizzle name, schema app, column order, SQL type, NOT NULL, identity on id only, defaults (none on a state column), lossless PgBigInt64 for every bigint and the generated hold_expires_at expression equal the golden",
+        "Constraint names, kinds and UNIQUE column lists equal the golden and the contract; CHECK text equals the golden exactly and matches the contract by column, literal and number; the seven foreign keys (four composite) reference the golden parent columns with ON DELETE RESTRICT; the declared indexes carry the golden columns, order, uniqueness and partial predicate; the four exports are in the schema barrel"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-STA-002-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-TIM-002",
+        "SPEC-100-10",
+        "SPEC-100-30",
+        "SPEC-100-33",
+        "SPEC-100-34",
+        "SPEC-100-37"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_karaoke_holds_order_purpose",
+        "ck_karaoke_holds_state",
+        "ck_karaoke_holds_state_times",
+        "ck_karaoke_reservations_state",
+        "ck_karaoke_tickets_state"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The stored names are exactly those of SPEC-030 / SPEC-090 (Hold 4, Reservation 2, Karaoke Ticket 4 states)"
+      ],
+      "expected_db_postconditions": [
+        "The 4 Hold states, 2 Reservation states and 4 Karaoke Ticket states are accepted; lower case, padded and suffixed near misses are 23514 by the named allowlist CHECK; an omitted state is 23502 (no default)",
+        "order_purpose defaults to KARAOKE_PURCHASE and any other value is 23514 ck_karaoke_holds_order_purpose",
+        "ck_karaoke_holds_state_times is SPEC-100 section 30 as written (plan U-2): ACTIVE with any of committed_at, released_at, expired_at and COMMITTED / RELEASED / EXPIRED without their own timestamp are 23514; a state with all three timestamps is accepted; a state UPDATE without the matching timestamp is refused",
+        "The required columns are NOT NULL (23502 by column), and every time default of the four tables is the transaction's transaction_timestamp()"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-KRK-006-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-006",
+        "KRK-HLD-006",
+        "KRK-HLD-007",
+        "UCR-100-006",
+        "SPEC-100-30",
+        "SPEC-100-57",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-10"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "Under session TimeZone UTC, Asia/Tokyo, America/New_York and Europe/Berlin, including instants next to a daylight saving change, hold_expires_at - hold_acquired_at is exactly 2700 seconds, equals hold_acquired_at + interval '45 minutes', and keeps the microseconds",
+        "With the default hold_acquired_at the expiry is transaction_timestamp() + 45 minutes; hold_expires_at cannot be inserted or updated (428C9) and follows an UPDATE of hold_acquired_at"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-007-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-007",
+        "KRK-HLD-003",
+        "TST-DB-004",
+        "SPEC-100-30",
+        "SPEC-100-45.4",
+        "SPEC-100-67",
+        "SPEC-170-23"
+      ],
+      "system_invariant_ids": [
+        "INV-010-04"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ux_karaoke_holds_slot_active"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second ACTIVE Hold of the same Slot is 23505 ux_karaoke_holds_slot_active; COMMITTED, RELEASED and EXPIRED Holds of the Slot are not limited and another Slot is independent",
+        "After the ACTIVE Hold is released a new ACTIVE Hold is accepted; turning the released Hold back to ACTIVE beside it is 23505 ux_karaoke_holds_slot_active; one ACTIVE Hold remains"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-007-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-007",
+        "DB-ORD-002",
+        "SPEC-100-30",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-04",
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_holds_order_item_id",
+        "fk_karaoke_holds_order_item",
+        "fk_karaoke_holds_order"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Hold of the same Karaoke Order Item is 23505 uq_karaoke_holds_order_item_id in every state",
+        "A Hold whose Slot or Order differs from its item's, of an absent item, or of an Entry Ticket item is 23503 fk_karaoke_holds_order_item",
+        "A Hold whose Customer is not its Order's, or is absent, is 23503 fk_karaoke_holds_order; the Hold of another Customer's own item is accepted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-CON-001-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-007",
+        "KRK-HLD-003",
+        "TST-CON-001",
+        "TST-DB-004",
+        "SPEC-170-24",
+        "SPEC-100-30"
+      ],
+      "system_invariant_ids": [
+        "INV-010-04"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ux_karaoke_holds_slot_active"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied; parents and two Karaoke Orders with one item each for the same Slot committed by the administrator and deleted again in finally; two additional connections X and Y checked to run in UTC and READ COMMITTED, a barrier on pg_stat_activity instead of sleep that fails at once if Y's INSERT finishes without waiting, statement_timeout 10s on Y; synthetic data only. The acquire transaction of SPEC-100 section 31 is not implemented; this pins the last defence only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "X inserts an ACTIVE Hold uncommitted; Y's ACTIVE Hold of the same Slot waits on X's lock; after X COMMIT, Y is 23505 ux_karaoke_holds_slot_active and one Hold remains; after X ROLLBACK, Y is accepted; nothing remains after the case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-011-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-011",
+        "KRK-CFM-002",
+        "KRK-CFM-003",
+        "SPEC-100-33",
+        "SPEC-100-45.4",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-04"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_reservations_order_item_id",
+        "uq_karaoke_reservations_slot_id",
+        "uq_karaoke_reservations_hold_id",
+        "fk_karaoke_reservations_hold",
+        "uq_karaoke_holds_reservation_target"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "fk_karaoke_holds_order, fk_karaoke_holds_order_item, fk_karaoke_reservations_hold and fk_karaoke_tickets_reservation are backed by uq_orders_id_customer_profile_id, uq_order_items_id_order_id_purpose_karaoke_slot_id, uq_karaoke_holds_reservation_target (plan U-1) and uq_karaoke_reservations_id_customer_profile_id",
+        "A second Reservation of the same item, Slot and Hold is 23505 by one of the three UNIQUEs; a second Reservation of the Slot from another chain is 23505 uq_karaoke_reservations_slot_id; another Slot is accepted",
+        "A Reservation whose Customer, Slot, Order or item differs from its Hold's, or whose Hold is absent, is 23503 fk_karaoke_reservations_hold"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-012-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-012",
+        "KRK-CFM-005",
+        "SPEC-100-33"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_karaoke_reservations_state",
+        "ck_karaoke_reservations_canceled_at",
+        "ck_karaoke_reservations_usage_snapshot"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "USED, EXPIRED and VALID Reservations are 23514 ck_karaoke_reservations_state",
+        "CONFIRMED with canceled_at and CANCELED without it are 23514 ck_karaoke_reservations_canceled_at, also for a CONFIRMED -> CANCELED UPDATE without canceled_at; equal or reversed snapshot times are 23514 ck_karaoke_reservations_usage_snapshot"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-KRK-013-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-013",
+        "DB-FK-002",
+        "TST-KRK-002",
+        "SPEC-100-33",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-04"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_reservations_slot_id",
+        "fk_karaoke_reservations_hold",
+        "fk_karaoke_holds_order_item",
+        "fk_order_items_karaoke_slot"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "After a Reservation is CANCELED, a new Reservation of its Slot is 23505 uq_karaoke_reservations_slot_id and of its Hold is 23505: the UNIQUEs have no predicate",
+        "Deleting the Hold, the item or the Slot behind it is 23503 by name, no row is lost and the Reservation stays CANCELED"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-014-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-014",
+        "KRK-CFM-003",
+        "TQR-TKT-005",
+        "SPEC-100-34",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-03"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_tickets_reservation_id"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Karaoke Ticket of the same Reservation is 23505 uq_karaoke_tickets_reservation_id in every Ticket state; another Reservation's Ticket is accepted"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-KRK-015-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-KRK-015",
+        "KRK-CFM-002",
+        "SPEC-100-34"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "fk_karaoke_tickets_reservation"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A Karaoke Ticket owned by another Profile or by the staff Profile, or of an absent Reservation, is 23503 fk_karaoke_tickets_reservation; changing the owner to another Profile is refused the same way"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INV-010-05-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INV-010-05",
+        "TQR-IDM-009",
+        "TST-DB-004",
+        "SPEC-100-37",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-05"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_karaoke_checkins_karaoke_ticket_id",
+        "fk_karaoke_checkins_karaoke_ticket",
+        "fk_karaoke_checkins_staff_profile",
+        "fk_karaoke_checkins_staff_role_assignment"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only. The check-in transaction of SPEC-100 sections 36-37 (Ticket VALID -> USED in the same transaction, the time window) is not implemented; this pins the unique last defence only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Karaoke Check-in of the same Ticket, by the same or another Staff, is 23505 uq_karaoke_checkins_karaoke_ticket_id and one Check-in remains",
+        "An absent Ticket, Staff Profile or Role Assignment is 23503 by the named foreign key"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-FK-002-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-FK-001",
+        "DB-FK-002",
+        "DB-FK-004",
+        "SPEC-100-11",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "fk_karaoke_holds_order_item",
+        "fk_karaoke_holds_order",
+        "fk_karaoke_reservations_hold",
+        "fk_karaoke_tickets_reservation",
+        "fk_karaoke_checkins_karaoke_ticket",
+        "fk_karaoke_checkins_staff_profile",
+        "fk_karaoke_checkins_staff_role_assignment"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Karaoke Sales Configuration, Exclusive Scope, two adjacent Karaoke Slots, Karaoke Orders and Order Items) created in the same transaction; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "All seven foreign keys of the four tables are ON DELETE RESTRICT and ON UPDATE NO ACTION",
+        "Deleting a Ticket with a Check-in, a Reservation with a Ticket, a Hold with a Reservation, an item with a Hold, a Role Assignment of a Check-in, an Order with an item and a Hold, or a Staff Profile with a Role Assignment and a Check-in is 23503 by name (where two keys refer to the row either name is accepted), and no row of the four tables is lost"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-SEC-DB-001-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "SEC-DB-001",
+        "SEC-DB-003",
+        "DB-FK-004",
+        "SPEC-100-53",
+        "SPEC-180-22.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied; runtime pools of app_api_runtime, app_email_runtime and app_reconciliation_runtime over verified TLS; plan U-4: no mounted Operation uses the four tables yet, so no grant is expected",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the four tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the four identity sequences",
+        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE by the three runtime pools are refused with 42501 on all four tables"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-013",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "DB-MIG-003"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0007_karaoke_reservations applied (the build released before GK-2); readiness evaluated from a temporary directory holding those migrations, with the fixed 0006 required catalog fixture (asserted equal to the 0001-0006 live catalog); then 0007, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0007",
+      "fixture_ids": [
+        "tests/fixtures/db/required-catalog-0006.json"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "Before 0007 the old build is Ready with an exact catalog; after 0007 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
     }
   ]
 }
