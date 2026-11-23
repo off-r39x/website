@@ -18996,22 +18996,22 @@
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "Unit, no database: seedInitialData with a scripted connection double and a controlled clock (Math.random 0.99); the error and the ROLLBACK acknowledgement arrive at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): a constraint violation (23514) on the first INSERT, its ROLLBACK acknowledged (a) at 8001 ms, (b) at exactly 8000 ms, (c) at 7999 ms of the 8 s transaction wall clock; (d) the constraint violation itself seen at 8001 ms; (e) a 55P03 seen at 8001 ms of the first attempt; (f) a retry after 55P03 at 4800 ms and a 49.5 ms backoff, with 150.5 ms left of the 5 s budget, whose constraint violation is seen in time and whose ROLLBACK fails 151 ms later (the connection is gone)",
+      "preconditions": "Unit, no database: seedInitialData with a scripted connection double and a controlled clock (Math.random 0.99); the error and the ROLLBACK acknowledgement arrive at once in real time, before any timer callback, while the controlled clock advances (an event loop blocked past the deadline): a constraint violation (23514) on the first INSERT, its ROLLBACK acknowledged (a) at 8001 ms, (b) at exactly 8000 ms, (c) at 7999 ms of the 8 s transaction wall clock; (d) the constraint violation itself seen at 8001 ms; (e) a 55P03 seen at 8001 ms of the first attempt; (f) a retry after 55P03 at 4800 ms and a 49.5 ms backoff, with 150.5 ms left of the 5 s budget, whose constraint violation is seen in time and whose ROLLBACK fails 151 ms later (the connection is gone); a COMMIT rejected with 40001 (a definite answer: nothing committed) (g) at 8001 ms, (h) at 1000 ms, the retry then committing",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "(a), (b), (d) and (e) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1, not INITIAL_DATA_CONSTRAINT_REJECTED and not retried; (c) FAILED (PERMANENT_FAILURE, INITIAL_DATA_CONSTRAINT_REJECTED); (f) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 2",
-        "No COMMIT is sent"
+        "(a), (b), (d) and (e) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1, not INITIAL_DATA_CONSTRAINT_REJECTED and not retried; (c) FAILED (PERMANENT_FAILURE, INITIAL_DATA_CONSTRAINT_REJECTED); (f) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 2; (g) FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE) at attempt 1, not retried and no re-check; (h) retried within the 2 s budget and CREATED at attempt 2",
+        "No COMMIT is sent in (a) to (f)"
       ],
       "expected_db_postconditions": [
         "No database is used"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [
-        "(e): no reliability.retry.attempted and no reliability.retry.exhausted record; (f): one reliability.retry.exhausted at attempt 2 with sqlstate 55P03"
+        "(e) and (g): no reliability.retry.attempted and no reliability.retry.exhausted record, and (g) no reliability.unknown_result.opened; (f): one reliability.retry.exhausted at attempt 2 with sqlstate 55P03"
       ],
       "sensitivity_class": "synthetic",
       "critical": true
