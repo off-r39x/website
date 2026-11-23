@@ -80,6 +80,9 @@ export async function acquireMigrationLock(
     if (!abandoned && performance.now() - startedAt >= deadlineMs) abandon();
     if (abandoned) throw new MigrationLockTimeoutError();
   } catch (error) {
+    // An error seen at or after the deadline (before the timer callback, an event loop blocked past
+    // it) is the deadline, as the timer would have made it, whatever the error: the client is ended.
+    if (!abandoned && performance.now() - startedAt >= deadlineMs) abandon();
     if (abandoned || sqlState(error) === "55P03") throw new MigrationLockTimeoutError();
     throw error;
   } finally {

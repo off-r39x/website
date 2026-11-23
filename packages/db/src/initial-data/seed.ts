@@ -484,6 +484,9 @@ export async function connectWithinBudget(
       void endConnection(settled.connection);
       break;
     }
+    // A failure seen at or after the end of the budget (before the timer callback, an event loop
+    // blocked past it) is the budget running out, as the timer would have made it, whatever it is.
+    if (settled.kind === "failed" && leftMs() <= 0) break;
     if (settled.kind === "failed" && isAuthenticationRejection(settled.error))
       throw new DatabaseAuthenticationRejected();
     if (settled.kind === "late") {
