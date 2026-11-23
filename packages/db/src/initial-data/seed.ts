@@ -251,7 +251,8 @@ async function beginTransaction(client: Client): Promise<void> {
  * backend ends with its locks (the migration lock included). `abandoned()` then tells the caller that
  * the connection is gone. `disarm()` before COMMIT is sent: a COMMIT in flight has its own wait, and its
  * expiry makes the result unknown (REL-DB-006), not a failure. An acknowledgement that arrives at or
- * after the deadline (`remainingMs()` checked once it is seen) is not in time either.
+ * after the deadline (`remainingMs()` checked once it is seen) is not in time either, and neither is
+ * the acknowledgement of the ROLLBACK that ends a transaction whose verdict was reached before COMMIT.
  */
 function transactionDeadline(client: Client, deadlineMs: number) {
   const startedAt = performance.now();
@@ -622,33 +623,35 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
     // after the deadline either, and a connection that stops answering is abandoned at the deadline.
     const deadline = transactionDeadline(client, attemptDeadlineMs);
     const { remainingMs, check: checkDeadline, within: withinDeadline } = deadline;
+    // A verdict reached before COMMIT ends the transaction with ROLLBACK, and the transaction ends
+    // within its wall clock too (SPEC-150 section 9): the acknowledgement can be seen before the timer
+    // callback (an event loop blocked past the deadline), so it is checked on the monotonic clock. A
+    // ROLLBACK acknowledged at or after the deadline ends the attempt by its wall clock, whatever the
+    // verdict (never NOOP from it).
+    const rollbackThen = async (verdict: Attempt): Promise<Attempt> => {
+      await client.query("ROLLBACK");
+      return remainingMs() <= 0 ? deadlineFailure() : verdict;
+    };
     try {
       await beginTransaction(client);
       await withinDeadline(() => client.query(SEED_XACT_LOCK));
       const eventIds = await withinDeadline(() => readEventIds(client));
-      if (eventIds.length >= 2) {
-        await client.query("ROLLBACK");
-        return fail("CONSISTENCY_FAILURE", "INITIAL_DATA_EVENT_NOT_UNIQUE");
-      }
+      if (eventIds.length >= 2)
+        return await rollbackThen(fail("CONSISTENCY_FAILURE", "INITIAL_DATA_EVENT_NOT_UNIQUE"));
       if (eventIds.length === 1) {
         const eventId = eventIds[0] as string;
-        if (await withinDeadline(() => hasOfferings(client, eventId))) {
-          await client.query("ROLLBACK");
-          return {
+        if (await withinDeadline(() => hasOfferings(client, eventId)))
+          return await rollbackThen({
             kind: "done",
             outcome: { outcome: "NOOP", operationExecutionId: executionId, attemptNumber },
-          };
-        }
+          });
         plan = { kind: "offerings", eventId };
       } else {
         plan = { kind: "all" };
       }
 
       const parsed = loadInput();
-      if (!parsed.ok) {
-        await client.query("ROLLBACK");
-        return fail("PERMANENT_FAILURE", parsed.errorCode);
-      }
+      if (!parsed.ok) return await rollbackThen(fail("PERMANENT_FAILURE", parsed.errorCode));
       const data: InitialDataInput = parsed.value;
 
       const created: { events: string[]; entry_ticket_offerings: string[] } = {
@@ -792,7 +795,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
         connection,
         Math.min(recheckDeadlineMs, budgetLimitMs - elapsed()),
       );
-      const { within } = deadline;
+      const { within, remainingMs } = deadline;
       const exhausted = () => {
         logRetry(options.logger, "exhausted", {
           executionId,
@@ -839,6 +842,10 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
               : { kind: "uncommitted" };
         }
         await connection.query("ROLLBACK");
+        // The re-check transaction ends within its wall clock too (SPEC-150 section 9): a ROLLBACK
+        // acknowledged at or after the deadline, seen before the timer callback (an event loop
+        // blocked past it), decides nothing, like a re-check ended by its deadline.
+        if (remainingMs() <= 0) return budgetBound ? exhausted() : undefined;
         return verdict;
       } catch (error) {
         if (deadline.abandoned()) {
