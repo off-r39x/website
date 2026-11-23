@@ -625,8 +625,9 @@ describe("TC-DB-ARC-007-009 migration 0007 and the catalog of the four Karaoke r
     await withSeed(async (seed) => {
       const t = await seed.newTicket();
       const checkinId = await insertRow(KARAOKE_CHECKINS, seed.checkin(t.ticket));
-      // Each row satisfies every other UNIQUE and foreign key of its table, so only the PK is broken.
-      const d = await seed.chain({ slot: seed.otherSlot });
+      // Each row satisfies every other UNIQUE and foreign key of its table, so only the PK is broken. The chain
+      // belongs to the other Customer, so the Reservation row does not repeat (id, customer_profile_id) either.
+      const d = await seed.chain({ slot: seed.otherSlot, customer: seed.otherProfile });
       expectViolation(
         await tryInsertWithId(KARAOKE_HOLDS, t.hold, seed.hold(d, { state: "EXPIRED" })),
         "23505",
