@@ -32909,9 +32909,7 @@
       "suite": "db",
       "upstream_rule_ids": [
         "DB-GDS-005",
-        "BR-GDS-010",
         "BR-GDS-011",
-        "BR-GDS-012",
         "SPEC-100-41"
       ],
       "system_invariant_ids": [
@@ -33029,7 +33027,7 @@
       "system_invariant_ids": [],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0008_goods_fulfillment applied (the build released before GK-3); readiness evaluated from a temporary directory holding those migrations, with the fixed 0007 required catalog fixture (asserted equal to the old live catalog); then 0008, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0008",
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0008_goods_fulfillment applied (the build released before GK-3); synthetic history committed under 0007 before 0008 runs (Business Profiles, a Role Assignment, Goods and its Inventory, Goods, Entry + Goods and Karaoke Orders with their Order Items, an Entry Allocation, a committed Karaoke Hold with its Reservation, Ticket and Check-in, a Checkout Attempt, a Payment Binding, a Webhook Receipt and a Refund Record); readiness evaluated from a temporary directory holding those migrations, with the fixed 0007 required catalog fixture (asserted equal to the old live catalog); then 0008, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0008",
       "fixture_ids": [
         "tests/fixtures/db/required-catalog-0007.json"
       ],
@@ -33041,6 +33039,7 @@
         "No business mutation"
       ],
       "expected_db_postconditions": [
+        "SPEC-170 section 22 item 8: every table that existed before 0008 keeps exactly its rows, ids and values (generated columns included); the only new tables are the three of 0008 and they are empty",
         "Before 0008 the old build is Ready with an exact catalog; after 0008 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
       ],
       "expected_provider_postconditions": [],
