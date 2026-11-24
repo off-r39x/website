@@ -31,7 +31,9 @@ export type {
 // Consistency Review open input (SPEC-150 §43-§44, SPEC-100 §43, SPEC-120 §43.1). This module only
 // defines the input shape. The CHECK / UNIQUE constraints and the INSERT belong to the adapter.
 // The dedupe key and its parts are not part of this input: SPEC-150 REL-REC-007 does not define
-// them completely yet (approved D-4), so a caller cannot supply one.
+// them completely yet (approved D-4), so a caller cannot supply one. The one exception is
+// AUTH_PROFILE_RELATION_INCONSISTENT (UCR-100-004, PR-L1-1c plan U-2): REL-REC-016 fixes its key
+// from the Auth Subject and the epoch <n>, so its input carries those two values and no target.
 
 // SPEC-150 §43 canonical reason codes. They are not Domain States (REL-REC-006).
 export const REVIEW_REASON_CODES = [
@@ -60,7 +62,31 @@ export const REVIEW_REASON_CODES = [
 ] as const;
 export type ReviewReasonCode = (typeof REVIEW_REASON_CODES)[number];
 
-const reviewReasonCodeSchema = z.enum(REVIEW_REASON_CODES);
+// UCR-100-004 / SPEC-100 §43 CHECK: auth_subject is set exactly for this reason, which names the
+// Auth Subject of a broken Business Profile relation instead of a target FK.
+const AUTH_PROFILE_REASON = "AUTH_PROFILE_RELATION_INCONSISTENT";
+type AuthProfileReasonCode = typeof AUTH_PROFILE_REASON;
+
+// Every other reason names one or more target FKs.
+const targetReasonCodeSchema = z.enum(REVIEW_REASON_CODES).exclude([AUTH_PROFILE_REASON]);
+
+// REL-REC-016: the Auth Subject is a canonical lowercase UUID of any version (Neon Auth issues it;
+// it is not a Public Reference, so the version / variant check of lowerUuid does not apply).
+const authSubject = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+// REL-REC-016: <n> is the count of resolved Cases of the same Auth Subject plus one, written in
+// decimal without leading zeros, so a positive safe integer.
+const authEpoch = z.int().min(1).max(Number.MAX_SAFE_INTEGER);
+
+// SPEC-150 REL-AUTH-009: the Case names the Auth Subject only and its details are {} (the adapter
+// writes the column default). The caller counts the epoch in the same statement as the 0-row
+// reselect (REL-REC-016). The Auth Subject never leaves the Business DB (DB-XFN-004).
+const authProfileCaseInput = z.strictObject({
+  reasonCode: z.literal(AUTH_PROFILE_REASON),
+  authSubject,
+  epoch: authEpoch,
+});
 
 // SPEC-100 §43: the ten target FK columns, each optional on its own. A Notification Request is not
 // a target (SPEC-120 §43.1). Unknown keys are rejected.
@@ -128,7 +154,7 @@ export type ReviewCaseDetails = z.infer<typeof detailsSchema>;
 // and the dedupe key have no slot.
 const reviewCaseOpenInputBase = z
   .strictObject({
-    reasonCode: reviewReasonCodeSchema,
+    reasonCode: targetReasonCodeSchema,
     targets: parsedTargets,
     details: detailsSchema,
   })
@@ -165,7 +191,14 @@ type EmailTargets = AtLeastOne<Pick<ReviewCaseTargets, "orderId" | "karaokeReser
   readonly [Key in Exclude<keyof ReviewCaseTargets, "orderId" | "karaokeReservationId">]?: never;
 };
 type EmailReasonCode = Extract<ReviewReasonCode, `EML_${string}`>;
-type NonEmailReasonCode = Exclude<ReviewReasonCode, EmailReasonCode>;
+type NonEmailReasonCode = Exclude<ReviewReasonCode, EmailReasonCode | AuthProfileReasonCode>;
+
+/** UCR-100-004: the Case of AUTH_PROFILE_RELATION_INCONSISTENT (SPEC-150 REL-AUTH-009, REL-REC-016). */
+export type AuthProfileReviewCaseInput = {
+  readonly reasonCode: AuthProfileReasonCode;
+  readonly authSubject: string;
+  readonly epoch: number;
+};
 
 export type ReviewCaseOpenInput =
   | {
@@ -177,17 +210,20 @@ export type ReviewCaseOpenInput =
       readonly reasonCode: NonEmailReasonCode;
       readonly targets: AtLeastOne<ReviewCaseTargets>;
       readonly details: ReviewCaseDetails;
-    };
+    }
+  | AuthProfileReviewCaseInput;
+
+const reviewCaseOpenInputUnion = z.union([authProfileCaseInput, reviewCaseOpenInputBase]);
 
 // Fails to compile when the explicit type drifts from the run-time shape (an added, removed or
 // retyped item): the explicit type must stay assignable to what the schema accepts.
 type AssertAssignable<Narrow extends Wide, Wide> = Narrow;
 export type ReviewCaseOpenInputIsParsable = AssertAssignable<
   ReviewCaseOpenInput,
-  z.infer<typeof reviewCaseOpenInputBase>
+  z.infer<typeof reviewCaseOpenInputUnion>
 >;
 
-export const reviewCaseOpenInputSchema = reviewCaseOpenInputBase as unknown as z.ZodType<
+export const reviewCaseOpenInputSchema = reviewCaseOpenInputUnion as unknown as z.ZodType<
   ReviewCaseOpenInput,
-  z.input<typeof reviewCaseOpenInputBase>
+  z.input<typeof reviewCaseOpenInputUnion>
 >;

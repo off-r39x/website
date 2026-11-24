@@ -3,6 +3,7 @@ import {
   type OrderId,
   type PaymentBindingId,
   REVIEW_REASON_CODES,
+  type ReviewCaseDetails,
   type ReviewCaseOpenInput,
   reviewCaseOpenInputSchema,
 } from "@off-r39x/application/review-case";
@@ -273,7 +274,9 @@ describe("TC-REVIEW-PORT-002 targets follow SPEC-100 §43 and SPEC-120 §43.1", 
   describe("an explicitly undefined target is dropped from the parsed output", () => {
     const keysOf = (reasonCode: string, targets: unknown) => {
       const parsed = reviewCaseOpenInputSchema.safeParse(openInput({ reasonCode, targets }));
-      return parsed.success ? Object.keys(parsed.data.targets).sort() : null;
+      return parsed.success && "targets" in parsed.data
+        ? Object.keys(parsed.data.targets).sort()
+        : null;
     };
     for (const code of ["EML_RENDER_CONTEXT_INVALID", "PAY_BINDING_INCONSISTENT"]) {
       it(`${code} keeps only the real targets`, () => {
@@ -461,8 +464,7 @@ describe("TC-REVIEW-PORT-003 details and top-level items follow the REL-REC-008 
 // ReviewCaseOpenInput has already satisfied them at compile time. These assertions are checked by
 // `pnpm typecheck`; vitest does not evaluate them.
 describe("TC-REVIEW-PORT-004 ReviewCaseOpenInput expresses the target constraints in its type [REL-REC-006]", () => {
-  type Details = ReviewCaseOpenInput["details"];
-  const details: Details = {};
+  const details: ReviewCaseDetails = {};
 
   it("accepts an input with at least one target", () => {
     const input: ReviewCaseOpenInput = {
@@ -495,12 +497,15 @@ describe("TC-REVIEW-PORT-004 ReviewCaseOpenInput expresses the target constraint
       targets: { orderId: 1n as OrderId, karaokeReservationId: 2n as KaraokeReservationId },
       details,
     };
-    // @ts-expect-error SPEC-120 §43.1: an email reason cannot target a payment binding
-    const bad: ReviewCaseOpenInput = {
+    // A variable, so that the error is the assignment itself on one line (the AUTH shape of
+    // UCR-100-004 makes the union three-way, and TypeScript would report a literal inside it).
+    const emailPayment = {
       reasonCode: "EML_RENDER_CONTEXT_INVALID",
       targets: { paymentBindingId: 3n as PaymentBindingId },
       details,
-    };
+    } as const;
+    // @ts-expect-error SPEC-120 §43.1: an email reason cannot target a payment binding
+    const bad: ReviewCaseOpenInput = emailPayment;
     expect([ok, bad]).toHaveLength(2);
   });
 
@@ -508,12 +513,13 @@ describe("TC-REVIEW-PORT-004 ReviewCaseOpenInput expresses the target constraint
     // A variable, not a literal: excess property checks do not apply, so the type itself must
     // forbid the other target keys.
     const mixed = { orderId: 1n as OrderId, paymentBindingId: 3n as PaymentBindingId };
-    // @ts-expect-error SPEC-120 §43.1: a forbidden target next to an allowed one is still refused
-    const input: ReviewCaseOpenInput = {
+    const emailMixed = {
       reasonCode: "EML_RENDER_CONTEXT_INVALID",
       targets: mixed,
       details,
-    };
+    } as const;
+    // @ts-expect-error SPEC-120 §43.1: a forbidden target next to an allowed one is still refused
+    const input: ReviewCaseOpenInput = emailMixed;
     expect(input.reasonCode).toBe("EML_RENDER_CONTEXT_INVALID");
   });
 
@@ -603,23 +609,27 @@ describe("TC-REVIEW-PORT-005 the AUTH_PROFILE_RELATION_INCONSISTENT input names 
   });
 
   it("types the AUTH shape apart from the target shape at compile time", () => {
+    const details: ReviewCaseDetails = {};
     const ok: ReviewCaseOpenInput = {
       reasonCode: "AUTH_PROFILE_RELATION_INCONSISTENT",
       authSubject: SYNTHETIC_UUID,
       epoch: 1,
     };
-    const withTarget: ReviewCaseOpenInput = {
-      // @ts-expect-error UCR-100-004: the AUTH reason has no target FK shape
+    // Variables, not literals, so that the error is the assignment itself on one line.
+    const authWithTarget = {
       reasonCode: "AUTH_PROFILE_RELATION_INCONSISTENT",
       targets: { orderId: 1n as OrderId },
-      details: {},
-    };
-    const otherReason: ReviewCaseOpenInput = {
-      // @ts-expect-error SPEC-100 §43 CHECK: only the AUTH reason carries the Auth Subject
+      details,
+    } as const;
+    const payWithSubject = {
       reasonCode: "PAY_BINDING_INCONSISTENT",
       authSubject: SYNTHETIC_UUID,
       epoch: 1,
-    };
+    } as const;
+    // @ts-expect-error UCR-100-004: the AUTH reason has no target FK shape
+    const withTarget: ReviewCaseOpenInput = authWithTarget;
+    // @ts-expect-error SPEC-100 §43 CHECK: only the AUTH reason carries the Auth Subject
+    const otherReason: ReviewCaseOpenInput = payWithSubject;
     expect([ok, withTarget, otherReason]).toHaveLength(3);
   });
 });
