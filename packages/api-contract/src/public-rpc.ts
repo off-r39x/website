@@ -8,12 +8,16 @@ import {
   type PublicEntryOfferingList,
   type PublicEvent,
   type PublicFaqList,
+  type PublicGoods,
+  type PublicGoodsList,
   type PublicSponsorLogoList,
   publicAnnouncementListSchema,
   publicAnnouncementSchema,
   publicEntryOfferingListSchema,
   publicEventSchema,
   publicFaqListSchema,
+  publicGoodsListSchema,
+  publicGoodsSchema,
   publicSponsorLogoListSchema,
 } from "./schemas/public.ts";
 
@@ -28,9 +32,12 @@ const ANNOUNCEMENTS = "/api/v1/public/announcements";
 const ANNOUNCEMENT = "/api/v1/public/announcements/:announcement_ref";
 const ENTRY_OFFERINGS = "/api/v1/public/entry-offerings";
 const SPONSOR_LOGOS = "/api/v1/public/sponsor-logos";
+const GOODS = "/api/v1/public/goods";
+const GOODS_DETAIL = "/api/v1/public/goods/:goods_ref";
 
 /**
- * SPEC-110 §26 / §26.1: the six public read Operations (API-PUB-001..005, API-PUB-012), GET only. Every
+ * SPEC-110 §26 / §26.1 / §26.2: the public read Operations API-PUB-001..005, API-PUB-012 and
+ * API-PUB-010..011 (Goods), GET only. Every
  * route runs `guard` (fail closed when the store is absent), then `query` (the empty strict Query), then
  * the handler, whose data is checked against the route's strict response schema (DEV-API-002/003).
  * No authentication is part of this namespace (SPEC-110 §6). The server mounts this same builder.
@@ -53,6 +60,12 @@ export function createPublicReadRpc<E extends Env>(dependencies: {
   entryOfferings: { load: (c: Context<E>) => Promise<PublicEntryOfferingList> };
   /** API-PUB-012. */
   sponsorLogos: { load: (c: Context<E>) => Promise<PublicSponsorLogoList> };
+  /** API-PUB-010 (SPEC-110 §26.2). */
+  goods: { load: (c: Context<E>) => Promise<PublicGoodsList> };
+  /** API-PUB-011. The path parameter is validated by the loader's route (goodsRefParamSchema). */
+  goodsDetail: {
+    load: (c: Context<E, typeof GOODS_DETAIL, PublicQueryInput>) => Promise<PublicGoods>;
+  };
 }) {
   const { guard, query, requestId } = dependencies;
   return new Hono<E>()
@@ -105,5 +118,11 @@ export function createPublicReadRpc<E extends Env>(dependencies: {
             requestId(c),
           ),
         ),
+    )
+    .get(GOODS, guard, query, async (c: Context<E, typeof GOODS, PublicQueryInput>) =>
+      c.json(envelope(publicGoodsListSchema, await dependencies.goods.load(c), requestId(c))),
+    )
+    .get(GOODS_DETAIL, guard, query, async (c: Context<E, typeof GOODS_DETAIL, PublicQueryInput>) =>
+      c.json(envelope(publicGoodsSchema, await dependencies.goodsDetail.load(c), requestId(c))),
     );
 }

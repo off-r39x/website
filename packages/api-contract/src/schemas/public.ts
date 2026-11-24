@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { isoUtcTimestampSchema, lowerCaseUuidSchema, moneySchema } from "./common.ts";
 
-// SPEC-110 §26 / §26.1 (UCR-110-013) public read contract: API-PUB-001..005 and API-PUB-012. Every
+// SPEC-110 §26 / §26.1 (UCR-110-013) / §26.2 (UCR-110-015) public read contract: API-PUB-001..005,
+// API-PUB-010..011 and API-PUB-012. Every
 // object is strict and every field a required key; nullable columns are `.nullable()`, never optional
 // (API-PUB-READ-004). No Internal ID, Publication State, administrative timestamp, counter or check-in
 // window is declared, so none can be added without changing the schema (SPEC-110 §9, §55).
@@ -14,14 +15,20 @@ const int32 = z.number().int().min(INT32_MIN).max(INT32_MAX);
 export const emptyPublicQuerySchema = z.strictObject({});
 
 /**
- * API-PUB-004 Path: a UUID of any letter case, normalised to the lower-case canonical form (§9).
- * Anything else, including surrounding spaces, the nil UUID and the max UUID, is refused.
+ * A public read Path reference (SPEC-110 §9 `publicRefInput`): a UUID of any letter case, normalised to
+ * the lower-case canonical form. Anything else, including surrounding spaces, the nil UUID and the max
+ * UUID, is refused before any read. Shared by API-PUB-004 and API-PUB-011 (and the Karaoke Slot ref).
  */
-export const announcementRefParamSchema = z
+const publicRefParamSchema = z
   .string()
   .regex(/^[0-9A-Fa-f-]{36}$/)
   .transform((value) => value.toLowerCase())
   .pipe(lowerCaseUuidSchema);
+
+/** API-PUB-004 Path `announcement_ref`. */
+export const announcementRefParamSchema = publicRefParamSchema;
+/** API-PUB-011 Path `goods_ref` (SPEC-110 §26.2). */
+export const goodsRefParamSchema = publicRefParamSchema;
 
 // The WHATWG URL parser of the runtime (Node and browsers). This package's lib (ES2023) declares no URL
 // global, so only the members read here are declared, module-scoped.
@@ -127,6 +134,16 @@ export const publicAnnouncementSchema = z.strictObject({
 });
 export type PublicAnnouncement = z.infer<typeof publicAnnouncementSchema>;
 
+// The public sales state shared by API-PUB-005 and API-PUB-GDS-003 (AVAILABLE <=> a null reason).
+const availabilitySchema = z.enum(["AVAILABLE", "UNAVAILABLE"]);
+const unavailableReasonSchema = z
+  .enum(["SALES_NOT_STARTED", "SALES_CLOSED", "SALES_STOPPED", "SOLD_OUT"])
+  .nullable();
+const consistentAvailability = (item: {
+  availability: "AVAILABLE" | "UNAVAILABLE";
+  unavailable_reason: string | null;
+}) => (item.availability === "AVAILABLE") === (item.unavailable_reason === null);
+
 /** API-PUB-005. `availability` and `unavailable_reason` go together (AVAILABLE <=> null). */
 export const publicEntryOfferingListSchema = z.strictObject({
   items: z.array(
@@ -139,15 +156,37 @@ export const publicEntryOfferingListSchema = z.strictObject({
         sales_starts_at: isoUtcTimestampSchema,
         sales_ends_at: isoUtcTimestampSchema,
         purchase_limit: int32,
-        availability: z.enum(["AVAILABLE", "UNAVAILABLE"]),
-        unavailable_reason: z
-          .enum(["SALES_NOT_STARTED", "SALES_CLOSED", "SALES_STOPPED", "SOLD_OUT"])
-          .nullable(),
+        availability: availabilitySchema,
+        unavailable_reason: unavailableReasonSchema,
       })
-      .refine((item) => (item.availability === "AVAILABLE") === (item.unavailable_reason === null)),
+      .refine(consistentAvailability),
   ),
 });
 export type PublicEntryOfferingList = z.infer<typeof publicEntryOfferingListSchema>;
+
+/**
+ * API-PUB-GDS-002: one Goods, the same shape in the list (API-PUB-010) and the detail (API-PUB-011).
+ * No Inventory counter, remaining quantity or `sale_control_state` is declared. `purchase_limit` has a
+ * database CHECK `> 0`.
+ */
+export const publicGoodsSchema = z
+  .strictObject({
+    goods_ref: lowerCaseUuidSchema,
+    name: z.string(),
+    description: z.string().nullable(),
+    unit_price: moneySchema,
+    sales_starts_at: isoUtcTimestampSchema,
+    sales_ends_at: isoUtcTimestampSchema,
+    purchase_limit: z.number().int().min(1).max(INT32_MAX),
+    availability: availabilitySchema,
+    unavailable_reason: unavailableReasonSchema,
+  })
+  .refine(consistentAvailability);
+export type PublicGoods = z.infer<typeof publicGoodsSchema>;
+
+/** API-PUB-010. */
+export const publicGoodsListSchema = z.strictObject({ items: z.array(publicGoodsSchema) });
+export type PublicGoodsList = z.infer<typeof publicGoodsListSchema>;
 
 /** API-PUB-012. */
 export const publicSponsorLogoListSchema = z.strictObject({
