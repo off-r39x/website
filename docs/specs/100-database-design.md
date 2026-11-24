@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-100
 title: Database Design
-version: 2.5.2
+version: 2.6.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -453,32 +453,46 @@ Index: `ix_sponsor_logos_event_state_sort(event_id, state, sort_order, public_re
 
 **DB-SAL-002:** URLは外部HTTPSの参照のみとし、形式・許可originの検証は `SPEC-140` と `SPEC-110` のcreate/update/publicationで行う。画像upload／server fetchは行わない。公開queryは `PUBLISHED` のみを返す。Profileの任意 `display_name` と異なり、Logoの表示名称は必須とする。Trace: `FR-PUB-011,015`, `FR-ADM-018`, `BR-EVT-005`。
 
-### 13.5 初期データ（Event / Entry Ticket Offering）
+### 13.5 初期データ
 
-`UCR-180-001`。Business API（`SPEC-110`）にはEventとEntry Ticket Offeringの作成Operationがなく、追加しない。最初の行は、`SPEC-180 §45.3` の専用の運用コマンドだけが作る。FAQ・Announcement・Sponsor Logoは既存の作成Operationで作るため、本節の対象外である。
+`UCR-180-001`、`UCR-180-007`。Business API（`SPEC-110`）には、Event、Entry Ticket Offering、Goods、Karaoke Sales Configuration、Exclusive Scopeの作成Operationがなく、追加しない。これらの最初の行は、`SPEC-180 §45.3` の専用の運用コマンドだけが作る。Karaoke Slotには作成Operation（`API-ADM-KRK-003`）があるが、本節のコマンドは、同じ実行で作るExclusive Scopeに対してだけSlotを作る（`SPEC-090` `KRK-GEN-001` の例外）。FAQ・Announcement・Sponsor Logoは既存の作成Operationで作るため、本節の対象外である。
+
+本節の「当該Event」は、`app.events` の1件（既存の行、または同じ実行で作る行）とする。
 
 | 対象 | 作成する条件 | 入力する項目 | 作成時に固定する値 |
 |---|---|---|---|
 | `app.events` | 行が0件 | `name`, `summary`, `starts_at`, `ends_at`, `venue_name`, `venue_details`, `access_information`, `participant_notices` | `business_timezone = 'Asia/Tokyo'` |
-| `app.entry_ticket_offerings` | 親Eventに紐づく行が0件 | 1件以上。各件は `name`, `description`, `unit_amount`, `currency`, `sales_starts_at`, `sales_ends_at`, `sales_capacity`, `purchase_limit`, `checkin_opens_at`, `checkin_closes_at` | `sale_control_state = 'SUSPENDED'`, `held_quantity = 0`, `committed_quantity = 0` |
+| `app.entry_ticket_offerings` | 当該Eventに紐づく行が0件 | 1件以上。各件は `name`, `description`, `unit_amount`, `currency`, `sales_starts_at`, `sales_ends_at`, `sales_capacity`, `purchase_limit`, `checkin_opens_at`, `checkin_closes_at` | `sale_control_state = 'SUSPENDED'`, `held_quantity = 0`, `committed_quantity = 0` |
+| `app.goods`（`app.goods_inventory` を含む） | 当該Eventに紐づく行が0件、かつ入力 `goods` が `null` でない | 1件以上。各件は `name`, `description`, `unit_amount`, `currency`, `sales_starts_at`, `sales_ends_at`, `purchase_limit` | `sale_control_state = 'SUSPENDED'`。Goods 1件ごとに、同じtransactionでInventoryを1行作り（`DB-GDS-001`）、`saleable_capacity = 0`, `held_quantity = 0`, `committed_quantity = 0` とする |
+| `app.karaoke_sales_configurations` | 当該Eventに紐づく行が0件、かつ入力 `karaoke` が `null` でない | 1件。`name`, `unit_amount`, `currency`, `sales_starts_at`, `sales_ends_at`, `purchase_limit` | `sale_control_state = 'SUSPENDED'`, `standard_usage_minutes = 15`, `standard_maintenance_minutes = 5` |
+| `app.karaoke_exclusive_scopes` | 当該Eventに紐づく行が0件、かつ入力 `karaoke` が `null` でない | 1件以上。各件は `name`, `sort_order` | なし |
+| `app.karaoke_slots` | 同じ実行でExclusive Scopeを作る（既存のScopeには作らない） | 全Scopeに共通のwindowの配列（1件以上）。各件は `window_start`, `window_end` | `state = 'AVAILABLE'`。3時刻は `SPEC-090 §8.2` の標準algorithm（利用15分・整備5分）による。`exclusive_scope_id` は同じ実行で作るScope、`sales_configuration_id` は当該Eventの唯一のKaraoke Sales Configuration（既存の行、または同じ実行で作る行）、`generation_cause_key` はこの実行の `operation_execution_id`、`generation_candidate_no` はScopeごとに候補を `usage_start` の昇順に並べた0始まりの番号とする |
 
-Goods、Karaoke Sales Configuration、Exclusive Scopeは本表の対象外である。対象を増やす場合は、上流仕様の変更として本表へ行を追加し、同じ規則（`DB-SEED-001〜007`）に従い、`SPEC-180` `INF-SEED-003` と `SPEC-160` `OBS-AUD-014`・§37 の対象も同時に改訂する。
+対象を増やす場合は、上流仕様の変更として本表へ行を追加し、同じ規則（`DB-SEED-001〜007`）に従い、`SPEC-180` `INF-SEED-003` と `SPEC-160` `OBS-AUD-014`・§37 の対象も同時に改訂する。
 
-**DB-SEED-001:** 作成は「対象が0件のときだけ」とする。Eventは、0件なら作り、1件なら何もせず（`NOOP`）、2件以上ならコマンドを失敗させる（`SPEC-110` `API-RLC-007` の「Eventは1件だけ」の前提が崩れており、どの行を採るか判断しない）。Entry Ticket Offeringは、そのEventに紐づく行が0件なら入力の件数を作り、1件以上あれば何もしない。足りない分を補わず、既存の行を更新・削除しない。運用で変更した値（`API-ADM-CNT-002`、`API-ADM-ENT-SALES-003`）を、再実行で巻き戻さない。
+**DB-SEED-001:** 作成は「対象が0件のときだけ」とし、対象ごとに独立に判定する。
 
-**DB-SEED-002:** 判定と作成は、1つのDB transactionで行い、`pg_advisory_xact_lock(hashtext('app:initial-data-seed'))` で同時実行を直列化する。lockは、件数の判定（SELECT）より前に取得する。検証に失敗した場合は、全体をrollbackし、一部の行だけを残さない。DB commitの結果が不明な場合（COMMIT送信後、acknowledgement受領前の接続断。`SPEC-150` `REL-DB-006`）は、blind再INSERTをせず、新しい接続で再照合する（`SPEC-150 §20` のUnknown DB commitと同じ）。再照合は1つのDB transactionで行い、同じ `pg_advisory_xact_lock(hashtext('app:initial-data-seed'))` を取得してから、SELECTする（READ COMMITTEDでは、元のtransactionがCOMMITを処理している間は、その行とAudit Eventが見えないため。元の接続がlockを保持している間は、lockの取得が待たされ、元のtransactionの終了後にcommit済みの行とAudit Eventを確認できる）。lockの取得は、`REL-DB-001` のtimeout・retry budget内で待ち、超過した場合は(4)とする。照合の基準は、結果不明になった実行が作る予定だった行とする（Eventと Offeringを作る実行はEventとそのEventのOffering、Event既存でOfferingだけを作る実行はそのEventに紐づくOffering）。既存のEventだけでは、成功の根拠にしない。(1) この実行の `operation_execution_id` を持つAudit Event（`SPEC-160` `OBS-AUD-014`）があれば、commit済みと判断して `CREATED` とする。(2) この実行のAudit Eventがなく、作る予定だった行が揃っていれば、他の実行が作成済みであり、`NOOP` とする。(3) この実行のAudit Eventがなく、作る予定だった行が揃っていなければ、未commitと確認できたので、`REL-DB-001` のretry budget内で、判定から同じ手順を再試行する（作る予定だった行の一部だけが存在する状態は、この実行のtransactionでは作られない。`DB-SEED-001` に従って判定する）。(4) 再照合ができない場合（接続できない、lockの待ちが超過した）は `UNKNOWN_RESULT` とし（`SPEC-180` `INF-SEED-004`）、commit済みである可能性がある行とAudit Eventを削除・修復せずに残す。外部呼出しを行わない。既存の行を更新しないため、§47のlock順序へ影響しない。
+- Eventは、0件なら作り、1件なら何もせず、2件以上ならコマンドを失敗させる（`SPEC-110` `API-RLC-007` の「Eventは1件だけ」の前提が崩れており、どの行を採るか判断しない）。
+- Entry Ticket Offering、Goods、Exclusive Scopeは、当該Eventに紐づく行が0件なら入力の件数を作り、1件以上あれば何もしない。
+- Karaoke Sales Configurationは、当該Eventに紐づく行が0件なら1件作り、1件なら何もせず、2件以上なら入力の値・`null` にかかわらずコマンドを失敗させる（Slotが参照する行を判断しない）。
+- Karaoke Slotは、同じ実行でExclusive Scopeを作るときだけ、作るScopeごとに作る。既存のScopeにはSlotを作らない。
+- 保留: 入力 `goods` が `null` なら、Goodsが0件でも作らない。入力 `karaoke` が `null` なら、Karaoke Sales Configuration・Exclusive Scope・Slotを、0件でも作らない（Slotは同じ実行で作るScopeにだけ作るため、3つをまとめて保留する）。Eventと Entry Ticket Offeringは保留できない。
+- 行がある対象は、入力の値・`null` にかかわらず何もしない。`null` によって既存の行を削除せず、入力の値が変わっても既存の行を更新しない。足りない分を補わず、既存の行を更新・削除しない。運用で変更した値（`API-ADM-CNT-002`、`API-ADM-ENT-SALES-003`）を、再実行で巻き戻さない。
+- 対象ごとの状態: 作った対象は `CREATED`、行が1件以上あって何もしない対象は `EXISTING`、行が0件で保留により作らない対象は `DEFERRED` とする。Karaoke Slotの状態は、同じ実行のExclusive Scopeの状態と同じとする。状態は `SPEC-180` `INF-SEED-005` の出力に含める。
 
-**DB-SEED-003:** 作成する行があるときだけ、入力を読んでstrictに検証する（`SPEC-180` `INF-SEED-004`。作成する行がなければ入力を要求せず `NOOP` とし、作成する行があるのに入力が未設定または不正なときは `FAILED` とする）。未知のkeyを拒否し、§13.1・§15.1のCHECKと同じ条件（`starts_at < ends_at`、`sales_starts_at < sales_ends_at`、`checkin_opens_at < checkin_closes_at`、`unit_amount >= 0`、`sales_capacity >= 0`、`purchase_limit > 0` など）をコマンドで検証したうえで、DBのCHECKを最後の防御とする。ID、`public_ref`、counter、`created_at` / `updated_at`、`business_timezone`、`sale_control_state` は入力として受け取らない。`public_ref` はDBが生成する。未設定の項目へ推測値を入れず、nullableな項目は入力になければ `NULL` のままとする（`BR-EVT-001`）。
+**DB-SEED-002:** 判定と作成は、1つのDB transactionで行い、`pg_advisory_xact_lock(hashtext('app:initial-data-seed'))` で同時実行を直列化する。lockは、件数の判定（SELECT）より前に取得する。検証に失敗した場合は、全体をrollbackし、一部の行だけを残さない。DB commitの結果が不明な場合（COMMIT送信後、acknowledgement受領前の接続断。`SPEC-150` `REL-DB-006`）は、blind再INSERTをせず、新しい接続で再照合する（`SPEC-150 §20` のUnknown DB commitと同じ）。再照合は1つのDB transactionで行い、同じ `pg_advisory_xact_lock(hashtext('app:initial-data-seed'))` を取得してから、SELECTする（READ COMMITTEDでは、元のtransactionがCOMMITを処理している間は、その行とAudit Eventが見えないため。元の接続がlockを保持している間は、lockの取得が待たされ、元のtransactionの終了後にcommit済みの行とAudit Eventを確認できる）。lockの取得は、`REL-DB-001` のtimeout・retry budget内で待ち、超過した場合は(4)とする。照合の基準は、結果不明になった実行が作る予定だった行（その実行で `CREATED` になる予定だった対象の行）とする。Eventを作る実行はEvent、Offeringを作る実行は当該EventのOffering、Goodsを作る実行は当該EventのGoodsとそのInventory、Karaoke Sales Configurationを作る実行は当該EventのKaraoke Sales Configuration、Exclusive Scopeを作る実行は当該EventのScopeとそのSlotを基準とする（例: Event既存でOfferingだけを作る実行はそのEventに紐づくOffering）。既存のEventだけ、およびその実行で `EXISTING`・`DEFERRED` になる予定だった対象の行だけでは、成功の根拠にしない。(1) この実行の `operation_execution_id` を持つAudit Event（`SPEC-160` `OBS-AUD-014`）があれば、commit済みと判断して `CREATED` とする。(2) この実行のAudit Eventがなく、作る予定だった行が揃っていれば、他の実行が作成済みであり、`NOOP` とする。(3) この実行のAudit Eventがなく、作る予定だった行が揃っていなければ、未commitと確認できたので、`REL-DB-001` のretry budget内で、判定から同じ手順を再試行する（作る予定だった行の一部だけが存在する状態は、この実行のtransactionでは作られない。`DB-SEED-001` に従って判定する）。(4) 再照合ができない場合（接続できない、lockの待ちが超過した）は `UNKNOWN_RESULT` とし（`SPEC-180` `INF-SEED-004`）、commit済みである可能性がある行とAudit Eventを削除・修復せずに残す。外部呼出しを行わない。既存の行を更新しないため、§47のlock順序へ影響しない。
 
-**DB-SEED-004:** Entry Ticket Offeringは常に `SUSPENDED` で作る。販売の開始は、既存の `API-ADM-ENT-SALES-003` による `sale_control_state` の変更で行う。
+**DB-SEED-003:** 入力のtop-level keyは `event`、`entry_ticket_offerings`、`goods`、`karaoke` の4つとし、常に必須とする。`event` はobject、`entry_ticket_offerings` と `goods` は配列、`karaoke` はkey `sales_configuration`（object）、`exclusive_scopes`（配列）、`slot_windows`（配列）の3つを持つobjectとする。`goods` と `karaoke` だけは、値に `null`（保留。`DB-SEED-001`）を書ける。`event` と `entry_ticket_offerings` の `null` は拒否する。作成の候補（行が0件の対象。Karaoke Slotは含めない）があるときだけ、入力を読んで全体をstrictに検証する（`SPEC-180` `INF-SEED-004`）。候補がなければ入力を要求せず `NOOP` とし、候補があるのに入力が未設定または不正なときは、候補がすべて保留の場合も含めて `FAILED` とする（保留かどうかも入力で決まるため）。keyの欠落と未知のkeyを拒否し、§13.1・§15のCHECKと同じ条件（`starts_at < ends_at`、`sales_starts_at < sales_ends_at`、`checkin_opens_at < checkin_closes_at`、`unit_amount >= 0`、`currency` が大文字3文字、`sales_capacity >= 0`、`purchase_limit > 0` など）をコマンドで検証したうえで、DBのCHECKを最後の防御とする。Exclusive Scopeの `sort_order` はDBのDEFAULTに頼らず、入力で必須とする。Karaoke Slotのwindowは次を検証する。(1) `window_start < window_end`。windowの開始を丸めない（`SPEC-090` `KRK-GEN-003`）。(2) 各windowが `SPEC-090 §8.2` の候補を1件以上作ること（`window_end` を越える最終cycleは作らない。`KRK-GEN-002`）。(3) 異なるwindowから作る候補のOccupancy Interval `[usage_start, cycle_end)` が重ならないこと（接するのは可。`DB-KRK-002`）。(4) 1回の実行で作るSlotの総数（作るScopeごとの候補数の合計）が1,000件以下であること（transactionの期限（`SPEC-150 §9`）内に収めるため）。同じScopeでのOccupancy Intervalの重なりはコマンドで先に拒否し、排他制約 `ex_karaoke_slots_scope_occupancy`（§28.1）を最後の防御とする。ID（親のIDを含む）、`public_ref`、counter（Goods Inventoryの `saleable_capacity` を含む）、`created_at` / `updated_at`、`business_timezone`、`sale_control_state`、`standard_usage_minutes` / `standard_maintenance_minutes`、Karaoke Slotの `state`・3時刻・`generation_cause_key`・`generation_candidate_no` は入力として受け取らない。`public_ref` はDBが生成する。未設定の項目へ推測値を入れず、nullableな項目は入力になければ `NULL` のままとする（`BR-EVT-001`）。
 
-**DB-SEED-005:** 作成した行ごとに、`SPEC-160 §37` のAudit Eventを同じtransactionで記録する。Audit Eventの挿入に失敗した場合は、投入全体をrollbackする。
+**DB-SEED-004:** Entry Ticket Offering、Goods、Karaoke Sales Configurationは常に `SUSPENDED` で作り、Goods Inventoryは `saleable_capacity = 0` で作る。Entry Ticket Offeringの販売の開始は、既存の `API-ADM-ENT-SALES-003` による `sale_control_state` の変更で行う。Karaoke Slotは `AVAILABLE` で作る（`SPEC-090 §8.3`、`KRK-GEN-004`）。Slotの `AVAILABLE` は購入できることを意味せず、購入の可否は販売設定を含むavailability predicateで決まる（`SPEC-090 §9`）。
+
+**DB-SEED-005:** 作成した行ごとに、`SPEC-160 §37` のAudit Eventを同じtransactionで記録する。Goods Inventoryは別のAudit Eventを作らず、親のGoodsのAudit Eventに含める（`SPEC-160` `OBS-AUD-014`）。Audit Eventの挿入に失敗した場合は、投入全体をrollbackする。
 
 **DB-SEED-006:** 実在の会場名・日時・価格・個人情報を、仕様・source・test fixture・migrationへ置かない。リポジトリに置く入力の見本は合成値だけとする（`SPEC-180 INF-SEED-002`）。
 
-**DB-SEED-007:** 本節は、新しい列・制約・Index・Operation・Capability・Stateを追加しない。「Eventは高々1件」はDB制約ではなく、`DB-SEED-001` の事前条件と `API-RLC-007` の前提で守る。DB制約として強制する場合は、別の仕様変更とする。
+**DB-SEED-007:** 本節は、新しい列・制約・Index・Operation・Capability・Stateを追加しない。「Eventは高々1件」はDB制約ではなく、`DB-SEED-001` の事前条件と `API-RLC-007` の前提で守る。DB制約として強制する場合は、別の仕様変更とする。Karaoke Sales Configurationが当該Eventに2件以上ある場合の失敗（`DB-SEED-001`）も同様に、DB制約を追加しない。
 
-Trace: `FR-PUB-001〜004`, `FR-PUB-007`, `FR-ADM-014`, `BR-EVT-001`, `BR-SAL-001`, `UCR-180-001`.
+Trace: `FR-PUB-001〜004`, `FR-PUB-007〜009`, `FR-ADM-014`, `BR-EVT-001`, `BR-SAL-001`, `DB-GDS-001`, `KRK-GEN-001`, `UCR-180-001`, `UCR-180-007`.
 
 ---
 
@@ -1885,7 +1899,7 @@ Entry／Goodsの全購入開始経路（単品互換APIを含む）は、Profile
 | Goods Handoff | Goods Order Item → Handoff `FOR UPDATE` | READ COMMITTED | one Handoff unique; PENDING conditional update |
 | Slot sales stop / edit | Slot `FOR UPDATE` | READ COMMITTED | current state rule + exclusion on time/scope edit |
 | Slot batch generation | Scope rows ascending `FOR UPDATE` | READ COMMITTED | exact unique + exclusion; all-or-nothing |
-| Initial data seeding（§13.5） | `pg_advisory_xact_lock(hashtext('app:initial-data-seed'))` → 件数の判定 | READ COMMITTED | 0件のときだけ作成。全体rollback。既存行を更新しない（`DB-SEED-001〜002`） |
+| Initial data seeding（§13.5） | `pg_advisory_xact_lock(hashtext('app:initial-data-seed'))` → 対象ごとの件数の判定 | READ COMMITTED | 対象ごとに0件のときだけ作成（保留の対象は作らない）。全体rollback。既存行を更新しない（`DB-SEED-001〜002`） |
 
 `Idempotency-Key` を受けるOperationのうち、**そのOperationで業務更新を最初にcommitするtransactionだけ**が、`app.idempotency_records` の行のINSERTを含む（位置は §43.1 `DB-IDM-002`）。上表のCheckout Binding等、最初の業務commitの後のtransaction（外部呼出しの後のtransaction Bなど）では記録を重ねてINSERTしない。業務更新を伴わず成功する場合は `SPEC-110` `API-IDM-004` に従う。記録のINSERT失敗はそのtransaction全体のrollbackとする。
 
@@ -2393,6 +2407,7 @@ Retry count、backoff、reconciliation、Review Case解消Runbookを定義する
 | UCR-100-003 | INCORPORATED | §§16〜19,24,39,47〜49の複合Purpose／source FK／原子Transaction |
 | UCR-110-003 | INCORPORATED | §43.1 `app.idempotency_records`、§45.6、§47、§48、`DB-IDM-001〜003`、SPEC-110 §18.1 `API-IDM-003〜010` |
 | UCR-180-001 | INCORPORATED | §13.5 初期データ（`DB-SEED-001〜007`）、`SPEC-180 §45.3` `INF-SEED-001〜006` |
+| UCR-180-007 | INCORPORATED | §13.5 初期データの対象へGoods（Inventoryを含む）・Karaoke Sales Configuration・Exclusive Scope・Slotを追加、保留と対象ごとの状態（`DB-SEED-001〜005`、§48）、`SPEC-090` `KRK-GEN-001`、`SPEC-180 §45.3` `INF-SEED-003〜006` |
 | UCR-100-004 | INCORPORATED | §14.1 `DB-AUTH-003`、§43 `auth_subject` / CHECK / `DB-XFN-004`、§48、§62、§67、SPEC-110 §61 Acceptance 49、SPEC-150 §66 Acceptance 53、SPEC-150 `REL-AUTH-009` / `REL-REC-016〜017`、SPEC-110 `API-AUTH-003` / `API-ADM-REC-007` / §49 |
 | UCR-100-005 | INCORPORATED | §43.1 `app.idempotency_records` の `created_at` / `expires_at`（時刻を決める主体、Clientの範囲、時刻の列の保護を `app_api_runtime` の権限に求めないこと）、SPEC-170 §28.1 `TST-IDM-004` (1)、SPEC-170 §78 |
 | UCR-100-006 | INCORPORATED | §21 `payment_deadline_at`・§30 `hold_expires_at` のgenerated columnの式（`AT TIME ZONE 'UTC'` を挟むIMMUTABLEな式）、§57 |
