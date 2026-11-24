@@ -1363,20 +1363,40 @@
       "code_paths": [
         "apps/web/src/mock/backend/mock-api.ts",
         "apps/web/src/mock/backend/seed.ts",
-        "apps/web/src/features/public/home-model.ts"
+        "apps/web/src/features/public/home-model.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
       ],
-      "test_case_ids": ["TC-PG-PUB-001-101", "TC-PG-PUB-001-622", "TC-PG-PUB-001-604"],
-      "notes": "implementation mapping only: UI mock test double (not API/DB/provider coverage)"
+      "test_case_ids": [
+        "TC-PG-PUB-001-101",
+        "TC-PG-PUB-001-622",
+        "TC-PG-PUB-001-604",
+        "TC-API-009-001",
+        "TC-API-009-005",
+        "TC-API-009-006"
+      ],
+      "notes": "implementation mapping only: UI mock test double and the PR-L2-3 backend public read (API/DB tests with synthetic data; not provider coverage, G8 not executed)"
     },
     {
       "rule_id": "BR-EVT-002",
       "code_paths": [
         "apps/web/src/mock/backend/mock-api.ts",
         "apps/web/src/mock/backend/seed.ts",
-        "apps/web/src/features/public/home-model.ts"
+        "apps/web/src/features/public/home-model.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
       ],
-      "test_case_ids": ["TC-PG-PUB-002-101", "TC-PG-PUB-001-622", "TC-PG-PUB-001-603"],
-      "notes": "implementation mapping only: UI mock test double (not API/DB/provider coverage)"
+      "test_case_ids": [
+        "TC-PG-PUB-002-101",
+        "TC-PG-PUB-001-622",
+        "TC-PG-PUB-001-603",
+        "TC-API-009-001",
+        "TC-API-009-005",
+        "TC-API-009-006"
+      ],
+      "notes": "implementation mapping only: UI mock test double and the PR-L2-3 backend public read (API/DB tests with synthetic data; not provider coverage, G8 not executed)"
     },
     {
       "rule_id": "BR-EVT-005",
@@ -1385,7 +1405,10 @@
         "apps/web/src/mock/backend/seed.ts",
         "apps/web/src/presentation/layout/sponsor-area-model.ts",
         "apps/web/src/presentation/layout/sponsor-logos.tsx",
-        "apps/web/src/features/shell/site-footer.tsx"
+        "apps/web/src/features/shell/site-footer.tsx",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
       ],
       "test_case_ids": [
         "TC-BR-EVT-005-101",
@@ -1393,18 +1416,31 @@
         "TC-BR-EVT-005-103",
         "TC-PG-PUB-001-212",
         "TC-PG-PUB-001-402",
-        "TC-PG-PUB-001-406"
+        "TC-PG-PUB-001-406",
+        "TC-API-006-001",
+        "TC-API-006-101"
       ],
-      "notes": "implementation mapping only: UI mock test double (not API/DB/provider coverage)"
+      "notes": "implementation mapping only: UI mock test double and the PR-L2-3 backend public read (API/DB tests with synthetic data; not provider coverage, G8 not executed)"
     },
     {
       "rule_id": "FR-PUB-013",
       "code_paths": [
         "apps/web/src/mock/backend/mock-api.ts",
-        "apps/web/src/features/public/home-model.ts"
+        "apps/web/src/features/public/home-model.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
       ],
-      "test_case_ids": ["TC-PG-PUB-001-101", "TC-PG-PUB-002-102", "TC-PG-PUB-001-624"],
-      "notes": "implementation mapping only: UI mock test double (not API/DB/provider coverage)"
+      "test_case_ids": [
+        "TC-PG-PUB-001-101",
+        "TC-PG-PUB-002-102",
+        "TC-PG-PUB-001-624",
+        "TC-API-009-001",
+        "TC-API-009-006",
+        "TC-API-006-001",
+        "TC-API-006-101"
+      ],
+      "notes": "implementation mapping only: UI mock test double and the PR-L2-3 backend public read (API/DB tests with synthetic data; not provider coverage, G8 not executed)"
     },
     {
       "rule_id": "INV-010-08",
@@ -1419,7 +1455,10 @@
         "apps/web/src/features/mypage/qr-model.ts",
         "apps/web/src/features/mypage/order-detail-model.ts",
         "packages/db/migrations/0007_karaoke_reservations.sql",
-        "packages/db/src/schema/karaoke.ts"
+        "packages/db/src/schema/karaoke.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
       ],
       "test_case_ids": [
         "TC-PG-PUB-002-101",
@@ -1437,9 +1476,15 @@
         "TC-PG-MYP-008-702",
         "TC-PG-MYP-011-702",
         "TC-INV-010-08-001",
-        "TC-DB-KRK-015-001"
+        "TC-DB-KRK-015-001",
+        "TC-API-009-004",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-009-007",
+        "TC-API-006-101",
+        "TC-API-006-102"
       ],
-      "notes": "implementation mapping only: UI mock test double (not API/DB/provider coverage); S8 Mypage (UI mock): implementation mapping only; not API / DB / provider coverage; DB: the Karaoke Hold, Reservation and Ticket owner composite foreign keys of migration 0007 (PR-GK-2), verified on real PostgreSQL"
+      "notes": "implementation mapping only: UI mock test double and the PR-L2-3 backend public read (API/DB tests with synthetic data; not provider coverage, G8 not executed); DB: the Karaoke Hold, Reservation and Ticket owner composite foreign keys of migration 0007 (PR-GK-2), verified on real PostgreSQL"
     },
     {
       "rule_id": "SEC-WEB-017",
@@ -2523,9 +2568,12 @@
     },
     {
       "rule_id": "BR-SAL-003",
-      "code_paths": ["apps/web/src/features/goods/goods-list-model.ts"],
-      "test_case_ids": ["TC-PG-GDS-001-601"],
-      "notes": "implementation mapping only: S4 public pages (UI mock, not API/DB/provider coverage)"
+      "code_paths": [
+        "apps/web/src/features/goods/goods-list-model.ts",
+        "packages/domain/src/sales-availability.ts"
+      ],
+      "test_case_ids": ["TC-PG-GDS-001-601", "TC-API-009-003"],
+      "notes": "implementation mapping only: UI mock test double and the PR-L2-3 backend public read (API/DB tests with synthetic data; not provider coverage, G8 not executed)"
     },
     {
       "rule_id": "DEV-WEB-009",
@@ -2872,9 +2920,16 @@
         "scripts/generate-web-headers.mts",
         "apps/web/src/presentation/layout/sponsor-logos.tsx",
         "apps/web/src/presentation/layout/sponsor-area-model.ts",
-        "apps/web/src/features/shell/site-footer.tsx"
+        "apps/web/src/features/shell/site-footer.tsx",
+        "packages/config/src/index.ts",
+        "apps/api/src/api/app.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/bootstrap/index.ts"
       ],
       "test_case_ids": [
+        "TC-API-006-104",
+        "TC-API-006-105",
         "TC-PG-PUB-001-213",
         "TC-STACK-008-203",
         "TC-STACK-008-204",
@@ -2882,7 +2937,7 @@
         "TC-PG-PUB-001-406",
         "TC-PG-PUB-001-232"
       ],
-      "notes": "implementation mapping only: Sponsor image origin validation for img-src, no-referrer images and the name fallback for a CSP-blocked image, and https-only images outside the UI mock (a same-origin path only from the mock build flag); the Sponsor image and link URL shape (absolute https, no userinfo, non-standard port, query, fragment, IP literal, localhost or .local host, or control character) is re-checked in the UI as defence in depth because the external link is not covered by the CSP; the image origin allowlist stays with the CSP img-src; not API URL validation (SPEC-140)"
+      "notes": "implementation mapping only: Sponsor image origin validation for img-src, no-referrer images and the name fallback for a CSP-blocked image, and https-only images outside the UI mock (a same-origin path only from the mock build flag); the Sponsor image and link URL shape (absolute https, no userinfo, non-standard port, query, fragment, IP literal, localhost or .local host, or control character) is re-checked in the UI as defence in depth because the external link is not covered by the CSP; the image origin allowlist (SPONSOR_IMAGE_ALLOWED_ORIGINS) is normalised by one rule for the CSP img-src and for the API, which refuses API-PUB-012 with a 503 when a PUBLISHED Logo image origin is outside it or the setting is invalid; the build/deployment check that the API and the Pages img-src carry the same setting revision (SPEC-180 section 13.2, TC-API-006-006) is not implemented: a UCR defines the revision and the deploy CI adds the check"
     },
     {
       "rule_id": "DB-ARC-001",
@@ -3015,10 +3070,11 @@
       "rule_id": "DB-SAL-002",
       "code_paths": [
         "packages/db/migrations/0003_public_content_sales.sql",
-        "packages/db/src/schema/public-content.ts"
+        "packages/db/src/schema/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
       ],
-      "test_case_ids": ["TC-DB-SAL-002-001"],
-      "notes": "implementation mapping only: sponsor_logos display name, image URL and link URL length CHECKs and the published_at requirement; URL shape validation belongs to the API"
+      "test_case_ids": ["TC-DB-SAL-002-001", "TC-API-006-101", "TC-API-006-102"],
+      "notes": "implementation mapping only: sponsor_logos display name, image URL and link URL length CHECKs and the published_at requirement; URL shape validation belongs to the API; PR-L2-3: the PUBLISHED condition of the Sponsor Logo read (API-PUB-012)"
     },
     {
       "rule_id": "DB-FK-002",
@@ -3836,7 +3892,10 @@
         "apps/api/src/api/app.ts",
         "apps/api/src/bootstrap/index.ts",
         "apps/api/src/api/respond.ts",
-        "packages/api-contract/src/schemas/list.ts"
+        "packages/api-contract/src/schemas/list.ts",
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "packages/api-contract/src/envelope.ts"
       ],
       "test_case_ids": [
         "TC-DEV-API-003-050",
@@ -3849,7 +3908,10 @@
         "TC-DEV-API-003-005",
         "TC-DEV-API-002-001",
         "TC-DB-AUTH-001-002",
-        "TC-DB-AUTH-001-009"
+        "TC-DB-AUTH-001-009",
+        "TC-API-009-002",
+        "TC-API-009-008",
+        "TC-API-006-103"
       ],
       "notes": "Backend foundation only; does not assert completion of business flows or live Provider contracts"
     },
@@ -3861,7 +3923,10 @@
         "packages/api-contract/src/rpc.ts",
         "packages/api-contract/src/schemas/profile.ts",
         "apps/api/src/api/app.ts",
-        "apps/api/src/bootstrap/index.ts"
+        "apps/api/src/bootstrap/index.ts",
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "packages/api-contract/src/envelope.ts"
       ],
       "test_case_ids": [
         "TC-DEV-API-003-050",
@@ -3870,7 +3935,8 @@
         "TC-DEV-API-002-002",
         "TC-API-007-009",
         "TC-DB-AUTH-001-002",
-        "TC-DB-AUTH-001-009"
+        "TC-DB-AUTH-001-009",
+        "TC-API-009-008"
       ],
       "notes": "Backend foundation only; does not assert completion of business flows or live Provider contracts"
     },
@@ -4897,7 +4963,8 @@
         "TC-RLM-007-003",
         "TC-RLM-004-239",
         "TC-API-007-004",
-        "TC-DB-AUTH-001-002"
+        "TC-DB-AUTH-001-002",
+        "TC-API-009-004"
       ],
       "notes": "Shared rate limit (UCR-140-003) implementation mapping; synthetic evidence only, Railway ingress/Redis external facts (SPEC-180 §17.2) are not asserted"
     },
@@ -5599,14 +5666,20 @@
     },
     {
       "rule_id": "DEV-DB-002",
-      "code_paths": ["packages/db/src/transactions/profile.ts"],
-      "test_case_ids": ["TC-API-007-005", "TC-DB-AUTH-001-004"],
+      "code_paths": [
+        "packages/db/src/transactions/profile.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": ["TC-API-007-005", "TC-DB-AUTH-001-004", "TC-API-009-005"],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
     },
     {
       "rule_id": "DEV-DB-003",
-      "code_paths": ["packages/db/src/transactions/profile.ts"],
-      "test_case_ids": ["TC-API-007-005", "TC-DB-AUTH-001-004"],
+      "code_paths": [
+        "packages/db/src/transactions/profile.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": ["TC-API-007-005", "TC-DB-AUTH-001-004", "TC-API-009-005"],
       "notes": "implementation mapping only: PR-L2-1a self Profile read and update; synthetic evidence, G8 (production-like E2E) not executed"
     },
     {
@@ -5849,6 +5922,272 @@
       "code_paths": ["apps/api/src/api/middleware/idempotency.ts", "apps/api/src/api/failure.ts"],
       "test_case_ids": ["TC-API-IDM-005-003", "TC-SEC-ERR-001-002"],
       "notes": "Backend foundation only; no business Operation mounts this middleware yet; replay record primitives exist in packages/db; no business Operation mounts them yet"
+    },
+    {
+      "rule_id": "API-PUB-001",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-002",
+        "TC-API-009-004",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-009-007",
+        "TC-API-009-008"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-002",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-002",
+        "TC-API-009-004",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-009-007",
+        "TC-API-009-008"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-003",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-002",
+        "TC-API-009-004",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-009-007",
+        "TC-API-009-008"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-004",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-002",
+        "TC-API-009-004",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-009-007",
+        "TC-API-009-008"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-005",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes.ts",
+        "packages/db/src/transactions/public-content.ts",
+        "packages/domain/src/sales-availability.ts",
+        "packages/api-contract/src/schemas/common.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-002",
+        "TC-API-009-004",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-009-007",
+        "TC-API-009-008",
+        "TC-API-009-003"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-012",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes.ts",
+        "apps/api/src/api/app.ts",
+        "apps/api/src/bootstrap/index.ts",
+        "packages/config/src/index.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-006-001",
+        "TC-API-006-101",
+        "TC-API-006-102",
+        "TC-API-006-103",
+        "TC-API-006-104",
+        "TC-API-006-105",
+        "TC-API-009-004",
+        "TC-API-009-005",
+        "TC-API-009-008"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-READ-001",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-006-001",
+        "TC-API-006-101",
+        "TC-API-009-007",
+        "TC-API-006-102",
+        "TC-API-009-002",
+        "TC-API-006-103"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-READ-002",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-006-001",
+        "TC-API-006-101"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-READ-003",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-006-001",
+        "TC-API-006-101",
+        "TC-API-009-007",
+        "TC-API-006-102",
+        "TC-API-009-008"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-READ-004",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-006-001",
+        "TC-API-006-101",
+        "TC-API-009-002",
+        "TC-API-006-103"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-READ-005",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-006-001",
+        "TC-API-006-101",
+        "TC-API-009-008"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-READ-006",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-009-001",
+        "TC-API-009-005",
+        "TC-API-009-006",
+        "TC-API-006-001",
+        "TC-API-006-101",
+        "TC-API-009-007",
+        "TC-API-006-102"
+      ],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "DB-SAL-001",
+      "code_paths": ["packages/db/src/transactions/public-content.ts"],
+      "test_case_ids": ["TC-API-009-005", "TC-API-009-006", "TC-API-009-008", "TC-API-006-101"],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "BR-SAL-004",
+      "code_paths": ["packages/domain/src/sales-availability.ts"],
+      "test_case_ids": ["TC-API-009-003"],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
     },
     {
       "rule_id": "DB-IDM-001",

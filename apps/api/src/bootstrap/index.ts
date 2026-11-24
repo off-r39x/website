@@ -6,6 +6,7 @@ import {
   createCurrentProfileRepository,
   createDatabase,
   createPrincipalRepository,
+  createPublicContentRepository,
 } from "@off-r39x/db";
 import { createLogger, createRateLimitMetrics } from "@off-r39x/observability";
 import { createRedisRateLimitStore } from "@off-r39x/rate-limit-redis";
@@ -85,6 +86,8 @@ export function bootstrap(
     logger,
     auth: { verifier, store: principals },
     profiles: createCurrentProfileRepository(database.pool),
+    publicContent: createPublicContentRepository(database.pool),
+    sponsorImageOrigins: config.sponsorImageOrigins,
     ...(authProxy ? { authProxy } : {}),
     rateLimit: {
       limiter,

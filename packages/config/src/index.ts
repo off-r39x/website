@@ -126,6 +126,50 @@ const roles = {
   "email-worker": "app_email_runtime",
   "reconciliation-worker": "app_reconciliation_runtime",
 } as const;
+// SEC-WEB-026 / SPEC-180 §13.2: the same normalisation as scripts/generate-web-headers.mts, so the API's
+// Logo URL check and the Pages `img-src` come from one setting.
+function normalizeSponsorImageOrigin(value: string): string | undefined {
+  // Characters that would let a value carry more than an origin, or that URL parsing silently repairs.
+  if (/[\s\\?#@\p{Cc}]/u.test(value)) return undefined;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== "https:") return undefined;
+  if (url.username !== "" || url.password !== "") return undefined;
+  if (url.port !== "") return undefined; // ":443" is normalised away by the parser.
+  if (url.pathname !== "/" || url.search !== "" || url.hash !== "") return undefined;
+  const hostname = url.hostname;
+  if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)*$/.test(hostname)) return undefined;
+  if (/^\d+(?:\.\d+){3}$/.test(hostname)) return undefined;
+  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local"))
+    return undefined;
+  return url.origin;
+}
+/**
+ * `SPONSOR_IMAGE_ALLOWED_ORIGINS` (a JSON array of exact HTTPS origins; unset or empty is `[]`). An invalid
+ * value is `undefined`, never a throw and never echoed: only the Sponsor Logo read fails (SPEC-180 §13.2).
+ */
+export function parseSponsorImageOrigins(raw: string | undefined): readonly string[] | undefined {
+  if (raw === undefined || raw === "") return Object.freeze([]);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed)) return undefined;
+  const origins: string[] = [];
+  for (const element of parsed as unknown[]) {
+    const normalized =
+      typeof element === "string" ? normalizeSponsorImageOrigin(element) : undefined;
+    if (normalized === undefined) return undefined;
+    if (!origins.includes(normalized)) origins.push(normalized);
+  }
+  return Object.freeze(origins);
+}
 /** INF-SEC-003: only the API service reads the rate limit Secrets. */
 const rateLimitSecrets = ["RATE_LIMIT_REDIS_URL", "RATE_LIMIT_HMAC_KEY"];
 /** INF-SEC-003 / SPEC-180 §26: only the API service reads the list cursor key (INF-SEC-007). */
@@ -308,6 +352,7 @@ function parse(service: Service, env: Readonly<Record<string, string | undefined
       allowedOrigins: Object.freeze(httpInput.ALLOWED_ORIGINS),
     }),
     rateLimit,
+    sponsorImageOrigins: parseSponsorImageOrigins(env.SPONSOR_IMAGE_ALLOWED_ORIGINS),
     listCursor: Object.freeze({
       hmacKey: () => listCursorKey.slice(),
       hmacKeyVersion: listCursorVersion,
@@ -325,14 +370,16 @@ function parse(service: Service, env: Readonly<Record<string, string | undefined
   });
 }
 export type ServerConfig = ReturnType<typeof parse>;
+/** The configuration of one service (so `parseServerConfig("api")` carries the API-only settings). */
+export type ServerConfigFor<S extends Service> = Extract<ServerConfig, { service: S }>;
 /** Syntactic startup validation only. DB/provider identity must be checked before readiness. */
-export function parseServerConfig(
-  service: Service,
+export function parseServerConfig<S extends Service>(
+  service: S,
   env: Readonly<Record<string, string | undefined>>,
-): ServerConfig {
+): ServerConfigFor<S> {
   try {
     if (!Object.hasOwn(roles, service)) throw new Error();
-    return parse(service, env);
+    return parse(service, env) as ServerConfigFor<S>;
   } catch {
     throw new Error("Invalid server configuration");
   }
