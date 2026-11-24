@@ -475,6 +475,7 @@ Index: `ix_sponsor_logos_event_state_sort(event_id, state, sort_order, public_re
 - Eventは、0件なら作り、1件なら何もせず、2件以上ならコマンドを失敗させる（`SPEC-110` `API-RLC-007` の「Eventは1件だけ」の前提が崩れており、どの行を採るか判断しない）。
 - Entry Ticket Offering、Goods、Exclusive Scopeは、当該Eventに紐づく行が0件なら入力の件数を作り、1件以上あれば何もしない。
 - Karaoke Sales Configurationは、当該Eventに紐づく行が0件なら1件作り、1件なら何もせず、2件以上なら入力の値・`null` にかかわらずコマンドを失敗させる（Slotが参照する行を判断しない）。
+- 当該EventのExclusive Scopeのうち、Karaoke Slotが0件のScopeが1件でもあれば、入力の値・`null` にかかわらずコマンドを失敗させる。Exclusive Scopeは本節のコマンドだけが作り、同じtransactionでSlotを1件以上作り、Slotを削除するOperationもないため、この状態は本節の外の経路（手作業のSQLなど。`SPEC-180` `INF-SEED-001` が禁じる）でしか生じない。既存のScopeにSlotを補わず、`EXISTING` として成功にもしない（`SPEC-180` `INF-SEED-006`）。
 - Karaoke Slotは、同じ実行でExclusive Scopeを作るときだけ、作るScopeごとに作る。既存のScopeにはSlotを作らない。
 - 保留: 入力 `goods` が `null` なら、Goodsが0件でも作らない。入力 `karaoke` が `null` なら、Karaoke Sales Configuration・Exclusive Scope・Slotを、0件でも作らない（Slotは同じ実行で作るScopeにだけ作るため、3つをまとめて保留する）。Eventと Entry Ticket Offeringは保留できない。
 - 行がある対象は、入力の値・`null` にかかわらず何もしない。`null` によって既存の行を削除せず、入力の値が変わっても既存の行を更新しない。足りない分を補わず、既存の行を更新・削除しない。運用で変更した値（`API-ADM-CNT-002`、`API-ADM-ENT-SALES-003`）を、再実行で巻き戻さない。
@@ -490,7 +491,7 @@ Index: `ix_sponsor_logos_event_state_sort(event_id, state, sort_order, public_re
 
 **DB-SEED-006:** 実在の会場名・日時・価格・個人情報を、仕様・source・test fixture・migrationへ置かない。リポジトリに置く入力の見本は合成値だけとする（`SPEC-180 INF-SEED-002`）。
 
-**DB-SEED-007:** 本節は、新しい列・制約・Index・Operation・Capability・Stateを追加しない。「Eventは高々1件」はDB制約ではなく、`DB-SEED-001` の事前条件と `API-RLC-007` の前提で守る。DB制約として強制する場合は、別の仕様変更とする。Karaoke Sales Configurationが当該Eventに2件以上ある場合の失敗（`DB-SEED-001`）も同様に、DB制約を追加しない。
+**DB-SEED-007:** 本節は、新しい列・制約・Index・Operation・Capability・Stateを追加しない。「Eventは高々1件」はDB制約ではなく、`DB-SEED-001` の事前条件と `API-RLC-007` の前提で守る。DB制約として強制する場合は、別の仕様変更とする。Karaoke Sales Configurationが当該Eventに2件以上ある場合と、Slotが0件のExclusive Scopeがある場合の失敗（`DB-SEED-001`）も同様に、DB制約を追加しない。
 
 Trace: `FR-PUB-001〜004`, `FR-PUB-007〜009`, `FR-ADM-014`, `BR-EVT-001`, `BR-SAL-001`, `DB-GDS-001`, `KRK-GEN-001`, `UCR-180-001`, `UCR-180-007`.
 
