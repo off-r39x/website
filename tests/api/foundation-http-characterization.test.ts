@@ -768,7 +768,7 @@ describe("TC-TST-OBS-001-001 completion log and http_route (TST-OBS-001, SPEC-16
       if (row.route !== "/") seenRoutes.add(row.route);
     }
     expect([...seenRoutes].sort()).toEqual([...ALLOWED_ROUTES].sort());
-    expect(ALLOWED_ROUTES).toHaveLength(26);
+    expect(ALLOWED_ROUTES).toHaveLength(28);
   });
 
   it("a route added after createApp is not in the registry and is logged as '/'", async () => {

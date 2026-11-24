@@ -81,7 +81,7 @@ async function seed(anchorMs: number): Promise<string> {
     name: "Synthetic goods sold out",
     startsAt: iso(anchorMs - DAY),
     endsAt: iso(anchorMs + DAY),
-    inventory: { capacity: 8881, held: 8000, committed: 881 },
+    inventory: { capacity: 8881, held: 6662, committed: 2219 },
   });
   // Same created_at as 0x65: the tie is broken by public_ref ASC.
   await insertGoods(admin, eventId, {
@@ -159,7 +159,7 @@ describe("TC-API-010-004 listGoods (API-PUB-010, API-PUB-GDS-001, API-PUB-GDS-00
     await seed((await dbNow(admin)).getTime());
     const text = JSON.stringify(await repo.listGoods());
     expect(text).not.toMatch(/held|committed|saleable|quantity|"id"|createdAt|updatedAt/i);
-    for (const value of ["7771", "7770", "8881", "8000"]) expect(text).not.toContain(value);
+    for (const value of ["7771", "7770", "8881", "6662", "2219"]) expect(text).not.toContain(value);
   });
 
   it("salesNotStarted is statement_timestamp() < sales_starts_at and salesClosed is statement_timestamp() >= sales_ends_at, decided by the database", async () => {
