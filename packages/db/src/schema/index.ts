@@ -1,6 +1,7 @@
 export { app } from "./app-schema.ts";
 export { auditEvents } from "./audit.ts";
 export { idempotencyRecords } from "./cross-functional.ts";
+export { entryCheckins, entryTickets, qrTokens } from "./entry-tickets.ts";
 export { goodsHandoffs, goodsInventory, goodsOrderItems, goodsSalesAllocations } from "./goods.ts";
 export { businessProfiles, roleAssignments } from "./identity.ts";
 export {

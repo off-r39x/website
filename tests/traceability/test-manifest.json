@@ -33723,6 +33723,497 @@
       ],
       "sensitivity_class": "synthetic",
       "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-013",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-001",
+        "DB-MIG-002",
+        "DB-MIG-003",
+        "DB-TIM-001",
+        "DB-TIM-002",
+        "DB-ID-003",
+        "DB-IDX-001",
+        "DEV-DB-013",
+        "SPEC-170-22",
+        "SPEC-100-24",
+        "SPEC-100-25",
+        "SPEC-100-26",
+        "SPEC-100-45.1",
+        "SPEC-100-45.3",
+        "SPEC-100-45.5",
+        "SPEC-100-51",
+        "SPEC-100-59"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Goods, Karaoke Sales Configuration, Exclusive Scope, two Karaoke Slots, Entry, Entry + Goods and Karaoke Orders with their Order Items, committed Entry Allocations and Karaoke Tickets) created in the same transaction; QR digests and envelopes are SHA-256 hashes of fixed test labels; synthetic data only. Ticket issuance, QR provisioning and rotation and the check-in transaction are not implemented; only the rows they will write are constrained. The catalog goldens are tests/harness/db/entry-ticket-qr-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0009 is provisional until the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Applied migrations are immutable: 0001-0008 equal their committed hashes, and 0009 statically creates only the three tables in parent-first order and the three separately named section 25 / 45 indexes, with one REVOKE ALL and no ALTER, GRANT, DROP, TRUNCATE, DELETE, INSERT, UPDATE, generated column, trigger, function, extension, role, view, OWNER TO or row level security; the six existing tables appear only as REFERENCES targets"
+      ],
+      "expected_db_postconditions": [
+        "The journal lists every migration once with the bundled source hashes, including 0009_entry_ticket_qr_checkin, and a second runMigrations leaves it unchanged",
+        "The three tables have 12 + 11 + 6 columns in attnum order equal to the golden (types, NOT NULL, identity always on id, defaults, no generated column); every constraint and index name fits 63 bytes",
+        "Exactly 26 named constraints and 10 valid indexes equal the golden definitions, all validated and not deferrable; public_ref and lookup_digest lead a single-column UNIQUE index and order_item_id is served only by the UNIQUE (order_item_id, issuance_ordinal) prefix; owner app_migrator, row level security off, three bigint identity sequences, 8 time columns all timestamptz; the live catalog equals requiredCatalog",
+        "A duplicate id given with OVERRIDING SYSTEM VALUE is 23505 pk_<table>, and an explicit id is 428C9 on all three tables; Entry Ticket public_ref is a database generated v4 UUID refused as a duplicate by uq_entry_tickets_public_ref; issued_at, state_changed_at, checked_in_at and created_at default to the transaction's transaction_timestamp()"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-014",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-002",
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-TIM-001",
+        "DEV-DB-001",
+        "DEV-DB-006",
+        "SPEC-100-55",
+        "SPEC-100-56",
+        "SPEC-100-57"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Static Drizzle declaration check of the three Entry Ticket / QR / Check-in tables against the reviewed schema-contract.json and the hand-written goldens of tests/harness/db/entry-ticket-qr-golden.ts; not a database execution test; DB enforcement is TC-DB-ARC-007-013 and the other DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The contract rows of the three tables equal the golden columns, constraints and indexes; the golden Entry Ticket states equal @off-r39x/domain ENTRY_TICKET_STATES",
+        "For each table the Drizzle name, schema app, column order, SQL type, NOT NULL, identity only on id, no generated column, defaults (none on a state, purpose or format column) and lossless PgBigInt64 for every bigint equal the golden",
+        "Constraint names, kinds, the primary key column and UNIQUE column lists equal the golden and the contract; CHECK text equals the golden exactly and matches the contract by column, literal and number; the foreign keys (including the two composite ones) reference the golden parent columns with ON DELETE RESTRICT; the declared indexes carry the golden columns, order, uniqueness and partial predicate; the three exports are in the schema barrel"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-STA-002-006",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-STA-001",
+        "DB-STA-002",
+        "TST-DB-004",
+        "SPEC-100-24",
+        "SPEC-100-25",
+        "SPEC-080-6"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_entry_tickets_state",
+        "ck_entry_tickets_order_purpose",
+        "ck_qr_tokens_format_version",
+        "ck_qr_tokens_purpose",
+        "ck_qr_tokens_lifecycle_state"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Goods, Karaoke Sales Configuration, Exclusive Scope, two Karaoke Slots, Entry, Entry + Goods and Karaoke Orders with their Order Items, committed Entry Allocations and Karaoke Tickets) created in the same transaction; QR digests and envelopes are SHA-256 hashes of fixed test labels; synthetic data only. Ticket issuance, QR provisioning and rotation and the check-in transaction are not implemented; only the rows they will write are constrained",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "Entry Ticket: VALID, USED, CANCELED and EXPIRED are accepted; near misses (lower case, padded, suffixed) and ACTIVE, REVOKED and the empty string are 23514 ck_entry_tickets_state; an omitted state is 23502",
+        "Entry Ticket: ENTRY_TICKET_PURCHASE and ENTRY_GOODS_PURCHASE are accepted on their own items; KARAOKE_PURCHASE, GOODS_PURCHASE and near misses are 23514 ck_entry_tickets_order_purpose (the CHECK reports before the foreign keys); an omitted order_purpose is 23502",
+        "QR Token: r39x1, ENTRY, KARAOKE, ACTIVE and REVOKED are accepted; other versions are 23514 ck_qr_tokens_format_version, other purposes ck_qr_tokens_purpose (tested before ck_qr_tokens_purpose_target by name order), other lifecycle states ck_qr_tokens_lifecycle_state; none of the three columns has a default (23502)"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-TQR-001-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-TQR-001",
+        "INV-010-03",
+        "TQR-TKT-003",
+        "TQR-TKT-004",
+        "TST-DB-004",
+        "SPEC-100-24",
+        "SPEC-100-67",
+        "SPEC-170-23"
+      ],
+      "system_invariant_ids": [
+        "INV-010-03",
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_entry_tickets_order_item_id_issuance_ordinal",
+        "ck_entry_tickets_issuance_ordinal",
+        "fk_entry_tickets_order_item",
+        "fk_entry_tickets_order",
+        "fk_entry_tickets_entry_sales_allocation",
+        "ck_entry_tickets_valid_period"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Goods, Karaoke Sales Configuration, Exclusive Scope, two Karaoke Slots, Entry, Entry + Goods and Karaoke Orders with their Order Items, committed Entry Allocations and Karaoke Tickets) created in the same transaction; QR digests and envelopes are SHA-256 hashes of fixed test labels; synthetic data only. Ticket issuance, QR provisioning and rotation and the check-in transaction are not implemented; only the rows they will write are constrained",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Ticket of the same Order Item and ordinal is 23505 uq_entry_tickets_order_item_id_issuance_ordinal in each of the four states; another ordinal or another item is accepted",
+        "An ordinal of 0 or less is 23514 ck_entry_tickets_issuance_ordinal; order_id, order_item_id, owner_profile_id, issuance_ordinal, issued_at and state_changed_at are NOT NULL",
+        "Another Order or the other Entry purpose than the item's is 23503 fk_entry_tickets_order_item; an owner who is not the Order's Customer is 23503 fk_entry_tickets_order",
+        "An Entry item without an Allocation and the Goods line of an ENTRY_GOODS_PURCHASE Order are 23503 fk_entry_tickets_entry_sales_allocation; an absent item is refused by the item or the Allocation foreign key",
+        "valid_from equal to or after valid_until is 23514 ck_entry_tickets_valid_period; either bound or both may be NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-TQR-002-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-TQR-002",
+        "TQR-TOK-008",
+        "TQR-TOK-009",
+        "SEC-QR-003",
+        "SPEC-100-25",
+        "SPEC-100-51",
+        "SPEC-100-67",
+        "SPEC-140-54"
+      ],
+      "system_invariant_ids": [
+        "INV-010-05"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_qr_tokens_lookup_digest",
+        "ck_qr_tokens_lookup_digest_length",
+        "ck_qr_tokens_protection_key_version"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Goods, Karaoke Sales Configuration, Exclusive Scope, two Karaoke Slots, Entry, Entry + Goods and Karaoke Orders with their Order Items, committed Entry Allocations and Karaoke Tickets) created in the same transaction; QR digests and envelopes are SHA-256 hashes of fixed test labels; synthetic data only. Ticket issuance, QR provisioning and rotation and the check-in transaction are not implemented; only the rows they will write are constrained",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "The only text columns of the three tables are entry_tickets.order_purpose and state and qr_tokens.format_version, lifecycle_state and purpose, each closed by its allowlist CHECK; the only bytea columns are qr_tokens.lookup_digest and protected_token_material; no column is named token",
+        "A digest of 0, 1, 31, 33 or 64 bytes is 23514 ck_qr_tokens_lookup_digest_length; a digest already used by a REVOKED Entry Token is 23505 uq_qr_tokens_lookup_digest on another Entry or a Karaoke Ticket; a key version of 0 or less is 23514 ck_qr_tokens_protection_key_version; lookup_digest, protected_token_material and protection_key_version are NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TQR-TOK-006-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "TQR-TOK-006",
+        "TQR-TOK-007",
+        "SPEC-100-25",
+        "SPEC-080-10"
+      ],
+      "system_invariant_ids": [
+        "INV-010-05"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_qr_tokens_purpose_target",
+        "fk_qr_tokens_entry_ticket",
+        "fk_qr_tokens_karaoke_ticket"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Goods, Karaoke Sales Configuration, Exclusive Scope, two Karaoke Slots, Entry, Entry + Goods and Karaoke Orders with their Order Items, committed Entry Allocations and Karaoke Tickets) created in the same transaction; QR digests and envelopes are SHA-256 hashes of fixed test labels; synthetic data only. Ticket issuance, QR provisioning and rotation and the check-in transaction are not implemented; only the rows they will write are constrained",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "ENTRY with an Entry Ticket only and KARAOKE with a Karaoke Ticket only are accepted; each purpose with the other Ticket, with both or with none is 23514 ck_qr_tokens_purpose_target",
+        "An absent Entry or Karaoke Ticket is 23503 fk_qr_tokens_entry_ticket or fk_qr_tokens_karaoke_ticket"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TQR-TOK-013-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "TQR-TOK-013",
+        "TQR-TOK-016",
+        "TST-DB-004",
+        "SPEC-100-25",
+        "SPEC-100-45.5",
+        "SPEC-100-67",
+        "SPEC-170-23"
+      ],
+      "system_invariant_ids": [
+        "INV-010-05"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ux_qr_tokens_entry_active",
+        "ux_qr_tokens_karaoke_active"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Goods, Karaoke Sales Configuration, Exclusive Scope, two Karaoke Slots, Entry, Entry + Goods and Karaoke Orders with their Order Items, committed Entry Allocations and Karaoke Tickets) created in the same transaction; QR digests and envelopes are SHA-256 hashes of fixed test labels; synthetic data only. Ticket issuance, QR provisioning and rotation and the check-in transaction are not implemented; only the rows they will write are constrained",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second ACTIVE Token of the same Entry or Karaoke Ticket is 23505 ux_qr_tokens_entry_active or ux_qr_tokens_karaoke_active; three REVOKED Tokens of the same Ticket are kept in the transaction and coexist with each other and with its ACTIVE Token (1 ACTIVE and 3 REVOKED remain for both kinds), and a second ACTIVE Token is still refused beside them; another Ticket's ACTIVE Token is accepted",
+        "Revoking the ACTIVE Token (with revoked_at) and then inserting a new ACTIVE Token is accepted; turning the old REVOKED Token back to ACTIVE beside the new one is 23505 ux_qr_tokens_entry_active, and the Ticket keeps one REVOKED and one ACTIVE Token"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-TQR-003-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-TQR-003",
+        "DB-TQR-004",
+        "TQR-TKT-010",
+        "DB-FK-004",
+        "SPEC-100-25",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_qr_tokens_revoked_at",
+        "fk_qr_tokens_entry_ticket"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Goods, Karaoke Sales Configuration, Exclusive Scope, two Karaoke Slots, Entry, Entry + Goods and Karaoke Orders with their Order Items, committed Entry Allocations and Karaoke Tickets) created in the same transaction; QR digests and envelopes are SHA-256 hashes of fixed test labels; synthetic data only. Ticket issuance, QR provisioning and rotation and the check-in transaction are not implemented; only the rows they will write are constrained",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "ACTIVE with revoked_at, REVOKED without it, and an UPDATE to REVOKED that leaves revoked_at NULL are 23514 ck_qr_tokens_revoked_at",
+        "Deleting an Entry Ticket that has only REVOKED Tokens is 23503 fk_qr_tokens_entry_ticket; Tickets set to USED, CANCELED or EXPIRED keep their Token row"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INV-010-05-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INV-010-05",
+        "TST-DB-004",
+        "SPEC-100-26",
+        "SPEC-100-45.5",
+        "SPEC-100-67"
+      ],
+      "system_invariant_ids": [
+        "INV-010-05"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_entry_checkins_entry_ticket_id",
+        "fk_entry_checkins_entry_ticket",
+        "fk_entry_checkins_staff_profile",
+        "fk_entry_checkins_staff_role_assignment"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Goods, Karaoke Sales Configuration, Exclusive Scope, two Karaoke Slots, Entry, Entry + Goods and Karaoke Orders with their Order Items, committed Entry Allocations and Karaoke Tickets) created in the same transaction; QR digests and envelopes are SHA-256 hashes of fixed test labels; synthetic data only. Ticket issuance, QR provisioning and rotation and the check-in transaction are not implemented; only the rows they will write are constrained",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Entry Check-in of the same Ticket, by the same or another Staff, is 23505 uq_entry_checkins_entry_ticket_id and one Check-in remains; another Ticket's Check-in is accepted",
+        "An absent Ticket, Staff Profile or Role Assignment is 23503 by the named foreign key; entry_ticket_id, staff_profile_id and staff_role_assignment_id are NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-CON-001-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INV-010-05",
+        "TQR-TOK-013",
+        "TST-CON-001",
+        "TST-DB-004",
+        "SPEC-170-24",
+        "SPEC-100-25",
+        "SPEC-100-26"
+      ],
+      "system_invariant_ids": [
+        "INV-010-05"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_entry_checkins_entry_ticket_id",
+        "ux_qr_tokens_entry_active"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied; parents and one Entry Ticket committed by the administrator and deleted again in finally; two additional connections X and Y checked to run in UTC and READ COMMITTED and always closed in finally, a barrier on pg_stat_activity instead of sleep that fails at once if Y's INSERT finishes without waiting, statement_timeout 10s on Y; synthetic data only. The check-in transaction and QR provisioning are not implemented; this pins the last defence only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "X inserts an Entry Check-in (or an ACTIVE Entry QR Token) uncommitted; Y's row for the same Ticket waits on X's lock; after X COMMIT, Y is 23505 uq_entry_checkins_entry_ticket_id (or ux_qr_tokens_entry_active) and one row remains; after X ROLLBACK, Y is accepted; nothing remains after the case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-FK-002-006",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-FK-001",
+        "DB-FK-002",
+        "DB-FK-004",
+        "SPEC-100-11",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-01"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an ACTIVE STAFF Role Assignment, Event, Entry Offering, Goods, Karaoke Sales Configuration, Exclusive Scope, two Karaoke Slots, Entry, Entry + Goods and Karaoke Orders with their Order Items, committed Entry Allocations and Karaoke Tickets) created in the same transaction; QR digests and envelopes are SHA-256 hashes of fixed test labels; synthetic data only. Ticket issuance, QR provisioning and rotation and the check-in transaction are not implemented; only the rows they will write are constrained; the Tickets have a REVOKED Entry Token, a Check-in and an ACTIVE Karaoke Token",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "The eight foreign keys of the three tables are ON DELETE RESTRICT and ON UPDATE NO ACTION",
+        "Deleting an Entry Ticket with a Token or a Check-in, a Karaoke Ticket with a Token, the Entry Allocation of an issued item or the Role Assignment that checked in is 23503 by the named foreign key; deleting the Order Item, the Order or the Staff Profile is 23503 by one of the foreign keys that refer to it; no row of the three tables is lost"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-SEC-DB-001-006",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "SEC-DB-001",
+        "SEC-DB-003",
+        "DB-FK-004",
+        "SPEC-100-53",
+        "SPEC-180-22.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; the app_api_runtime, app_email_runtime and app_reconciliation_runtime pools connect over verified TLS with the test CA",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the three tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the three identity sequences",
+        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE from the three runtime pools are 42501 on every table"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-015",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "DB-MIG-003"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0009_entry_ticket_qr_checkin applied (the build released before L1-1b); synthetic history committed under 0008 before 0009 runs (Business Profiles, a Role Assignment, Goods and its Inventory, Goods, Entry, Entry + Goods and Karaoke Orders with their Order Items, a HELD and a COMMITTED Entry Allocation, two Goods Order Items with their Goods Allocations and a COMPLETED Handoff, a committed Karaoke Hold with its Reservation, Ticket and Check-in, a Checkout Attempt, a Payment Binding, a Webhook Receipt and a Refund Record); readiness evaluated from a temporary directory holding those migrations, with the fixed 0008 required catalog fixture (asserted equal to the old live catalog); then 0009, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0009",
+      "fixture_ids": [
+        "tests/fixtures/db/required-catalog-0008.json"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "SPEC-170 section 22 item 8: every table that existed before 0009 keeps exactly its rows, ids and values (generated columns included); the only new tables are the three of 0009 and they are empty",
+        "Before 0009 the old build is Ready with an exact catalog; after 0009 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
     }
   ]
 }

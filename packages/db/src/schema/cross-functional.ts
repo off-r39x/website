@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   check,
-  customType,
   foreignKey,
   primaryKey,
   text,
@@ -10,19 +9,12 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { app } from "./app-schema.ts";
-import { internalId, timestamptzNow } from "./common.ts";
+import { bytea, internalId, timestamptzNow } from "./common.ts";
 import { businessProfiles } from "./identity.ts";
 
 // SPEC-100 §43.1 `app.idempotency_records` (Part X Cross-functional). These declarations exist for types and
 // queries; the DDL source of truth is migrations/0005_idempotency_records.sql (SPEC-100 §57, DB-MIG-002).
 // Only digests and references are stored (DB-IDM-001): there is no column for a raw key, body, URL or Email.
-
-/** `bytea`, read and written as a `Uint8Array` (SPEC-100 §56). */
-const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
-  dataType: () => "bytea",
-  toDriver: (value) => Buffer.from(value),
-  fromDriver: (value) => new Uint8Array(value),
-});
 
 export const idempotencyRecords = app.table(
   "idempotency_records",
