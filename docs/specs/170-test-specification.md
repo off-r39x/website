@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-170
 title: Test Specification
-version: 2.9.2
+version: 2.10.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -832,6 +832,10 @@ Release Manifestの `mounted_operation_ids`（`SPEC-180 §44`）に含まれるO
 **TST-API-009:** 公開読取（`SPEC-110` §26.1）は `PUBLISHED` の行だけをserver-sideの条件で返し、未設定値・件数・障害を推測や空成功に置き換えない。
 
 `TC-API-009-001`: `API-PUB-001〜005`, `API-PUB-012`, `API-PUB-READ-001〜006`, `DB-SAL-001`, `BR-EVT-001〜002`, `FR-PUB-001〜007`。FAQ／Announcementの `DRAFT`・`ARCHIVED` が一覧・詳細に出ないこと、0件の空配列、順序と同値時の安定順、Eventの0件（`API-PUB-001`・`004` は404、一覧は空）と2件以上（行を選ばず500）、nullable列の `null` がそのまま返ること、Announcementの非公開と不存在が同じ404、UUIDでないref（`SPEC-110` §9 のcanonical UUIDでない値。nil UUID・max UUIDを含む）が照会前に `400 VALIDATION_FAILED` になること、未知queryの400、`excerpt` の空白正規化・100 code point境界と `excerpt_truncated`、Entryの販売状態の判定順と境界（開始時刻を含み終了時刻を含まない、`SUSPENDED`、購入Operation未登録時の `SALES_STOPPED`、容量0）、counter・残数・Internal IDを返さないこと、DB障害の `503 DATABASE_TEMPORARY_FAILURE` とschemaを満たさない行の `503 TEMPORARY_UNAVAILABLE`、Rate Limit class `public_read` をreal PostgreSQLで検証する。`API-PUB-012` についても、新たに適用する共通規則（Eventの0件で `items: []`、2件以上で500、未知queryの400、DB障害とschemaを満たさない行のcodeの区別）を同じ条件で検証する（Logo固有のcaseは `TC-API-006-001`）。G1/G3/G4/G5/G8 → `ACC-BIZ-010`、`ACC-BIZ-028`。
+
+**TST-API-010:** Goodsの公開読取（`SPEC-110` §26.2）は当該EventのGoodsを全件返し、販売状態をserver-sideで導出し、counter・件数・障害を推測や空成功に置き換えない。
+
+`TC-API-010-001`: `API-PUB-010〜011`, `API-PUB-GDS-001〜004`, `API-PUB-READ-001〜002`・`004`・`006`, `UCR-110-004`, `BR-SAL-003〜005`, `BR-GDS-001`, `FR-PUB-009〜010`, `FR-GDS-001〜002`。`ENABLED`・`SUSPENDED`・販売期間外・在庫0のGoodsが一覧と詳細に出ること、0件の空配列、順序（`created_at ASC, public_ref ASC`）と同値時の安定順、Eventの0件（一覧は空、詳細は404）と2件以上（行を選ばず500）、`description` の `null` がそのまま返り一覧でも短縮されないこと、存在しない `goods_ref` の404、大文字の `goods_ref` が同じGoodsを返すこと、canonical UUIDでない `goods_ref`（nil UUID・max UUIDを含む）が照会前に `400 VALIDATION_FAILED` になること、未知queryの400、販売状態の判定順と境界（開始時刻を含み終了時刻を含まない、`SUSPENDED`、購入Operation未登録時の `SALES_STOPPED`、在庫0の `SOLD_OUT`）、counter・残数・`sale_control_state`・Internal IDを返さないこと、Goods Inventory行の欠落とschemaを満たさない行の `503 TEMPORARY_UNAVAILABLE`、DB障害の `503 DATABASE_TEMPORARY_FAILURE`、Rate Limit class `public_read` をreal PostgreSQLで検証する。G1/G3/G4/G5/G8 → `ACC-BIZ-010`。
 
 ## 28. Transport Idempotency
 
@@ -2086,6 +2090,7 @@ SPEC-170に準拠したTest implementationは、少なくとも次をすべて�
 - `UCR-100-001〜003`: `INCORPORATED`（`SPEC-100` §§13.4,14.1,16〜19,24,39,47〜49）
 - `UCR-110-001`: `INCORPORATED`（`SPEC-110` Cart／eligibility／Logo／Orderサマリー契約、§27.2の個別Case）
 - `UCR-110-004`: `INCORPORATED`（`SPEC-110` `API-PUR-ELG-001`・§27。`UCR-RELSCOPE-001` の一部）
+- `UCR-110-015`: `INCORPORATED`（`SPEC-110` §26.2 `API-PUB-GDS-001〜004`、`API-PUB-010〜011`、本書 §27.2 `TST-API-010`のTest）
 - `UCR-RELSCOPE-001`: `INCORPORATED`（`SPEC-200 §7.5`、`SPEC-180 §44`、本書 §27・§74・§79.1）
 - `UCR-110-003`: `INCORPORATED`（`SPEC-110 §18.1` `API-IDM-003〜010`、`SPEC-100 §43.1` `DB-IDM-001〜003`、本書 §28.1 `TST-IDM-004〜008`のTest）
 - `UCR-100-005`: `INCORPORATED`（`SPEC-100 §43.1` の `created_at` / `expires_at` の保証の主体と手段、本書 §28.1 `TST-IDM-004` (1) のTest）

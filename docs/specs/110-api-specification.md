@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-110
 title: API Specification
-version: 2.14.0
+version: 2.15.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -681,8 +681,8 @@ rate limit（`SPEC-140` Part XIII）は上記の番号付き手順に次の位�
 | `API-PUB-007` | `GET /public/karaoke/days/{date}/buckets` | 1-hour buckets | `PG-KRK-002`, `KRK-AVL-*` |
 | `API-PUB-008` | `GET /public/karaoke/days/{date}/slots` | slots | `UF-KRK-001` |
 | `API-PUB-009` | `GET /public/karaoke/slots/{slot_ref}` | Slot detail / availability | `PG-KRK-003` |
-| `API-PUB-010` | `GET /public/goods` | Goods list | `FR-PUB-009` |
-| `API-PUB-011` | `GET /public/goods/{goods_ref}` | Goods detail | `PG-GDS-002` |
+| `API-PUB-010` | `GET /public/goods` | Goods list（§26.2） | `FR-PUB-009`, `FR-GDS-001〜002`, `PG-GDS-001` |
+| `API-PUB-011` | `GET /public/goods/{goods_ref}` | Goods detail（§26.2） | `FR-PUB-009`, `PG-GDS-002` |
 | `API-PUB-012` | `GET /public/sponsor-logos` | PUBLISHED Logo list | `FR-PUB-015`, `BR-EVT-005`, `app.sponsor_logos` |
 
 Public queryは`DRAFT` / `ARCHIVED`を返さない。availability query failureは空き0へ変換せず`503 TEMPORARY_UNAVAILABLE`。ただし、DBの一時障害（§51）による取得失敗は、availabilityを含め `503 DATABASE_TEMPORARY_FAILURE` とする（§26.1 `API-PUB-READ-006`）。
@@ -691,7 +691,7 @@ Public queryは`DRAFT` / `ARCHIVED`を返さない。availability query failure�
 
 ## 26.1 Public read contract（`API-PUB-001`〜`API-PUB-005`）
 
-`UCR-110-013`。本節は `API-PUB-001`〜`API-PUB-005` の入力・応答・失敗を定め、共通規則（`API-PUB-READ-001`〜`006`）は `API-PUB-012` にも適用する。新しいState・error code・Capability・DB列は追加しない。Karaoke（`API-PUB-006`〜`009`）とGoods（`API-PUB-010`〜`011`）の応答は本節の対象外である。
+`UCR-110-013`。本節は `API-PUB-001`〜`API-PUB-005` の入力・応答・失敗を定め、共通規則（`API-PUB-READ-001`〜`006`）は `API-PUB-012` にも適用する。新しいState・error code・Capability・DB列は追加しない。Karaoke（`API-PUB-006`〜`009`）とGoods（`API-PUB-010`〜`011`）の応答は本節の対象外である（Goodsは §26.2 が定め、共通規則の適用範囲もそこで定める）。
 
 **API-PUB-READ-001（入力）:** Queryは6 Operationとも空のstrict objectとし、未知または重複したquery parameterは `400 VALIDATION_FAILED`（`details: null`）とする。公開namespace（§6）では `Authorization` headerとCookieを読まず、付いていても応答を変えない。
 
@@ -748,6 +748,34 @@ Public queryは`DRAFT` / `ARCHIVED`を返さない。availability query failure�
 - **販売状態:** 判定時刻は、行を読む同じSQL文の `statement_timestamp()` とする。次の順で最初に当てはまるものを `unavailable_reason` とし（`API-PUR-ELG-001` のreason順。本人条件は含めない）、どれにも当てはまらなければ `AVAILABLE` とする。(1) 判定時刻 < `sales_starts_at` なら `SALES_NOT_STARTED`。(2) 判定時刻 >= `sales_ends_at` なら `SALES_CLOSED`（`BR-SAL-003`）。(3) `sale_control_state = 'SUSPENDED'`、またはEntryの購入を開始できるOperation（`API-PUR-ENTRY-001`、`API-PUR-CART-001`）が当該releaseのroute registry（`API-RLC-001`）に1つも登録されない場合は `SALES_STOPPED`（`UCR-110-004` と同じ扱い）。(4) `sales_capacity - held_quantity - committed_quantity <= 0` なら `SOLD_OUT`。
 - **Meaning:** 表示用の公開情報であり、確保・価格保証・購入の認可ではない。本人別の上限・購入可能数は `API-PUR-ELG-001` が返し、購入開始時に全条件を再検証する（`BR-SAL-005`）。
 - **Trace:** `FR-PUB-007`, `FR-PUB-010`, `FR-TKT-001〜002`, `BR-SAL-003〜004`, `PG-TKT-001`, `SPEC-100` §15.1.
+
+## 26.2 Goods public read contract（`API-PUB-010`〜`API-PUB-011`）
+
+`UCR-110-015`。本節は `API-PUB-010`・`011` の入力・応答・失敗を定める。新しいState・error code・Capability・DB列は追加しない。
+
+**API-PUB-GDS-001（共通規則と公開の範囲）:** §26.1 の `API-PUB-READ-001`（空のstrict query、`Authorization` headerとCookieを読まない）、`API-PUB-READ-002`（Eventの件数）、`API-PUB-READ-004`（未設定値）、`API-PUB-READ-006`（失敗と `Cache-Control`）を本節の2 Operationにも適用する。Eventが0件の場合、`API-PUB-010` は `items: []`、`API-PUB-011` は `404 RESOURCE_NOT_FOUND`、2件以上の場合はいずれも `500 INTERNAL_ERROR` とする。GoodsはPublication Stateを持たない（`SPEC-030` §8.2・§10.3、`SPEC-100` §15.3）ため、当該EventのGoodsを全件公開対象とし、`sale_control_state = 'SUSPENDED'`、販売期間外、在庫0のGoodsも除外せず販売状態（`API-PUB-GDS-003`）で表す（`SPEC-050` §14.1）。一覧は `created_at ASC, public_ref ASC` の順で全件を返し、Clientから順序を受けず、cursorとlimitを持たない（`API-PUB-READ-003`・`005` と同じ）。
+
+**API-PUB-GDS-002（応答の形）:** 一覧の各itemと詳細は同じ形 `{ goods_ref: uuid, name: string, description: string | null, unit_price: Money, sales_starts_at: isoUtc, sales_ends_at: isoUtc, purchase_limit: integer, availability: "AVAILABLE" | "UNAVAILABLE", unavailable_reason: "SALES_NOT_STARTED" | "SALES_CLOSED" | "SALES_STOPPED" | "SOLD_OUT" | null }` とする。`unit_price` は §11、`description` は保存された値をそのまま返し、一覧でも短縮しない（表示上の短縮はWeb。`SPEC-050` §14.1）。`availability = "AVAILABLE"` のとき `unavailable_reason` は `null`、`"UNAVAILABLE"` のとき非null。`saleable_capacity`、`held_quantity`、`committed_quantity`、残数、`sale_control_state`、`created_at` / `updated_at`、Internal IDは返さない（§9、§55）。
+
+**API-PUB-GDS-003（販売状態）:** 判定時刻は、行を読む同じSQL文の `statement_timestamp()` とする。次の順で最初に当てはまるものを `unavailable_reason` とし（`API-PUR-ELG-001` のreason順。本人条件は含めない）、どれにも当てはまらなければ `AVAILABLE` とする。(1) 判定時刻 < `sales_starts_at` なら `SALES_NOT_STARTED`。(2) 判定時刻 >= `sales_ends_at` なら `SALES_CLOSED`（`BR-SAL-003`）。(3) `sale_control_state = 'SUSPENDED'`、またはGoodsの購入を開始できるOperation（`API-PUR-GDS-001`、`API-PUR-CART-001`）が当該releaseのroute registry（`API-RLC-001`）に1つも登録されない場合は `SALES_STOPPED`（`UCR-110-004` と同じ扱い）。(4) Goods Inventory（`SPEC-100` §38）の `saleable_capacity - held_quantity - committed_quantity <= 0` なら `SOLD_OUT`。
+
+**API-PUB-GDS-004（Goods Inventoryの欠落）:** Goodsに対応するGoods Inventory行がない状態（`SPEC-100` `DB-GDS-001` の違反）は、販売状態を判定できない行として扱う。その行を推測値で補わず、黙って除外もせず、そのOperationの応答全体を `503 TEMPORARY_UNAVAILABLE` とする（`API-PUB-READ-006` のschemaを満たさない行と同じ）。
+
+### API-PUB-010 — Goods list
+
+- **Method / Path:** `GET /api/v1/public/goods`
+- **Response 200:** `{ items: [Goods] }`。`Goods` は `API-PUB-GDS-002` の形。0件は `items: []`。
+- **Meaning:** 表示用の公開情報であり、確保・価格保証・購入の認可ではない。本人別の上限・購入可能数は `API-PUR-ELG-001` が返し、購入開始時に全条件を再検証する（`BR-SAL-005`）。
+- **Trace:** `FR-PUB-009〜010`, `FR-GDS-001〜002`, `BR-GDS-001`, `BR-SAL-003〜005`, `PG-GDS-001`, `SPEC-100` §15.3・§38.
+
+### API-PUB-011 — Goods detail
+
+- **Method / Path:** `GET /api/v1/public/goods/{goods_ref}`
+- **Path:** `goods_ref` は §9 のrequest用schema（`publicRefInput`）。大文字を含むUUIDは小文字のcanonical形式へ正規化して照会する。canonical UUIDでない値（nil UUID・max UUIDを含む）は照会前に `400 VALIDATION_FAILED`（`details: null`）。
+- **Response 200:** `API-PUB-GDS-002` の形の1件。
+- **Not found:** 存在しない、または当該EventのGoodsでないGoodsは、区別せず `404 RESOURCE_NOT_FOUND` とする。
+- **Meaning:** `API-PUB-010` と同じ。
+- **Trace:** `FR-PUB-009〜010`, `BR-GDS-001`, `BR-SAL-003〜005`, `PG-GDS-002`, `SPEC-100` §15.3・§38.
 
 ## 27. Karaoke public availability schema
 
@@ -2478,6 +2506,7 @@ resolveConsistencyReviewCase()
 49. `API-AUTH-003` の再select 0件は500ではなく、Caseをcommitした後の `409 CONSISTENCY_REVIEW_REQUIRED` であり、0件を観測したtransactionではProfileを作らず、内部reason・Auth Subjectを返さない（`REL-AUTH-009`）。
 50. `API-PUB-001`〜`005`・`012` は §26.1 のとおり返す。FAQ・Announcement・Sponsor Logoは `PUBLISHED` の行だけをserver-sideのquery条件で返し、Publication Stateを持たないEventとEntry Ticket Offeringは当該Eventの行を返す。未設定値は `null` のまま返す。Eventが0件のとき、一覧（`002`・`003`・`005`・`012`）は `items: []`、単一resource（`001`・`004`）は `404`。非公開と不存在のAnnouncementは区別せず `404`。Eventが2件以上なら行を選ばず `500`、未知queryは `400`、DB障害は `503 DATABASE_TEMPORARY_FAILURE`、schemaを満たさない行は `503 TEMPORARY_UNAVAILABLE` であり、空成功に偽装しない。
 51. Public Referenceは §9 のとおり扱う。応答は常にcanonical UUIDで返す。requestの大文字・小文字の表記は同じ参照として小文字へ正規化し、nil UUID・max UUIDを含むcanonical UUIDでない値は存在確認の前に `400 VALIDATION_FAILED` とする。list cursorに含めるPublic Referenceも同じ形式とする（§12 `API-QRY-005`）。
+52. `API-PUB-010`・`011` は §26.2 のとおり返す。Publication Stateを持たないGoodsは当該Eventの全件を返し、`SUSPENDED`・販売期間外・在庫0のGoodsも販売状態（`availability` と `unavailable_reason`）で表す。Goodsの購入Operationがroute registryにないreleaseでは `SALES_STOPPED` とする。counter・残数・`sale_control_state` は返さない。Eventが0件のとき一覧は `items: []`、詳細は `404`、2件以上なら `500`。存在しないGoodsの詳細は `404`、canonical UUIDでない `goods_ref` は照会前に `400`。Goods Inventory行の欠落とschemaを満たさない行は `503 TEMPORARY_UNAVAILABLE`、DB障害は `503 DATABASE_TEMPORARY_FAILURE` であり、空成功に偽装しない。
 
 ---
 
@@ -2718,3 +2747,14 @@ retry count / backoff / queue / operator RunbookはSPEC-150。本書§48.5はSPE
 - 理由（案Aを推奨する）: §9 自身が「canonical UUID」と書き、本書で唯一の定義が §17 にあるため、同じ語に2つの意味を持たせない（`SPEC-000` §9.3 のCanonical Termの維持）。Zodの例は §9 の「lowercase」とも食い違う（大文字を受け付ける）ので、例をそのまま規範にする案Bも §9 の文の修正を避けられない。nil UUIDはRFC 9562で「値がない」ことを表す特別な値であり、本書は値がないことを `null` で表す（§8）ため、参照として受け付ける利点がない。DBはversion 4だけを生成するので、案Aで拒否しても正常な行には影響しない。案Aは現行の実装・テスト・`SEC-ABU-015`・`API-PUB-004` と一致し、変更は §9 の記述だけで済む。
 - 変更しない場合の影響: 実装者が §9 の例に従うとnil・maxと大文字の応答を受け付け、§17 の定義に従うと拒否するため、Operationごとに受け付ける値と `400` / `404` の境界が分かれる。Pull Request #85 のレビューのように、同じ指摘が実装のたびに繰り返される。
 - 影響を受ける可能性がある仕様書: SPEC-140（`SEC-ABU-015`。案Aでは変更不要）、SPEC-170（`TST-DAT-005` は変更不要。`TC-API-009-001` の記述へnil・maxの `400` を明記）、SPEC-100（§7.2。変更不要）、SPEC-160（`business_cause_ref`。案Aでは変更不要）、SPEC-050（§5.2。形式を `SPEC-110` に委ねており変更不要）
+
+### UCR-110-015 — INCORPORATED
+
+- **Status:** `INCORPORATED`。本改訂（v2.15.0）で §26（表の「主なResponse」とTrace）、§26.1 の冒頭（Goodsは §26.2 が定めることの参照）、§26.2（新設。`API-PUB-GDS-001`〜`004`、`API-PUB-010`・`011`）、§61 Acceptance 52へ反映した（プロジェクト所有者の決定、2026-11-25。`SPEC-000` §8）。新しいerror code・state・Capability・Operation・DB列は追加していない。現在の契約は本文を正とし、以下の要求はその経緯の記録である。
+- 対象: SPEC-110 §26、§26.1 の冒頭、§26.2（新設）、§61。§26.1 の各Rule、§27、`API-PUR-ELG-001` の本文は変更しない。
+- 現在の仕様（改訂前）: §26 は `API-PUB-010` を「Goods list」、`API-PUB-011` を「Goods detail」とするだけで、§26.1 はGoodsの応答を対象外としていた。応答field、Query、Pathの検証、順序、Eventが0件・2件以上のときの応答、公開の範囲（GoodsはPublication Stateを持たない）、販売状態の表し方、Not found、Goods Inventory行の欠落（`SPEC-100` `DB-GDS-001` の違反）の扱い、失敗のcodeが定まっていなかった。
+- 要求する変更: §26.2 を新設し、§26.1 の共通規則（`API-PUB-READ-001`・`002`・`004`・`006`）を `API-PUB-010`・`011` へ適用する。GoodsはPublication Stateを持たないため当該Eventの全件を公開対象とし、`SUSPENDED`・販売期間外・在庫0も販売状態で表す。一覧の各itemと詳細を同じ形とし、`description` は一覧でも短縮しない。販売状態は `API-PUB-005` と同じ判定時刻・判定順・reason語彙とし、Goodsの購入Operation（`API-PUR-GDS-001`、`API-PUR-CART-001`）がroute registryにないreleaseでは `SALES_STOPPED`（`UCR-110-004`）とする。順序は `created_at ASC, public_ref ASC`、cursorとlimitは持たない。詳細のPathは §9 の `publicRefInput` で検証し、存在しない・当該EventにないGoodsは `404`。Goods Inventory行の欠落は推測・除外せず `503 TEMPORARY_UNAVAILABLE` とする。
+- 検討した別案: `app.goods` に公開状態の列を足す案（DB列の追加になり、`SPEC-100`・管理API・Auditへ波及する）。販売期間外や `SUSPENDED` のGoodsを一覧から除く案（`SPEC-050` §14.1 の「販売期間外、販売停止、売り切れを区別する」と、`UCR-RELSCOPE-001` の「販売停止の状態で表示する」に反する）。一覧で説明の代わりにserver-sideの要約（`API-PUB-003` の `excerpt` と同じ規則）を返す案（Goodsの説明は一覧の表示に足りる長さを前提とし、`API-PUB-005` と同じく全文を返して短縮をWebに任せた）。順序を `sales_starts_at ASC` とする案、一覧に署名付きcursor（§12 `API-QRY-005`）を付ける案（§26.1 の公開一覧はcursorを持たず、Goodsの件数は少ない）。Goods Inventory行の欠落を `500 INTERNAL_ERROR` とする案。残数を返す案（公開設定が仕様にない）。
+- 理由: 応答の形がないと、実装は §16 / `SPEC-190` `DEV-API-003` のZod応答schemaを仕様なしに決めることになり、Web（`PG-GDS-001`・`002`）が接続先の形を決められない。応答fieldはDB列（`SPEC-100` §15.3・§38）から管理専用の列とcounterを除いたものであり、§55の範囲に収まる。`API-PUB-005` と同じ語彙・判定順にすることで、WebはEntryとGoodsの販売状態を同じ規則で表示でき、`API-PUR-ELG-001` とも矛盾しない。Inventory行の欠落を `503 TEMPORARY_UNAVAILABLE` とするのは、在庫を推測して「購入可能」「売り切れ」のどちらかを表示しないため（`SPEC-050` §14.2 の「取得Failure」）である。
+- 変更しない場合の影響: `API-PUB-010`・`011` を実装・試験できない（期待値を仕様から導けない）。`UCR-RELSCOPE-001` の「Goodsを販売停止の状態で表示する」（`SPEC-200` §48）の根拠になるAPIの契約がない。
+- 影響を受ける可能性がある仕様書: SPEC-170（§27.2 に `TST-API-010` を同じ改訂で追加）、SPEC-050（§14.1 の「公開説明の短縮表示」はWebの表示で満たし、本文の変更は不要）、SPEC-200（`ACC-BIZ-010` の範囲。変更不要）、SPEC-030（§7.6・§10.4。変更不要）、SPEC-100（§15.3・§38。変更不要）、SPEC-140（変更不要）、SPEC-180（`INF-SEED-006`。対象の追加は `UCR-180-007` が扱い、本UCRは変更しない）
