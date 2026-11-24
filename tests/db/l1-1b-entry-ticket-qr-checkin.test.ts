@@ -859,7 +859,10 @@ describe("TC-DB-STA-002-006 Entry Ticket and QR Token allowlist CHECK constraint
       await expectAccepted(QR_TOKENS, seed.entryQr(entryTicket, REVOKED), "ENTRY REVOKED");
       expect(QR_TOKEN_PURPOSES).toEqual(["ENTRY", "KARAOKE"]);
       expect(QR_TOKEN_LIFECYCLE_STATES).toEqual(["ACTIVE", "REVOKED"]);
-      for (const version of [...nearMisses(QR_FORMAT_VERSION), "R39X1", "r39x2", "r39x0", ""])
+      // The version is already lower case, so its lower-cased near miss is the value itself and is left out.
+      const versions = nearMisses(QR_FORMAT_VERSION).filter((v) => v !== QR_FORMAT_VERSION);
+      expect(versions).toHaveLength(3);
+      for (const version of [...versions, "R39X1", "r39x2", "r39x0", ""])
         await expectRejected(
           QR_TOKENS,
           seed.entryQr(entryTicket, { format_version: version }),
