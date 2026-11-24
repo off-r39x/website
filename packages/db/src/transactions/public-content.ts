@@ -1,4 +1,5 @@
-// SPEC-100 §55: read-only modules for the public content (API-PUB-001..005, API-PUB-012; SPEC-110 §26.1).
+// SPEC-100 §55: read-only modules for the public content (API-PUB-001..005, API-PUB-012; SPEC-110 §26.1)
+// and the public Goods (API-PUB-010..011; SPEC-110 §26.2).
 // One use case per function, database work only. Every function is exactly one plain statement on the
 // pool (an autocommit statement is one snapshot; DEV-DB-008): no transaction, no write, no row lock.
 // The rows, the Event count and, for the Entry read, the sales period judgement (statement_timestamp()
@@ -66,6 +67,28 @@ export type PublicEntryOfferingRow = {
   /** `statement_timestamp() >= sales_ends_at`, judged in SQL on timestamptz (API-PUB-005). */
   salesClosed: boolean;
 };
+export type PublicGoodsRow = {
+  publicRef: string;
+  name: string;
+  description: string | null;
+  /** bigint as a decimal string (lossless, DEV-DB-006). */
+  unitAmount: string;
+  currency: string;
+  salesStartsAt: IsoUtc;
+  salesEndsAt: IsoUtc;
+  saleControlState: "ENABLED" | "SUSPENDED";
+  purchaseLimit: number;
+  /**
+   * `saleable_capacity - held_quantity - committed_quantity > 0` over the Goods Inventory row. `null`:
+   * the Goods has no Inventory row (DB-GDS-001 broken); passed on, never guessed (API-PUB-GDS-004).
+   * The counters themselves never leave here.
+   */
+  hasRemainingCapacity: boolean | null;
+  /** `statement_timestamp() < sales_starts_at`, judged in SQL on timestamptz (API-PUB-GDS-003). */
+  salesNotStarted: boolean;
+  /** `statement_timestamp() >= sales_ends_at`, judged in SQL on timestamptz (API-PUB-GDS-003). */
+  salesClosed: boolean;
+};
 export type PublicSponsorLogoRow = {
   publicRef: string;
   displayName: string;
@@ -85,6 +108,15 @@ export type PublicListRead<Row> =
   | { status: "unavailable" };
 export type PublicAnnouncementRead =
   | { status: "found"; announcement: PublicAnnouncementRow }
+  | { status: "not_found" }
+  | { status: "multiple_events" }
+  | { status: "unavailable" };
+export type PublicGoodsListRead =
+  | { status: "ok"; items: PublicGoodsRow[] }
+  | { status: "multiple_events" }
+  | { status: "unavailable" };
+export type PublicGoodsRead =
+  | { status: "found"; goods: PublicGoodsRow }
   | { status: "not_found" }
   | { status: "multiple_events" }
   | { status: "unavailable" };
@@ -124,6 +156,75 @@ const EVENT_SCOPE: SQL = sql`
 const IN_EVENT: SQL = sql`(SELECT event_count FROM cnt) = 1 AND e.event_id = (SELECT event_id FROM cnt)`;
 
 type EventCount = { event_count: number };
+
+// API-PUB-010 / 011 (SPEC-110 §26.2): the Goods of the single Event with its Inventory. A LEFT JOIN, so a
+// Goods without an Inventory row (DB-GDS-001 broken) is still read, with a NULL capacity flag, and the
+// service fails the Operation (API-PUB-GDS-004) instead of the row silently disappearing. The sales
+// period is judged with this statement's own statement_timestamp() on timestamptz (microseconds kept).
+// `goodsRef` narrows to one Goods (the detail) when given.
+const goodsStatement = (goodsRef: string | undefined): SQL => sql`
+  WITH ${EVENT_SCOPE},
+  pub AS (
+    SELECT e.public_ref AS public_ref, e.name AS name, e.description AS description,
+      e.unit_amount AS unit_amount, e.currency AS currency,
+      e.sales_starts_at AS sales_starts_at, e.sales_ends_at AS sales_ends_at,
+      e.sale_control_state AS sale_control_state, e.purchase_limit AS purchase_limit,
+      CASE WHEN i.goods_id IS NULL THEN NULL
+        ELSE (i.saleable_capacity::bigint - i.held_quantity - i.committed_quantity) > 0
+      END AS has_remaining_capacity,
+      statement_timestamp() < e.sales_starts_at AS sales_not_started,
+      statement_timestamp() >= e.sales_ends_at AS sales_closed,
+      e.created_at AS created_at
+    FROM app.goods e
+    LEFT JOIN app.goods_inventory i ON i.goods_id = e.id
+    WHERE ${IN_EVENT}${goodsRef === undefined ? sql`` : sql` AND e.public_ref = ${goodsRef}::uuid`}
+  )
+  SELECT cnt.event_count AS event_count,
+    pub.public_ref::text AS public_ref, pub.name AS name, pub.description AS description,
+    pub.unit_amount::text AS unit_amount, pub.currency AS currency,
+    pub.sales_starts_at::text AS sales_starts_at, pub.sales_ends_at::text AS sales_ends_at,
+    pub.sale_control_state AS sale_control_state, pub.purchase_limit AS purchase_limit,
+    pub.has_remaining_capacity AS has_remaining_capacity,
+    pub.sales_not_started AS sales_not_started, pub.sales_closed AS sales_closed
+  FROM cnt LEFT JOIN pub ON true
+  ORDER BY pub.created_at ASC, pub.public_ref ASC`;
+
+type GoodsStatementRow = EventCount & {
+  public_ref: string | null;
+  name: string | null;
+  description: string | null;
+  unit_amount: string | null;
+  currency: string | null;
+  sales_starts_at: string | null;
+  sales_ends_at: string | null;
+  sale_control_state: "ENABLED" | "SUSPENDED" | null;
+  purchase_limit: number | null;
+  has_remaining_capacity: boolean | null;
+  sales_not_started: boolean | null;
+  sales_closed: boolean | null;
+};
+
+/** The Goods rows of a goodsStatement result (the `cnt` row without a Goods is skipped). */
+function goodsRowsOf(rows: GoodsStatementRow[]): PublicGoodsRow[] {
+  const items: PublicGoodsRow[] = [];
+  for (const row of rows)
+    if (row.public_ref !== null)
+      items.push({
+        publicRef: row.public_ref,
+        name: present(row.name),
+        description: row.description,
+        unitAmount: present(row.unit_amount),
+        currency: present(row.currency),
+        salesStartsAt: iso(present(row.sales_starts_at)),
+        salesEndsAt: iso(present(row.sales_ends_at)),
+        saleControlState: present(row.sale_control_state),
+        purchaseLimit: present(row.purchase_limit),
+        hasRemainingCapacity: row.has_remaining_capacity,
+        salesNotStarted: present(row.sales_not_started),
+        salesClosed: present(row.sales_closed),
+      });
+  return items;
+}
 
 export function createPublicContentRepository(pool: Pool) {
   const db = drizzle(pool);
@@ -363,6 +464,26 @@ export function createPublicContentRepository(pool: Pool) {
             salesClosed: present(row.sales_closed),
           });
       return { status: "ok", items };
+    },
+
+    /** API-PUB-010. Order: `created_at ASC, public_ref ASC` (API-PUB-GDS-001); every Goods of the Event. */
+    async listGoods(): Promise<PublicGoodsListRead> {
+      const rows = await run<GoodsStatementRow>(goodsStatement(undefined));
+      if (!rows) return { status: "unavailable" };
+      if (rows.some((row) => row.event_count > 1)) return { status: "multiple_events" };
+      return { status: "ok", items: goodsRowsOf(rows) };
+    },
+
+    /**
+     * API-PUB-011. An absent Goods and a Goods of no current Event are the same `not_found` (the
+     * statement selects only the single Event's Goods of that ref).
+     */
+    async readGoods(goodsRef: string): Promise<PublicGoodsRead> {
+      const rows = await run<GoodsStatementRow>(goodsStatement(goodsRef));
+      if (!rows) return { status: "unavailable" };
+      if (rows.some((row) => row.event_count > 1)) return { status: "multiple_events" };
+      const [goods] = goodsRowsOf(rows);
+      return goods ? { status: "found", goods } : { status: "not_found" };
     },
 
     /** API-PUB-012. Order: `sort_order ASC, public_ref ASC`. */
