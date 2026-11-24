@@ -4,8 +4,10 @@
     ["audit_events", "r", "app_migrator", false],
     ["business_profiles", "r", "app_migrator", false],
     ["checkout_attempts", "r", "app_migrator", false],
+    ["entry_checkins", "r", "app_migrator", false],
     ["entry_sales_allocations", "r", "app_migrator", false],
     ["entry_ticket_offerings", "r", "app_migrator", false],
+    ["entry_tickets", "r", "app_migrator", false],
     ["events", "r", "app_migrator", false],
     ["faq_items", "r", "app_migrator", false],
     ["goods", "r", "app_migrator", false],
@@ -24,6 +26,7 @@
     ["order_items", "r", "app_migrator", false],
     ["orders", "r", "app_migrator", false],
     ["payment_bindings", "r", "app_migrator", false],
+    ["qr_tokens", "r", "app_migrator", false],
     ["refund_records", "r", "app_migrator", false],
     ["role_assignments", "r", "app_migrator", false],
     ["schema_migrations", "r", "app_migrator", false],
@@ -159,6 +162,28 @@
       "",
       "transaction_timestamp()"
     ],
+    ["entry_checkins", "id", "bigint", true, "a", "", null],
+    ["entry_checkins", "entry_ticket_id", "bigint", true, "", "", null],
+    ["entry_checkins", "staff_profile_id", "bigint", true, "", "", null],
+    ["entry_checkins", "staff_role_assignment_id", "bigint", true, "", "", null],
+    [
+      "entry_checkins",
+      "checked_in_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "entry_checkins",
+      "created_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
     ["entry_sales_allocations", "id", "bigint", true, "a", "", null],
     ["entry_sales_allocations", "order_item_id", "bigint", true, "", "", null],
     ["entry_sales_allocations", "order_id", "bigint", true, "", "", null],
@@ -213,6 +238,34 @@
     [
       "entry_ticket_offerings",
       "updated_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    ["entry_tickets", "id", "bigint", true, "a", "", null],
+    ["entry_tickets", "public_ref", "uuid", true, "", "", "gen_random_uuid()"],
+    ["entry_tickets", "order_id", "bigint", true, "", "", null],
+    ["entry_tickets", "order_item_id", "bigint", true, "", "", null],
+    ["entry_tickets", "order_purpose", "text", true, "", "", null],
+    ["entry_tickets", "owner_profile_id", "bigint", true, "", "", null],
+    ["entry_tickets", "issuance_ordinal", "integer", true, "", "", null],
+    ["entry_tickets", "state", "text", true, "", "", null],
+    ["entry_tickets", "valid_from", "timestamp with time zone", false, "", "", null],
+    ["entry_tickets", "valid_until", "timestamp with time zone", false, "", "", null],
+    [
+      "entry_tickets",
+      "issued_at",
+      "timestamp with time zone",
+      true,
+      "",
+      "",
+      "transaction_timestamp()"
+    ],
+    [
+      "entry_tickets",
+      "state_changed_at",
       "timestamp with time zone",
       true,
       "",
@@ -692,6 +745,17 @@
     ],
     ["payment_bindings", "deactivated_at", "timestamp with time zone", false, "", "", null],
     ["payment_bindings", "stripe_receipt_url", "text", false, "", "", null],
+    ["qr_tokens", "id", "bigint", true, "a", "", null],
+    ["qr_tokens", "format_version", "text", true, "", "", null],
+    ["qr_tokens", "purpose", "text", true, "", "", null],
+    ["qr_tokens", "entry_ticket_id", "bigint", false, "", "", null],
+    ["qr_tokens", "karaoke_ticket_id", "bigint", false, "", "", null],
+    ["qr_tokens", "lifecycle_state", "text", true, "", "", null],
+    ["qr_tokens", "lookup_digest", "bytea", true, "", "", null],
+    ["qr_tokens", "protected_token_material", "bytea", true, "", "", null],
+    ["qr_tokens", "protection_key_version", "integer", true, "", "", null],
+    ["qr_tokens", "issued_at", "timestamp with time zone", true, "", "", "transaction_timestamp()"],
+    ["qr_tokens", "revoked_at", "timestamp with time zone", false, "", "", null],
     ["refund_records", "id", "bigint", true, "a", "", null],
     ["refund_records", "order_id", "bigint", true, "", "", null],
     ["refund_records", "business_cause_key", "uuid", true, "", "", null],
@@ -966,6 +1030,20 @@
       true
     ],
     [
+      "entry_checkins",
+      "CREATE UNIQUE INDEX pk_entry_checkins ON app.entry_checkins USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "entry_checkins",
+      "CREATE UNIQUE INDEX uq_entry_checkins_entry_ticket_id ON app.entry_checkins USING btree (entry_ticket_id)",
+      true,
+      true,
+      true
+    ],
+    [
       "entry_sales_allocations",
       "CREATE INDEX ix_entry_allocations_offering_state ON app.entry_sales_allocations USING btree (offering_id, state)",
       true,
@@ -996,6 +1074,34 @@
     [
       "entry_ticket_offerings",
       "CREATE UNIQUE INDEX uq_entry_ticket_offerings_public_ref ON app.entry_ticket_offerings USING btree (public_ref)",
+      true,
+      true,
+      true
+    ],
+    [
+      "entry_tickets",
+      "CREATE INDEX ix_entry_tickets_owner_issued ON app.entry_tickets USING btree (owner_profile_id, issued_at DESC)",
+      true,
+      true,
+      true
+    ],
+    [
+      "entry_tickets",
+      "CREATE UNIQUE INDEX pk_entry_tickets ON app.entry_tickets USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "entry_tickets",
+      "CREATE UNIQUE INDEX uq_entry_tickets_order_item_id_issuance_ordinal ON app.entry_tickets USING btree (order_item_id, issuance_ordinal)",
+      true,
+      true,
+      true
+    ],
+    [
+      "entry_tickets",
+      "CREATE UNIQUE INDEX uq_entry_tickets_public_ref ON app.entry_tickets USING btree (public_ref)",
       true,
       true,
       true
@@ -1508,6 +1614,34 @@
       true
     ],
     [
+      "qr_tokens",
+      "CREATE UNIQUE INDEX pk_qr_tokens ON app.qr_tokens USING btree (id)",
+      true,
+      true,
+      true
+    ],
+    [
+      "qr_tokens",
+      "CREATE UNIQUE INDEX uq_qr_tokens_lookup_digest ON app.qr_tokens USING btree (lookup_digest)",
+      true,
+      true,
+      true
+    ],
+    [
+      "qr_tokens",
+      "CREATE UNIQUE INDEX ux_qr_tokens_entry_active ON app.qr_tokens USING btree (entry_ticket_id) WHERE ((lifecycle_state = 'ACTIVE'::text) AND (entry_ticket_id IS NOT NULL))",
+      true,
+      true,
+      true
+    ],
+    [
+      "qr_tokens",
+      "CREATE UNIQUE INDEX ux_qr_tokens_karaoke_active ON app.qr_tokens USING btree (karaoke_ticket_id) WHERE ((lifecycle_state = 'ACTIVE'::text) AND (karaoke_ticket_id IS NOT NULL))",
+      true,
+      true,
+      true
+    ],
+    [
       "refund_records",
       "CREATE UNIQUE INDEX pk_refund_records ON app.refund_records USING btree (id)",
       true,
@@ -1619,8 +1753,10 @@
     ["audit_events_id_seq", "bigint", "app_migrator"],
     ["business_profiles_id_seq", "bigint", "app_migrator"],
     ["checkout_attempts_id_seq", "bigint", "app_migrator"],
+    ["entry_checkins_id_seq", "bigint", "app_migrator"],
     ["entry_sales_allocations_id_seq", "bigint", "app_migrator"],
     ["entry_ticket_offerings_id_seq", "bigint", "app_migrator"],
+    ["entry_tickets_id_seq", "bigint", "app_migrator"],
     ["events_id_seq", "bigint", "app_migrator"],
     ["faq_items_id_seq", "bigint", "app_migrator"],
     ["goods_handoffs_id_seq", "bigint", "app_migrator"],
@@ -1637,6 +1773,7 @@
     ["order_items_id_seq", "bigint", "app_migrator"],
     ["orders_id_seq", "bigint", "app_migrator"],
     ["payment_bindings_id_seq", "bigint", "app_migrator"],
+    ["qr_tokens_id_seq", "bigint", "app_migrator"],
     ["refund_records_id_seq", "bigint", "app_migrator"],
     ["role_assignments_id_seq", "bigint", "app_migrator"],
     ["sponsor_logos_id_seq", "bigint", "app_migrator"],
@@ -1805,6 +1942,43 @@
       "uq_checkout_attempts_stripe_idempotency_key",
       "u",
       "UNIQUE (stripe_idempotency_key)",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_checkins",
+      "fk_entry_checkins_entry_ticket",
+      "f",
+      "FOREIGN KEY (entry_ticket_id) REFERENCES app.entry_tickets(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_checkins",
+      "fk_entry_checkins_staff_profile",
+      "f",
+      "FOREIGN KEY (staff_profile_id) REFERENCES app.business_profiles(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_checkins",
+      "fk_entry_checkins_staff_role_assignment",
+      "f",
+      "FOREIGN KEY (staff_role_assignment_id) REFERENCES app.role_assignments(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["entry_checkins", "pk_entry_checkins", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "entry_checkins",
+      "uq_entry_checkins_entry_ticket_id",
+      "u",
+      "UNIQUE (entry_ticket_id)",
       true,
       false,
       false
@@ -1992,6 +2166,88 @@
     [
       "entry_ticket_offerings",
       "uq_entry_ticket_offerings_public_ref",
+      "u",
+      "UNIQUE (public_ref)",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_tickets",
+      "ck_entry_tickets_issuance_ordinal",
+      "c",
+      "CHECK ((issuance_ordinal > 0))",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_tickets",
+      "ck_entry_tickets_order_purpose",
+      "c",
+      "CHECK ((order_purpose = ANY (ARRAY['ENTRY_TICKET_PURCHASE'::text, 'ENTRY_GOODS_PURCHASE'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_tickets",
+      "ck_entry_tickets_state",
+      "c",
+      "CHECK ((state = ANY (ARRAY['VALID'::text, 'USED'::text, 'CANCELED'::text, 'EXPIRED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_tickets",
+      "ck_entry_tickets_valid_period",
+      "c",
+      "CHECK (((valid_from IS NULL) OR (valid_until IS NULL) OR (valid_from < valid_until)))",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_tickets",
+      "fk_entry_tickets_entry_sales_allocation",
+      "f",
+      "FOREIGN KEY (order_item_id) REFERENCES app.entry_sales_allocations(order_item_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_tickets",
+      "fk_entry_tickets_order",
+      "f",
+      "FOREIGN KEY (order_id, owner_profile_id) REFERENCES app.orders(id, customer_profile_id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_tickets",
+      "fk_entry_tickets_order_item",
+      "f",
+      "FOREIGN KEY (order_item_id, order_id, order_purpose) REFERENCES app.order_items(id, order_id, purpose) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["entry_tickets", "pk_entry_tickets", "p", "PRIMARY KEY (id)", true, false, false],
+    [
+      "entry_tickets",
+      "uq_entry_tickets_order_item_id_issuance_ordinal",
+      "u",
+      "UNIQUE (order_item_id, issuance_ordinal)",
+      true,
+      false,
+      false
+    ],
+    [
+      "entry_tickets",
+      "uq_entry_tickets_public_ref",
       "u",
       "UNIQUE (public_ref)",
       true,
@@ -3070,6 +3326,89 @@
       false,
       false
     ],
+    [
+      "qr_tokens",
+      "ck_qr_tokens_format_version",
+      "c",
+      "CHECK ((format_version = 'r39x1'::text))",
+      true,
+      false,
+      false
+    ],
+    [
+      "qr_tokens",
+      "ck_qr_tokens_lifecycle_state",
+      "c",
+      "CHECK ((lifecycle_state = ANY (ARRAY['ACTIVE'::text, 'REVOKED'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "qr_tokens",
+      "ck_qr_tokens_lookup_digest_length",
+      "c",
+      "CHECK ((octet_length(lookup_digest) = 32))",
+      true,
+      false,
+      false
+    ],
+    [
+      "qr_tokens",
+      "ck_qr_tokens_protection_key_version",
+      "c",
+      "CHECK ((protection_key_version > 0))",
+      true,
+      false,
+      false
+    ],
+    [
+      "qr_tokens",
+      "ck_qr_tokens_purpose",
+      "c",
+      "CHECK ((purpose = ANY (ARRAY['ENTRY'::text, 'KARAOKE'::text])))",
+      true,
+      false,
+      false
+    ],
+    [
+      "qr_tokens",
+      "ck_qr_tokens_purpose_target",
+      "c",
+      "CHECK ((((purpose = 'ENTRY'::text) AND (entry_ticket_id IS NOT NULL) AND (karaoke_ticket_id IS NULL)) OR ((purpose = 'KARAOKE'::text) AND (entry_ticket_id IS NULL) AND (karaoke_ticket_id IS NOT NULL))))",
+      true,
+      false,
+      false
+    ],
+    [
+      "qr_tokens",
+      "ck_qr_tokens_revoked_at",
+      "c",
+      "CHECK (((lifecycle_state = 'REVOKED'::text) = (revoked_at IS NOT NULL)))",
+      true,
+      false,
+      false
+    ],
+    [
+      "qr_tokens",
+      "fk_qr_tokens_entry_ticket",
+      "f",
+      "FOREIGN KEY (entry_ticket_id) REFERENCES app.entry_tickets(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    [
+      "qr_tokens",
+      "fk_qr_tokens_karaoke_ticket",
+      "f",
+      "FOREIGN KEY (karaoke_ticket_id) REFERENCES app.karaoke_tickets(id) ON DELETE RESTRICT",
+      true,
+      false,
+      false
+    ],
+    ["qr_tokens", "pk_qr_tokens", "p", "PRIMARY KEY (id)", true, false, false],
+    ["qr_tokens", "uq_qr_tokens_lookup_digest", "u", "UNIQUE (lookup_digest)", true, false, false],
     [
       "refund_records",
       "ck_refund_records_currency",
