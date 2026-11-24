@@ -6,7 +6,9 @@ export { type ConstraintTable, resolveConstraintViolation } from "./constraint-v
 export {
   type AnnouncementSummaryRecord,
   type EntryOfferingSaleRecord,
+  type GoodsSaleRecord,
   listEntryOfferings,
+  listGoods,
   listPublishedAnnouncements,
   listPublishedFaqs,
   listPublishedSponsorLogos,
@@ -16,8 +18,10 @@ export {
   type PublicEntryOfferingRecord,
   type PublicEventRecord,
   type PublicFaqRecord,
+  type PublicGoodsRecord,
   type PublicReadResult,
   type PublicSponsorLogoRecord,
+  readGoods,
   readPublicEvent,
   readPublishedAnnouncement,
 } from "./public-content.ts";

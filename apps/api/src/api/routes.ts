@@ -126,6 +126,18 @@ export const ROUTES: readonly RouteRegistration[] = Object.freeze([
   },
   {
     method: "GET",
+    path: "/api/v1/public/goods",
+    operationId: "API-PUB-010",
+    rateLimitClass: "public_read",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/public/goods/:goods_ref",
+    operationId: "API-PUB-011",
+    rateLimitClass: "public_read",
+  },
+  {
+    method: "GET",
     path: "/api/v1/self/principal",
     operationId: "API-AUTH-001",
     rateLimitClass: "self_read",
