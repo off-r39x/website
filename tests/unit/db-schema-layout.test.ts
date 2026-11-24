@@ -117,7 +117,7 @@ const EXPECTED_ROOT_EXPORTS = [
 ];
 
 describe("TC-DEV-DB-001-001 db package public surface", () => {
-  it("TC-DEV-DB-001-001 @off-r39x/db/schema exports exactly app and the twenty-eight table declarations by name", async () => {
+  it("TC-DEV-DB-001-001 @off-r39x/db/schema exports exactly app and the thirty-one table declarations by name", async () => {
     const schemaModule = await import("@off-r39x/db/schema");
 
     // (1) no helper or extra name leaks through the barrel (DEV-DB-001).
@@ -127,8 +127,10 @@ describe("TC-DEV-DB-001-001 db package public surface", () => {
       "auditEvents",
       "businessProfiles",
       "checkoutAttempts",
+      "entryCheckins",
       "entrySalesAllocations",
       "entryTicketOfferings",
+      "entryTickets",
       "events",
       "faqItems",
       "goods",
@@ -147,6 +149,7 @@ describe("TC-DEV-DB-001-001 db package public surface", () => {
       "orderItems",
       "orders",
       "paymentBindings",
+      "qrTokens",
       "refundRecords",
       "roleAssignments",
       "sponsorLogos",
@@ -601,8 +604,10 @@ describe("TC-DB-ARC-007-001 Drizzle declarations match schema-contract.json", ()
       "audit_events",
       "business_profiles",
       "checkout_attempts",
+      "entry_checkins",
       "entry_sales_allocations",
       "entry_ticket_offerings",
+      "entry_tickets",
       "events",
       "faq_items",
       "goods",
@@ -621,6 +626,7 @@ describe("TC-DB-ARC-007-001 Drizzle declarations match schema-contract.json", ()
       "order_items",
       "orders",
       "payment_bindings",
+      "qr_tokens",
       "refund_records",
       "role_assignments",
       "sponsor_logos",
