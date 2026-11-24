@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, customType, timestamp, uuid } from "drizzle-orm/pg-core";
 
 // Column helpers only (DEV-DB-006, SPEC-100 §7 / DB-ID-003). Each call returns a fresh column builder;
 // builders are stateful and must not be shared between tables. Constraints (PK, UNIQUE, FK,
@@ -18,3 +18,10 @@ export const timestamptz = (name: string) => timestamp(name, { withTimezone: tru
 /** `timestamptz NOT NULL DEFAULT transaction_timestamp()`. */
 export const timestamptzNow = (name: string) =>
   timestamptz(name).notNull().default(sql`transaction_timestamp()`);
+
+/** `bytea`, read and written as a `Uint8Array` (SPEC-100 §56). */
+export const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+  dataType: () => "bytea",
+  toDriver: (value) => Buffer.from(value),
+  fromDriver: (value) => new Uint8Array(value),
+});
