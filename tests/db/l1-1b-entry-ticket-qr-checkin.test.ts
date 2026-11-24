@@ -1227,6 +1227,7 @@ describe("TC-TQR-TOK-013-001 at most one ACTIVE QR Token per Entry Ticket and pe
           await seed.newTicket(),
           seed.entryQr,
           ENTRY_ACTIVE_QR_INDEX,
+          "entry_ticket_id",
         ],
         [
           "Karaoke",
@@ -1234,13 +1235,39 @@ describe("TC-TQR-TOK-013-001 at most one ACTIVE QR Token per Entry Ticket and pe
           await seed.newKaraokeTicket(1),
           seed.karaokeQr,
           KARAOKE_ACTIVE_QR_INDEX,
+          "karaoke_ticket_id",
         ],
       ] as const;
-      for (const [kind, ticket, other, qr, index] of cases) {
+      for (const [kind, ticket, other, qr, index, column] of cases) {
         await insertRow(QR_TOKENS, qr(ticket));
         await expectRejected(QR_TOKENS, qr(ticket), "23505", index, `${kind}: second ACTIVE`);
+        // The REVOKED rows stay in the scenario's transaction (tryInsert keeps an accepted row), so they coexist
+        // with each other and with the ACTIVE Token of the same Ticket.
         for (let i = 0; i < 3; i++)
-          await expectAccepted(QR_TOKENS, qr(ticket, REVOKED), `${kind}: REVOKED #${i + 1}`);
+          expect(
+            await tryInsert(QR_TOKENS, qr(ticket, REVOKED)),
+            `${kind}: REVOKED #${i + 1} must be accepted beside the others`,
+          ).toBeUndefined();
+        await expectRejected(
+          QR_TOKENS,
+          qr(ticket),
+          "23505",
+          index,
+          `${kind}: second ACTIVE beside the REVOKED Tokens`,
+        );
+        expect(
+          (
+            await admin.query(
+              `SELECT lifecycle_state, count(*)::int AS count FROM app.qr_tokens WHERE ${column} = $1
+                GROUP BY lifecycle_state ORDER BY lifecycle_state`,
+              [ticket],
+            )
+          ).rows.map((r) => [r.lifecycle_state, r.count]),
+          `${kind}: Tokens of the Ticket`,
+        ).toEqual([
+          ["ACTIVE", 1],
+          ["REVOKED", 3],
+        ]);
         await expectAccepted(QR_TOKENS, qr(other), `${kind}: ACTIVE of another Ticket`);
       }
     });

@@ -33323,7 +33323,7 @@
       "expected_http": null,
       "expected_domain_postconditions": [],
       "expected_db_postconditions": [
-        "A second ACTIVE Token of the same Entry or Karaoke Ticket is 23505 ux_qr_tokens_entry_active or ux_qr_tokens_karaoke_active; REVOKED Tokens of the same Ticket are not limited; another Ticket's ACTIVE Token is accepted",
+        "A second ACTIVE Token of the same Entry or Karaoke Ticket is 23505 ux_qr_tokens_entry_active or ux_qr_tokens_karaoke_active; three REVOKED Tokens of the same Ticket are kept in the transaction and coexist with each other and with its ACTIVE Token (1 ACTIVE and 3 REVOKED remain for both kinds), and a second ACTIVE Token is still refused beside them; another Ticket's ACTIVE Token is accepted",
         "Revoking the ACTIVE Token (with revoked_at) and then inserting a new ACTIVE Token is accepted; turning the old REVOKED Token back to ACTIVE beside the new one is 23505 ux_qr_tokens_entry_active, and the Ticket keeps one REVOKED and one ACTIVE Token"
       ],
       "expected_provider_postconditions": [],
