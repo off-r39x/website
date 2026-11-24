@@ -1,5 +1,7 @@
 export type { AuditChange, AuditEventInput } from "./audit-events.ts";
 export { insertAuditEvent } from "./audit-events.ts";
+export type { ConsistencyReviewCaseOpenResult } from "./consistency-review-cases.ts";
+export { openConsistencyReviewCase } from "./consistency-review-cases.ts";
 export type { DatabaseOptions } from "./database.ts";
 export { createDatabase } from "./database.ts";
 export type { DirectorySourceMapping } from "./directory.ts";
@@ -20,6 +22,8 @@ export {
   migrationIdentity,
   runMigrations,
 } from "./migrations.ts";
+export type { NotificationEnqueueResult } from "./notification-requests.ts";
+export { enqueueNotificationRequest } from "./notification-requests.ts";
 export type { PrincipalRecord } from "./principals.ts";
 export { createPrincipalRepository } from "./principals.ts";
 export type { DatabaseReadiness, ReadinessExpectations } from "./readiness.ts";
