@@ -19675,6 +19675,43 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-006-026",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-002",
+        "DB-SEED-007",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17; the run goes through the commit proxy, which drops the COMMIT request; before the re-check reads, other means create what the run was creating and also (a) a second Sales Configuration of the Event, with Sales Configuration, Scope and Slots planned, (b) a Scope without Slots, with only Goods planned, (c) a second Event, with only Goods planned",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check reads the DB-SEED-001 conditions before it decides success: FAILED(CONSISTENCY_FAILURE) with INITIAL_DATA_KARAOKE_SALES_CONFIGURATION_NOT_UNIQUE, INITIAL_DATA_KARAOKE_SCOPE_WITHOUT_SLOTS or INITIAL_DATA_EVENT_NOT_UNIQUE; never NOOP, never retried"
+      ],
+      "expected_db_postconditions": [
+        "Only the rows inserted by other means; no Audit Event; nothing repaired"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.resolved once with result FAILED and failure_class CONSISTENCY_FAILURE; no reliability.retry.attempted"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-003-024",
       "level": "Unit",
       "suite": "unit",
