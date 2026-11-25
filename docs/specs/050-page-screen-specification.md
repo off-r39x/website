@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-050
 title: Page and Screen Specification
-version: 2.2.0
+version: 2.3.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -232,13 +232,14 @@ Customerは独立Roleではないため、「Customer roleを持つからNavigat
 **Global Header**
 
 - 全一般利用者向けPageで表示し、Pageをscrollしても到達できる固定表示とする。
-- 少なくとも以下を含む: サイト名（`PG-PUB-001` へのLink）、Primary Navigation（§8.1）、Cart、Account / Login。Primary Navigationはメニューボタンの操作で開閉する形式で提供する（下記）。
-- 主要CTA「チケットを購入する」を常時表示し、`PG-TKT-001` へ遷移する。GuestとAuthenticated Userの両方に同じCTAを表示する。
+- 少なくとも以下を含む: サイト名（`PG-PUB-001` へのLink）、Primary Navigation（§8.1）、Cart、Account / Login、主要CTA。配置と見た目は `docs/DESIGN.md` §8.3 に従う（§24.3）。
+- 主要CTA「チケットを購入する」を表示し、`PG-TKT-001` へ遷移する。GuestとAuthenticated Userの両方に同じCTAを表示する。
 - Cartには、Cart内の合計数量を数字（テキスト）で示す。0件のときは数字を表示しない。数字は色や形状だけに依存せず、アクセシブルな名称でも伝える。
-- Primary Navigation（Event、Entry Ticket、Karaoke、Goods）は、Mobile・Desktopを問わず、メニューボタンを操作したときに開き、そこから選択できる形式にする。メニューは常時展開しない。
-- メニューボタンは、開閉状態をプログラム上で伝え（`aria-expanded` 相当）、Keyboardで開閉でき、Escape等で閉じられ、閉じた後はメニューボタンへFocusを戻す。選択またはPage遷移でメニューを閉じる。メニューの項目はNavigationであり、Linkとして提供する（§25）。Drawer等のDialogを使用する場合は§25のDialog / Drawer要件を満たす。
-- Cart、主要CTA、Login / Mypageはメニュー内に隠さず、Header上に常時表示する。Flow完遂に必要な到達性を失わせない。
-- サイト名のLinkは `PG-PUB-001` へ遷移する。すでに `PG-PUB-001` を表示している場合は、Pageの先頭へscrollする。このscrollは、修飾キー（Ctrl / Cmd / Shift / Alt）を伴わない主ボタンのクリックとKeyboardの操作（Enter）に適用する。修飾キーを伴うクリックと主ボタン以外のクリックでは、ブラウザ標準のLink動作（新しいタブやウィンドウで開く等）を妨げず、scrollしない。
+- Desktop幅では、Primary Navigation（Event、Entry Ticket、Karaoke、Goods）、Cart、Account / Login（Guest: Login、Account登録。Authenticated User: Mypage、Account menu）、主要CTAをHeader上に常時表示する（メニューに隠さない）。
+- Mobile幅（および上記を1行に収められない幅）では、Header上にはサイト名とメニューボタンだけを置く。Primary Navigation、Cart、Account / Login（Account menuの項目とLogoutを含む）、主要CTA（最後）はメニューの中に置き、メニューから到達・操作できるようにする。
+- メニューは全画面のDialogとする。メニューボタンは開閉状態をプログラム上で伝え（`aria-expanded` 相当）、Keyboardで操作できる。開いたらメニュー内の閉じるボタンへFocusを移し、Focusをメニュー内に閉じ込め、Escapeまたは閉じるボタンで閉じてメニューボタンへFocusを戻す（§25のDialog / Drawer要件）。メニュー内のLinkを選択したとき、およびPage遷移時はメニューを閉じ、Focusは遷移先に任せる。メニューの項目はNavigationであり、Linkとして提供する（LogoutはButton。§25）。
+- Desktop幅・Mobile幅のどちらでも、Cart、主要CTA、Login / Mypage、Account menuの各項目への到達性を失わせない。
+- サイト名のLinkは `PG-PUB-001` へ遷移する。`PG-PUB-001` のHero Sectionがロゴを表示している間は、同じ画面にロゴを2つ並べないため、Header上のサイト名Link（ロゴ）を位置を空けたまま非表示にし、Focus対象にもしない（`docs/DESIGN.md` §6.3、§8.3）。Heroを過ぎたら表示する。すでに `PG-PUB-001` を表示している場合は、Pageの先頭へscrollする。このscrollは、修飾キー（Ctrl / Cmd / Shift / Alt）を伴わない主ボタンのクリックとKeyboardの操作（Enter）に適用する。修飾キーを伴うクリックと主ボタン以外のクリックでは、ブラウザ標準のLink動作（新しいタブやウィンドウで開く等）を妨げず、scrollしない。
 
 **Floating Ticket Button**
 
@@ -1547,7 +1548,7 @@ Receipt linkがまだ利用可能でない場合、Receiptの存在を捏造し�
 - QR PageはMobile会場提示をPrimary use caseとして、QRを十分な大きさで表示できる領域を確保する。
 - Mobile NavigationでMypage各領域へ到達可能にする。
 - Cart内容の確認、数量変更、削除、購入手続き、購入不可理由の確認を完遂可能。
-- Global Headerの主要CTAとCartをMobileでも到達可能にする（§8.5）。
+- Global Headerの主要CTAとCartをMobileでも到達可能にする（Mobile幅ではメニュー経由。§8.5）。
 
 ### 24.2 QR表示
 
@@ -1558,6 +1559,8 @@ Receipt linkがまだ利用可能でない場合、Receiptの存在を捏造し�
 ### 24.3 表示表現の差し替え容易性
 
 視覚表現は、本書が定めるPage構成、Section順序、Canonical State、Actionの意味を変えずに差し替えられなければならない。
+
+視覚表現（色、書体、余白、装飾、モーション、Headerの配置を含む）は `docs/DESIGN.md` を正とし、本書の記述と衝突する場合は `docs/DESIGN.md` を優先して本書を改訂する（2026-11-25 ユーザー決定）。ただし、本書が定めるPage構成、Canonical Stateの表示意味、Action、到達性、Accessibility要件（§25）は、本書を改訂しない限り変更しない。
 
 - 色、書体、余白、角丸、装飾、Hero背景やKey Visualなどのデザイン素材を変更しても、Page構成、Section順序、Canonical Stateに対応する表示の意味、Action、Accessibility要件（§25）は変わらない。
 - デザイン素材（装飾画像、ロゴ、背景等）はBusiness Domain Dataではない。素材が未設定または取得できない場合も、情報Sectionと購入Flowを表示・完遂できる。
@@ -1842,6 +1845,13 @@ SPEC-050では以下だけをCanonicalに定義する。
 他仕様書への新規Upstream Change Requestはない。上流の `FR-CRT-012` への要求は `UCR-020-001` として `SPEC-020` §22 に記録し、`SPEC-020 v2.1.0` で本文へ取り込んだ。
 
 本書内の記述の不整合と不足を解消する次の要求を本文へ取り込んだ（`UCR-050-001` / `UCR-050-002` は v2.1.1、`UCR-050-003` は v2.2.0）。現在の契約は本文を正とし、以下の記録を別の契約として実装しない。
+
+### v2.3.0 — 2026-11-25 ユーザー決定による改訂（UCRではない）
+
+- 理由: 2026-11-25 ユーザー決定「デザインは `docs/DESIGN.md` を正とし SPEC より優先」（`SPEC-000` §8 の最新の明示的なユーザー要求）。
+- 変更: §8.5 Global Header（Desktop幅はPrimary Navigation・Cart・Account / Login・主要CTAを常時表示、Mobile幅はサイト名とメニューボタンだけを置き、それ以外を全画面Dialogのメニューへ移す。Home Hero表示中はサイト名Link（ロゴ）を非表示）、§24.1（Mobileの主要CTA / Cartはメニュー経由で到達）、§24.3（視覚表現は `docs/DESIGN.md` を正とする）。
+- 変更しない: Primary Navigationの項目と遷移先、Cart件数の表示規則、主要CTAの文言と遷移先、サイト名Linkのscroll規則、Floating Ticket Button、Global Footer、§25。
+- SemVer: Headerの配置規則の変更（到達性の要件は維持）であり、Domain / APIの再解釈を要しないためMINORとした。
 
 ### UCR-050-001 — INCORPORATED
 
