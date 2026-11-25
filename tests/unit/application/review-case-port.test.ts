@@ -632,4 +632,46 @@ describe("TC-REVIEW-PORT-005 the AUTH_PROFILE_RELATION_INCONSISTENT input names 
     const otherReason: ReviewCaseOpenInput = payWithSubject;
     expect([ok, withTarget, otherReason]).toHaveLength(3);
   });
+
+  // PR #100 review: a variable that holds every required item of one shape plus an item of the other is
+  // structurally assignable unless each shape forbids the other's items; the runtime strictObject refuses it, so the
+  // type must refuse it too.
+  it("refuses at compile time a complete input of one shape that also carries the other shape's items", () => {
+    const details: ReviewCaseDetails = {};
+    const authWithTargets = {
+      reasonCode: "AUTH_PROFILE_RELATION_INCONSISTENT",
+      authSubject: SYNTHETIC_UUID,
+      epoch: 1,
+      targets: { orderId: 1n as OrderId },
+    } as const;
+    const authWithDetails = {
+      reasonCode: "AUTH_PROFILE_RELATION_INCONSISTENT",
+      authSubject: SYNTHETIC_UUID,
+      epoch: 1,
+      details,
+    } as const;
+    const payWithSubject = {
+      reasonCode: "PAY_BINDING_INCONSISTENT",
+      targets: { paymentBindingId: 3n as PaymentBindingId },
+      details,
+      authSubject: SYNTHETIC_UUID,
+    } as const;
+    const emailWithEpoch = {
+      reasonCode: "EML_RENDER_CONTEXT_INVALID",
+      targets: { orderId: 1n as OrderId },
+      details,
+      epoch: 1,
+    } as const;
+    // @ts-expect-error UCR-100-004: the AUTH shape has no targets
+    const a: ReviewCaseOpenInput = authWithTargets;
+    // @ts-expect-error REL-AUTH-009: the AUTH shape has no details (the column default {} is written)
+    const b: ReviewCaseOpenInput = authWithDetails;
+    // @ts-expect-error SPEC-100 §43 CHECK: only the AUTH reason carries the Auth Subject
+    const c: ReviewCaseOpenInput = payWithSubject;
+    // @ts-expect-error REL-REC-016: only the AUTH reason carries the epoch
+    const d: ReviewCaseOpenInput = emailWithEpoch;
+    for (const input of [authWithTargets, authWithDetails, payWithSubject, emailWithEpoch])
+      expect(accepts(input)).toBe(false);
+    expect([a, b, c, d]).toHaveLength(4);
+  });
 });

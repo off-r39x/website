@@ -10,14 +10,22 @@ import { describe, expect, it } from "vitest";
 // (DB-XFN-004, DEV-TS-005); it is NOT evidence of PostgreSQL behaviour (TST-DB-001): the UNIQUE convergence, the
 // constraint checks and the two-connection races are tests/db/l1-1c-cross-functional.test.ts on real PostgreSQL 17.
 // The module is read through a string-keyed record so that this file type-checks before the functions exist (C1 is
-// committed as a failing test). All values are synthetic.
+// committed as a failing test). All values are synthetic. The statements are built from the Drizzle table
+// declarations (DEV-DB-004), so the stand-in answers as node-postgres does for drizzle-orm: a query config with
+// rowMode "array" and the bound values, rows as arrays in select-list order.
 
-type Call = { text: string; values: unknown[] };
-type Reply = { rows: Record<string, unknown>[] } | Error;
+type QueryArgument = string | { text: string; rowMode?: string };
+type Call = { text: string; normalized: string; rowMode: string | undefined; values: unknown[] };
+type Reply = { rows: unknown[][] } | Error;
 
 interface Recorder {
-  client: { query(text: string, values?: unknown[]): Promise<unknown> };
+  client: { query(query: QueryArgument, values?: unknown[]): Promise<unknown> };
   calls: Call[];
+}
+
+/** Lower case, no identifier quotes, single spaces: compares statements, not drizzle's formatting. */
+function normalize(text: string): string {
+  return text.replaceAll('"', "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 /** A stand-in that answers each query with the next reply, in order. */
@@ -26,8 +34,10 @@ function recorder(replies: Reply[]): Recorder {
   return {
     calls,
     client: {
-      async query(text: string, values: unknown[] = []) {
-        calls.push({ text, values });
+      async query(query: QueryArgument, values: unknown[] = []) {
+        const text = typeof query === "string" ? query : query.text;
+        const rowMode = typeof query === "string" ? undefined : query.rowMode;
+        calls.push({ text, normalized: normalize(text), rowMode, values });
         const reply = replies.shift();
         if (reply === undefined) throw new Error("unexpected extra query");
         if (reply instanceof Error) throw reply;
@@ -36,6 +46,10 @@ function recorder(replies: Reply[]): Recorder {
     },
   };
 }
+
+/** The bound values as text, as node-postgres sends them (bigint and numbers by toString). */
+const sent = (call: Call | undefined) =>
+  (call?.values ?? []).map((value) => (value === null ? null : String(value)));
 
 type Enqueue = (tx: unknown, input: unknown) => Promise<Record<string, unknown>>;
 type Open = (tx: unknown, input: unknown) => Promise<Record<string, unknown>>;
@@ -83,19 +97,22 @@ describe("TC-DB-XFN-001-004 enqueueNotificationRequest writes one PENDING row ke
     const { enqueue } = await load();
     const input = entryInput();
     const key = notificationBusinessCauseKey(input);
-    const tx = recorder([{ rows: [{ business_cause_key: key }] }]);
+    const tx = recorder([{ rows: [[key]] }]);
     expect(await enqueue(tx.client, input)).toEqual({ status: "created", businessCauseKey: key });
     expect(tx.calls).toHaveLength(1);
     const [insert] = tx.calls;
-    expect(insert?.text).toMatch(/^INSERT INTO app\.notification_requests\b/);
-    expect(insert?.text).toMatch(/ON CONFLICT \(business_cause_key\) DO NOTHING/);
-    expect(insert?.text).toMatch(/'PENDING'/);
-    expect(insert?.text).not.toMatch(/\bBEGIN\b|\bCOMMIT\b|\bROLLBACK\b|\bSAVEPOINT\b/i);
-    expect(insert?.values).toContain(key);
-    expect(insert?.values).toContain(11n);
-    expect(insert?.values).toContain(12n);
-    expect(insert?.values).toContain(null);
-    expect(insert?.values).toContain("ENTRY_PURCHASE_CONFIRMED");
+    expect(insert?.normalized).toMatch(/^insert into app\.notification_requests\b/);
+    expect(insert?.normalized).toMatch(/on conflict \(business_cause_key\) do nothing/);
+    expect(insert?.normalized).not.toMatch(/\b(begin|commit|rollback|savepoint)\b/);
+    expect(sent(insert)).toEqual([
+      key,
+      "ENTRY_PURCHASE_CONFIRMED",
+      "11",
+      "12",
+      null,
+      "PENDING",
+      expect.any(String),
+    ]);
     const json = insert?.values.find((v) => typeof v === "string" && v.startsWith("{"));
     expect(JSON.parse(json as string)).toEqual(input.renderContext);
   });
@@ -108,13 +125,13 @@ describe("TC-DB-XFN-001-004 enqueueNotificationRequest writes one PENDING row ke
       [true, "existing"],
       [false, "conflict"],
     ] as const) {
-      const tx = recorder([{ rows: [] }, { rows: [{ same }] }]);
+      const tx = recorder([{ rows: [] }, { rows: [[same]] }]);
       expect(await enqueue(tx.client, input)).toEqual({ status, businessCauseKey: key });
       expect(tx.calls).toHaveLength(2);
-      expect(tx.calls[1]?.text).toMatch(/^SELECT\b/);
-      expect(tx.calls[1]?.text).toMatch(/FROM app\.notification_requests\b/);
-      expect(tx.calls[1]?.text).not.toMatch(/\bUPDATE\b|\bINSERT\b|\bDELETE\b/i);
-      expect(tx.calls[1]?.values).toContain(key);
+      expect(tx.calls[1]?.normalized).toMatch(/^select\b/);
+      expect(tx.calls[1]?.normalized).toMatch(/ from app\.notification_requests where /);
+      expect(tx.calls[1]?.normalized).not.toMatch(/\b(update|insert|delete)\b/);
+      expect(sent(tx.calls[1])).toContain(key);
     }
   });
 
@@ -136,7 +153,7 @@ describe("TC-DB-XFN-001-004 enqueueNotificationRequest writes one PENDING row ke
 describe("TC-DB-XFN-004-001 nothing internal leaves the two functions (DB-XFN-004, DEV-TS-005)", () => {
   it("TC-DB-XFN-004-001 enqueue results carry the status and the Business Cause key only, never an Internal ID", async () => {
     const { enqueue } = await load();
-    const tx = recorder([{ rows: [{ business_cause_key: "x", id: 99n }] }]);
+    const tx = recorder([{ rows: [["00000000-0000-5000-8000-000000000000"]] }]);
     const result = await enqueue(tx.client, entryInput());
     expect(Object.keys(result).sort()).toEqual(["businessCauseKey", "status"]);
   });
@@ -168,16 +185,13 @@ describe("TC-DB-XFN-004-001 nothing internal leaves the two functions (DB-XFN-00
   it("TC-DB-XFN-004-001 open results carry the status, the Case Public Reference and resolved only; never the Auth Subject, the dedupe key or an Internal ID", async () => {
     const { open } = await load();
     const cases: [Reply[], Record<string, unknown>][] = [
+      [[{ rows: [[CASE_REF]] }], { status: "opened", caseRef: CASE_REF, resolved: false }],
       [
-        [{ rows: [{ public_ref: CASE_REF }] }],
-        { status: "opened", caseRef: CASE_REF, resolved: false },
-      ],
-      [
-        [{ rows: [] }, { rows: [{ public_ref: CASE_REF, resolved: true }] }],
+        [{ rows: [] }, { rows: [[CASE_REF, true]] }],
         { status: "existing", caseRef: CASE_REF, resolved: true },
       ],
       [
-        [{ rows: [] }, { rows: [{ public_ref: CASE_REF, resolved: false }] }],
+        [{ rows: [] }, { rows: [[CASE_REF, false]] }],
         { status: "existing", caseRef: CASE_REF, resolved: false },
       ],
     ];
@@ -217,30 +231,30 @@ describe("TC-REL-REC-016-001 openConsistencyReviewCase opens only the AUTH reaso
   it("TC-REL-REC-016-001 the dedupe key is r150:AUTH_PROFILE_RELATION_INCONSISTENT:auth_subject:<subject>:epoch-<n> in decimal without leading zeros", async () => {
     const { open } = await load();
     for (const epoch of [1, 2, 10, 12345]) {
-      const tx = recorder([{ rows: [{ public_ref: CASE_REF }] }]);
+      const tx = recorder([{ rows: [[CASE_REF]] }]);
       await open(tx.client, authInput(epoch));
       expect(tx.calls).toHaveLength(1);
       const [insert] = tx.calls;
-      expect(insert?.text).toMatch(/^INSERT INTO app\.consistency_review_cases\b/);
-      expect(insert?.text).toMatch(/ON CONFLICT \(dedupe_key\) DO NOTHING/);
-      expect(insert?.text).not.toMatch(/\bBEGIN\b|\bCOMMIT\b|\bROLLBACK\b|\bSAVEPOINT\b/i);
-      expect(insert?.values).toContain(
+      expect(insert?.normalized).toMatch(/^insert into app\.consistency_review_cases\b/);
+      expect(insert?.normalized).toMatch(/on conflict \(dedupe_key\) do nothing/);
+      expect(insert?.normalized).not.toMatch(/\b(begin|commit|rollback|savepoint)\b/);
+      // REL-AUTH-009: only the dedupe key, the reason and the Auth Subject are bound; details keep the default {}
+      // and no target FK is written.
+      expect(sent(insert)).toEqual([
         `r150:AUTH_PROFILE_RELATION_INCONSISTENT:auth_subject:${AUTH_SUBJECT}:epoch-${epoch}`,
-      );
-      expect(insert?.values).toContain(AUTH_REASON);
-      expect(insert?.values).toContain(AUTH_SUBJECT);
-      // REL-AUTH-009: details are {} and no target FK is written.
-      expect(insert?.text).not.toMatch(/\b(order_id|details)\b/);
+        AUTH_REASON,
+        AUTH_SUBJECT,
+      ]);
     }
   });
 
   it("TC-REL-REC-016-001 an existing Case is reselected by the dedupe key in a separate statement", async () => {
     const { open } = await load();
-    const tx = recorder([{ rows: [] }, { rows: [{ public_ref: CASE_REF, resolved: false }] }]);
+    const tx = recorder([{ rows: [] }, { rows: [[CASE_REF, false]] }]);
     await open(tx.client, authInput(4));
-    expect(tx.calls[1]?.text).toMatch(/^SELECT\b/);
-    expect(tx.calls[1]?.text).toMatch(/FROM app\.consistency_review_cases\b/);
-    expect(tx.calls[1]?.values).toEqual([
+    expect(tx.calls[1]?.normalized).toMatch(/^select\b/);
+    expect(tx.calls[1]?.normalized).toMatch(/ from app\.consistency_review_cases where /);
+    expect(sent(tx.calls[1])).toEqual([
       `r150:AUTH_PROFILE_RELATION_INCONSISTENT:auth_subject:${AUTH_SUBJECT}:epoch-4`,
     ]);
   });
@@ -262,5 +276,90 @@ describe("TC-REL-REC-016-001 openConsistencyReviewCase opens only the AUTH reaso
     const failure = Object.assign(new Error("synthetic"), { code: "55P03" });
     const tx = recorder([failure]);
     await expect(open(tx.client, authInput())).rejects.toBe(failure);
+  });
+});
+
+// PR #100 review (DEV-DB-004): both statements of each function come from the Drizzle table declarations of
+// packages/db/src/schema/cross-functional.ts. drizzle-orm sends a query config in array row mode and lists every
+// column of an INSERT, with `default` for those it does not set; a hand-written statement does neither. Only the
+// comparison expressions of the reselect are SQL fragments, and their values are bound.
+const ENQUEUE_INSERT =
+  /^insert into app\.notification_requests \(id, business_cause_key, notification_type, recipient_profile_id, source_order_id, source_reservation_id, state, render_context, created_at, sent_at, updated_at\) values \(default, \$1, \$2, \$3, \$4, \$5, \$6, \$7, default, default, default\) on conflict \(business_cause_key\) do nothing returning business_cause_key$/;
+const column = (table: string, name: string) => `(?:(?:app\\.)?${table}\\.)?${name}`;
+const nr = (name: string) => column("notification_requests", name);
+const ENQUEUE_RESELECT = new RegExp(
+  `^select \\(${nr("notification_type")} = \\$1 and ${nr("recipient_profile_id")} = \\$2 and ${nr("source_order_id")} is not distinct from \\$3::bigint and ${nr("source_reservation_id")} is not distinct from \\$4::bigint and ${nr("render_context")} = \\$5::jsonb\\) from app\\.notification_requests where ${nr("business_cause_key")} = \\$6$`,
+);
+const CASE_COLUMNS = [
+  "id",
+  "public_ref",
+  "dedupe_key",
+  "reason_code",
+  "order_id",
+  "checkout_attempt_id",
+  "payment_binding_id",
+  "refund_record_id",
+  "karaoke_slot_id",
+  "karaoke_hold_id",
+  "karaoke_reservation_id",
+  "entry_ticket_id",
+  "karaoke_ticket_id",
+  "goods_order_item_id",
+  "auth_subject",
+  "details",
+  "opened_at",
+  "resolved_at",
+  "resolution_note",
+];
+const BOUND: Record<string, string> = { dedupe_key: "$1", reason_code: "$2", auth_subject: "$3" };
+const OPEN_INSERT = `insert into app.consistency_review_cases (${CASE_COLUMNS.join(", ")}) values (${CASE_COLUMNS.map((c) => BOUND[c] ?? "default").join(", ")}) on conflict (dedupe_key) do nothing returning public_ref`;
+const crc = (name: string) => column("consistency_review_cases", name);
+const OPEN_RESELECT = new RegExp(
+  `^select ${crc("public_ref")}, \\(?${crc("resolved_at")} is not null\\)? from app\\.consistency_review_cases where ${crc("dedupe_key")} = \\$1$`,
+);
+
+describe("TC-DB-XFN-001-005 enqueueNotificationRequest builds both statements from the Drizzle table declaration (DEV-DB-004, DB-XFN-001)", () => {
+  it("TC-DB-XFN-001-005 the INSERT lists every column, binds the seven written values and is sent in array row mode", async () => {
+    const { enqueue } = await load();
+    const tx = recorder([{ rows: [[notificationBusinessCauseKey(entryInput())]] }]);
+    await enqueue(tx.client, entryInput());
+    expect(tx.calls[0]?.normalized).toMatch(ENQUEUE_INSERT);
+    expect(tx.calls[0]?.rowMode).toBe("array");
+  });
+
+  it("TC-DB-XFN-001-005 the reselect compares the columns with bound values only, the context as jsonb, by the Business Cause key", async () => {
+    const { enqueue } = await load();
+    const input = entryInput();
+    const key = notificationBusinessCauseKey(input);
+    const tx = recorder([{ rows: [] }, { rows: [[true]] }]);
+    await enqueue(tx.client, input);
+    expect(tx.calls[1]?.normalized).toMatch(ENQUEUE_RESELECT);
+    expect(tx.calls[1]?.rowMode).toBe("array");
+    expect(sent(tx.calls[1])).toEqual([
+      "ENTRY_PURCHASE_CONFIRMED",
+      "11",
+      "12",
+      null,
+      expect.any(String),
+      key,
+    ]);
+  });
+});
+
+describe("TC-DB-XFN-002-004 openConsistencyReviewCase builds both statements from the Drizzle table declaration (DEV-DB-004, DB-XFN-002)", () => {
+  it("TC-DB-XFN-002-004 the INSERT lists every column, binds only the dedupe key, the reason and the Auth Subject, and is sent in array row mode", async () => {
+    const { open } = await load();
+    const tx = recorder([{ rows: [[CASE_REF]] }]);
+    await open(tx.client, authInput());
+    expect(tx.calls[0]?.normalized).toBe(OPEN_INSERT);
+    expect(tx.calls[0]?.rowMode).toBe("array");
+  });
+
+  it("TC-DB-XFN-002-004 the reselect projects the Public Reference and resolved_at IS NOT NULL by the dedupe key", async () => {
+    const { open } = await load();
+    const tx = recorder([{ rows: [] }, { rows: [[CASE_REF, true]] }]);
+    await open(tx.client, authInput());
+    expect(tx.calls[1]?.normalized).toMatch(OPEN_RESELECT);
+    expect(tx.calls[1]?.rowMode).toBe("array");
   });
 });
