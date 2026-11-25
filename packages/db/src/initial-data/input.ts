@@ -1,6 +1,16 @@
-import { INITIAL_DATA_TARGETS, type InputColumn } from "./targets.ts";
+import { countWindowCandidates, MAX_SLOTS_PER_RUN, type SlotWindow } from "./slots.ts";
+import {
+  EVENT_TARGET,
+  GOODS_TARGET,
+  type InitialDataTarget,
+  type InputColumn,
+  KARAOKE_SALES_CONFIGURATION_TARGET,
+  KARAOKE_SCOPE_TARGET,
+  OFFERING_TARGET,
+} from "./targets.ts";
 
-// Strict validation of the initial data input (SPEC-100 DB-SEED-003, SPEC-180 INF-SEED-002/005).
+// Strict validation of the initial data input (SPEC-100 DB-SEED-003, SPEC-180 INF-SEED-002/005; the
+// Goods and Karaoke part and the deferral null by UCR-180-007).
 // The conditions equal the table CHECKs. Nothing is trimmed, upper-cased or defaulted (no guessed
 // value). A rejection carries an error code only: never a key name, an index, a value or a parser
 // message (INF-SEED-005, TST-UNT-003).
@@ -8,9 +18,18 @@ import { INITIAL_DATA_TARGETS, type InputColumn } from "./targets.ts";
 export type InputValue = string | number | null;
 /** Every input column of one row, with NULL for an omitted or null nullable column. */
 export type InputRow = Readonly<Record<string, InputValue>>;
+export type KaraokeInitialData = {
+  readonly sales_configuration: InputRow;
+  readonly exclusive_scopes: readonly InputRow[];
+  readonly slot_windows: readonly SlotWindow[];
+};
 export type InitialDataInput = {
   readonly event: InputRow;
   readonly entry_ticket_offerings: readonly InputRow[];
+  /** `null`: the Goods are deferred (DB-SEED-001). */
+  readonly goods: readonly InputRow[] | null;
+  /** `null`: the Sales Configuration, the Scopes and their Slots are deferred together. */
+  readonly karaoke: KaraokeInitialData | null;
 };
 export type ParseResult =
   | { readonly ok: true; readonly value: InitialDataInput }
@@ -171,7 +190,77 @@ function hasDuplicateKey(text: string): boolean {
   return false;
 }
 
-/** Parses the raw `INITIAL_DATA_SEED_JSON` text. Never throws. */
+/** An object whose keys are exactly `keys` (no more, no fewer). */
+const hasExactKeys = (value: Record<string, unknown>, keys: readonly string[]): boolean => {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+};
+
+const parseTargetRow = (raw: unknown, target: InitialDataTarget) =>
+  parseRow(raw, target.columns, target.periods);
+
+/** A non-empty array of valid rows of `target`, or undefined. */
+function parseRows(raw: unknown, target: InitialDataTarget): InputRow[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const rows: InputRow[] = [];
+  for (const item of raw) {
+    const row = parseTargetRow(item, target);
+    if (row === undefined) return undefined;
+    rows.push(row);
+  }
+  return rows;
+}
+
+/**
+ * DB-SEED-003: the windows are objects with exactly `window_start` and `window_end`, timestamps with an
+ * offset, each making at least one candidate, with no overlap between the candidates of different
+ * windows (slots.ts), and at most MAX_SLOTS_PER_RUN Slots for all the Scopes of the run.
+ */
+function parseWindows(raw: unknown, scopeCount: number): SlotWindow[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const windows: SlotWindow[] = [];
+  const millis: { startMs: number; endMs: number }[] = [];
+  for (const item of raw) {
+    if (!isRecord(item) || !hasExactKeys(item, ["window_start", "window_end"])) return undefined;
+    const { window_start: start, window_end: end } = item;
+    if (typeof start !== "string" || typeof end !== "string") return undefined;
+    const startMs = timestampMillis(start);
+    const endMs = timestampMillis(end);
+    if (startMs === null || endMs === null) return undefined;
+    windows.push({ window_start: start, window_end: end });
+    millis.push({ startMs, endMs });
+  }
+  const perScope = countWindowCandidates(millis);
+  if (perScope === undefined || perScope * scopeCount > MAX_SLOTS_PER_RUN) return undefined;
+  return windows;
+}
+
+const KARAOKE_KEYS = ["sales_configuration", "exclusive_scopes", "slot_windows"] as const;
+
+function parseKaraoke(raw: unknown): KaraokeInitialData | undefined {
+  if (!isRecord(raw) || !hasExactKeys(raw, KARAOKE_KEYS)) return undefined;
+  const salesConfiguration = parseTargetRow(
+    raw.sales_configuration,
+    KARAOKE_SALES_CONFIGURATION_TARGET,
+  );
+  const scopes = parseRows(raw.exclusive_scopes, KARAOKE_SCOPE_TARGET);
+  if (salesConfiguration === undefined || scopes === undefined) return undefined;
+  const windows = parseWindows(raw.slot_windows, scopes.length);
+  if (windows === undefined) return undefined;
+  return {
+    sales_configuration: salesConfiguration,
+    exclusive_scopes: scopes,
+    slot_windows: windows,
+  };
+}
+
+const TOP_LEVEL_KEYS = ["event", "entry_ticket_offerings", "goods", "karaoke"] as const;
+
+/**
+ * Parses the raw `INITIAL_DATA_SEED_JSON` text. Never throws. The whole document is validated, the
+ * parts that will not be used included (DB-SEED-003): the four top-level keys are always required,
+ * and only `goods` and `karaoke` may be `null` (deferred).
+ */
 export function parseInitialDataInput(raw: string | undefined): ParseResult {
   if (raw === undefined || raw === "")
     return Object.freeze({ ok: false, errorCode: "INITIAL_DATA_INPUT_MISSING" });
@@ -183,32 +272,22 @@ export function parseInitialDataInput(raw: string | undefined): ParseResult {
     return INVALID;
   }
   if (hasDuplicateKey(raw)) return INVALID;
-  if (!isRecord(parsed)) return INVALID;
-  const keys = INITIAL_DATA_TARGETS.map((target) => target.key as string);
-  const actual = Object.keys(parsed);
-  if (actual.length !== keys.length || !keys.every((key) => Object.hasOwn(parsed, key)))
-    return INVALID;
+  if (!isRecord(parsed) || !hasExactKeys(parsed, TOP_LEVEL_KEYS)) return INVALID;
 
-  let event: InputRow | undefined;
-  const offerings: InputRow[] = [];
-  for (const target of INITIAL_DATA_TARGETS) {
-    const value = parsed[target.key];
-    if (target.cardinality === "one") {
-      const row = parseRow(value, target.columns, target.periods);
-      if (row === undefined) return INVALID;
-      event = row;
-    } else {
-      if (!Array.isArray(value) || value.length === 0) return INVALID;
-      for (const item of value) {
-        const row = parseRow(item, target.columns, target.periods);
-        if (row === undefined) return INVALID;
-        offerings.push(row);
-      }
-    }
+  const event = parseTargetRow(parsed.event, EVENT_TARGET);
+  const offerings = parseRows(parsed.entry_ticket_offerings, OFFERING_TARGET);
+  if (event === undefined || offerings === undefined) return INVALID;
+  let goods: InputRow[] | null = null;
+  if (parsed.goods !== null) {
+    const rows = parseRows(parsed.goods, GOODS_TARGET);
+    if (rows === undefined) return INVALID;
+    goods = rows;
   }
-  if (event === undefined) return INVALID;
-  return {
-    ok: true,
-    value: { event, entry_ticket_offerings: offerings },
-  };
+  let karaoke: KaraokeInitialData | null = null;
+  if (parsed.karaoke !== null) {
+    const value = parseKaraoke(parsed.karaoke);
+    if (value === undefined) return INVALID;
+    karaoke = value;
+  }
+  return { ok: true, value: { event, entry_ticket_offerings: offerings, goods, karaoke } };
 }
