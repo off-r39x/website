@@ -14,6 +14,7 @@ export type AppRouter = {
 };
 
 /**
+ * Programmatic navigations run in a view transition like Links do (DESIGN 9.7; see link.tsx).
  * `navigate` is stable in a data router, so the returned object is stable too. It must stay so: AuthGate and the
  * Session provider list `router` in their effect dependencies, and a new object per render would re-run them.
  */
@@ -22,10 +23,10 @@ export function useRouter(): AppRouter {
   return useMemo(
     (): AppRouter => ({
       push: (href) => {
-        void navigate(href);
+        void navigate(href, { viewTransition: true });
       },
       replace: (href) => {
-        void navigate(href, { replace: true });
+        void navigate(href, { replace: true, viewTransition: true });
       },
     }),
     [navigate],

@@ -2,12 +2,14 @@ import type { ComponentProps } from "react";
 import { Link as RouterLink } from "react-router";
 
 // The Next-compatible Link of the app (DEV-WEB-001): call sites keep `href` and the `prefetch` flag. A static SPA has
-// nothing to prefetch, so `prefetch` is taken out here and never reaches the DOM.
+// nothing to prefetch, so `prefetch` is taken out here and never reaches the DOM. Every in-app navigation runs in a
+// view transition (DESIGN 9.7): React Router wraps it in document.startViewTransition() where the browser has it and
+// navigates plainly where it does not.
 export type LinkProps = Omit<ComponentProps<"a">, "href"> & {
   href: string;
   prefetch?: false;
 };
 
 export function Link({ href, prefetch: _prefetch, ...rest }: LinkProps) {
-  return <RouterLink to={href} {...rest} />;
+  return <RouterLink to={href} viewTransition {...rest} />;
 }

@@ -1676,10 +1676,39 @@
   }
 }
 
+/* ---- Page transitions (DESIGN 9.7): the new page opens as a diamond from the centre; the Header stays ------- */
+
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: none;
+}
+
+::view-transition-new(root) {
+  animation: diamond-in 600ms var(--ease-snap);
+}
+
+@keyframes diamond-in {
+  from {
+    clip-path: polygon(50% 50%, 50% 50%, 50% 50%, 50% 50%);
+  }
+  to {
+    clip-path: polygon(50% -50%, 150% 50%, 50% 150%, -50% 50%);
+  }
+}
+
 /* ---- Reduced motion (DESIGN 9.8) --------------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   .ticker__track {
+    animation: none;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
     animation: none;
   }
 
