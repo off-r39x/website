@@ -72,7 +72,7 @@ test.describe("TC-PG-PUB-001-322 in-app navigation runs in a view transition wit
   const transitions = (page: Page) =>
     page.evaluate(() => (window as unknown as { r39xTransitions: number }).r39xTransitions);
 
-  test("a navigation Link and a programmatic navigation both start a view transition; the Header is named apart", async ({
+  test("a navigation Link starts a view transition; the Header is named apart", async ({
     page,
   }) => {
     await countTransitions(page);

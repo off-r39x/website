@@ -14,7 +14,10 @@ export type AppRouter = {
 };
 
 /**
- * Programmatic navigations run in a view transition like Links do (DESIGN 9.7; see link.tsx).
+ * Programmatic navigations (redirects, the Logout hand-off, flow steps) switch without a view transition: only a
+ * Link the user follows opens the page as a diamond (DESIGN 9.7, link.tsx). A transition defers React's commit of
+ * the new location, and a redirect or Logout must take effect at once: the Logout hand-off ends when Home is
+ * rendered, and a Back pressed before that left the gate of the page returned to without its Login redirect.
  * `navigate` is stable in a data router, so the returned object is stable too. It must stay so: AuthGate and the
  * Session provider list `router` in their effect dependencies, and a new object per render would re-run them.
  */
@@ -23,10 +26,10 @@ export function useRouter(): AppRouter {
   return useMemo(
     (): AppRouter => ({
       push: (href) => {
-        void navigate(href, { viewTransition: true });
+        void navigate(href);
       },
       replace: (href) => {
-        void navigate(href, { replace: true, viewTransition: true });
+        void navigate(href, { replace: true });
       },
     }),
     [navigate],
