@@ -12,11 +12,13 @@ import { SectionHeading } from "../../presentation/components/section-heading";
 import { StatusBadge } from "../../presentation/components/status-badge";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { type BucketModel, buildKaraokeDayModel, type DayLink } from "./karaoke-day-model";
 
 const day = copy.karaoke.day;
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link";
 
 // PG-KRK-002 container: reads the schedule after mount through the port. It only reads (no purchase).
 export function KaraokeDayPage({ date }: { date: BusinessDateJst }) {
@@ -52,8 +54,8 @@ export function KaraokeDayPage({ date }: { date: BusinessDateJst }) {
   if (model.kind === "not_found") return <NotFoundView />;
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="text-2xl font-bold">{day.heading}</h1>
+    <div className="flex flex-col gap-12">
+      <PageHero title={day.heading} />
       {model.kind === "loading" ? <PageState state="loading" /> : null}
       {model.kind === "unavailable" ? (
         <PageState
@@ -65,13 +67,22 @@ export function KaraokeDayPage({ date }: { date: BusinessDateJst }) {
       ) : null}
       {model.kind === "ready" ? (
         <>
-          <section aria-labelledby="karaoke-day-date" className="flex flex-col gap-3">
+          <section
+            aria-labelledby="karaoke-day-date"
+            className="surface-ink bleed section-y relative flex flex-col gap-6"
+          >
+            <Sticker
+              kind="note"
+              tilt={7}
+              size={56}
+              className="absolute -top-7 left-[max(var(--page-x),calc((100vw-var(--content-max))/2))]"
+            />
             <SectionHeading id="karaoke-day-date">{model.dateText}</SectionHeading>
-            <div className="flex flex-col items-start gap-1">
+            <div className="flex flex-col items-start gap-2">
               <StatusBadge tone={model.saleStatus.tone} label={model.saleStatus.label} />
-              <p>{model.saleStatus.description}</p>
+              <p className="measure">{model.saleStatus.description}</p>
             </div>
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
               {model.previous === null ? null : (
                 <DayNavLink link={model.previous} label={day.previous} />
               )}
@@ -87,7 +98,7 @@ export function KaraokeDayPage({ date }: { date: BusinessDateJst }) {
           {model.buckets.length === 0 ? (
             <PageState state="empty" message={day.empty} />
           ) : (
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-12">
               {model.buckets.map((bucket) => (
                 <Bucket key={bucket.startHour} bucket={bucket} />
               ))}
@@ -111,20 +122,17 @@ function DayNavLink({ link, label }: { link: DayLink; label: string }) {
 function Bucket({ bucket }: { bucket: BucketModel }) {
   const headingId = `karaoke-bucket-${bucket.startHour}`;
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2">
+    <section aria-labelledby={headingId} className="flex flex-col gap-4">
       <SectionHeading id={headingId} level={3}>
         {bucket.label}
       </SectionHeading>
-      <p className="text-sm">{bucket.countText}</p>
-      <ul className="flex flex-col gap-2">
+      <p className="text-small">{bucket.countText}</p>
+      <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {bucket.slots.map((slot) => (
-          <li
-            key={slot.slotRef}
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-base border border-border p-2"
-          >
-            <span className="font-semibold">{slot.timeText}</span>
+          <li key={slot.slotRef} className="card items-start">
+            <span className="card__value num">{slot.timeText}</span>
             <StatusBadge tone={slot.tone} label={slot.stateLabel} />
-            <span className="text-sm">{slot.description}</span>
+            <span className="card__note">{slot.description}</span>
             {slot.href === null ? null : (
               <Link href={slot.href} prefetch={false} className={linkClass}>
                 {day.slotLink(slot.timeText)}

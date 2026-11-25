@@ -9,6 +9,8 @@ import type { Loadable } from "../../presentation/components/list-state";
 import { PageState } from "../../presentation/components/page-state";
 import { PlainText } from "../../presentation/components/plain-text";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { buildAnnouncementListModel } from "./announcement-model";
 
@@ -44,8 +46,8 @@ export function AnnouncementListPage() {
   const list = buildAnnouncementListModel(input);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.announcements.heading}</h1>
+    <div className="flex flex-col gap-12">
+      <PageHero title={copy.announcements.heading} />
       {list.kind === "loading" ? <PageState state="loading" /> : null}
       {list.kind === "empty" ? <PageState state="empty" /> : null}
       {list.kind === "unavailable" ? (
@@ -56,21 +58,26 @@ export function AnnouncementListPage() {
         />
       ) : null}
       {list.kind === "items" ? (
-        <ul className="flex flex-col gap-4">
-          {list.items.map((item) => (
-            <li key={item.announcementRef} className="flex flex-col gap-1">
-              <Link
-                href={item.href}
-                prefetch={false}
-                className="font-semibold text-brand underline underline-offset-4"
-              >
-                {item.title}
-              </Link>
-              <DateTime instant={item.publishedAt} className="text-sm text-foreground/70" />
-              <PlainText>{item.excerpt}</PlainText>
-            </li>
-          ))}
-        </ul>
+        <div className="surface-ink bleed section-y relative">
+          <Sticker
+            kind="chip"
+            color="mint"
+            tilt={6}
+            size={48}
+            className="absolute -top-6 left-[max(var(--page-x),calc((100vw-var(--content-max))/2))]"
+          />
+          <ul className="grid gap-6 md:grid-cols-2">
+            {list.items.map((item) => (
+              <li key={item.announcementRef} className="card">
+                <Link href={item.href} prefetch={false} className="link text-h3 self-start">
+                  {item.title}
+                </Link>
+                <DateTime instant={item.publishedAt} className="card__label num" />
+                <PlainText className="measure">{item.excerpt}</PlainText>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
   );

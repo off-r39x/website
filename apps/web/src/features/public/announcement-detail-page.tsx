@@ -10,10 +10,12 @@ import { NotFoundView } from "../../presentation/components/not-found-view";
 import { PageState } from "../../presentation/components/page-state";
 import { PlainText } from "../../presentation/components/plain-text";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { buildAnnouncementDetailModel } from "./announcement-model";
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link";
 
 // PG-PUB-003 container: reads after mount through the port; the first render is always loading.
 export function AnnouncementDetailPage({
@@ -54,8 +56,8 @@ export function AnnouncementDetailPage({
 
   if (model.kind !== "ready") {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold">{copy.announcements.heading}</h1>
+      <div className="flex flex-col gap-12">
+        <PageHero title={copy.announcements.heading} />
         {model.kind === "loading" ? (
           <PageState state="loading" />
         ) : (
@@ -70,11 +72,21 @@ export function AnnouncementDetailPage({
   }
 
   return (
-    <article className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{model.title}</h1>
-      <DateTime instant={model.publishedAt} className="text-sm text-foreground/70" />
-      <PlainText>{model.body}</PlainText>
-      <p className="flex flex-wrap gap-4">
+    <article className="flex flex-col gap-12">
+      <PageHero title={model.title}>
+        <DateTime instant={model.publishedAt} className="num" />
+      </PageHero>
+      <div className="surface-ink bleed section-y relative">
+        <Sticker
+          kind="chip"
+          color="coral"
+          tilt={-6}
+          size={48}
+          className="absolute -top-6 right-[max(var(--page-x),calc((100vw-var(--content-max))/2))]"
+        />
+        <PlainText className="measure">{model.body}</PlainText>
+      </div>
+      <p className="flex flex-wrap gap-x-6 gap-y-3">
         <Link href={model.listHref} prefetch={false} className={linkClass}>
           {copy.announcements.backToList}
         </Link>

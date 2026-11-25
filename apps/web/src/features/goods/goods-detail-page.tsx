@@ -14,6 +14,8 @@ import { PageState } from "../../presentation/components/page-state";
 import { PlainText } from "../../presentation/components/plain-text";
 import { StatusBadge } from "../../presentation/components/status-badge";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { type AddResult, AddResultNotice, AddToCartForm } from "../cart/add-to-cart-form";
 import {
@@ -29,7 +31,7 @@ import {
   goodsEligibilityTarget,
 } from "./goods-detail-model";
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link";
 
 function GoodsReady({
   goods,
@@ -43,47 +45,63 @@ function GoodsReady({
   const [result, setResult] = useState<AddResult>({ kind: "idle" });
   const reasonId = `${useId()}-reason`;
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{goods.name}</h1>
-      <PlainText>{goods.description}</PlainText>
-      <p>
-        <span className="font-medium">{copy.sales.priceLabel}</span> {goods.priceText}
-      </p>
-      <p>
-        <span className="font-medium">{copy.sales.periodLabel}</span> {goods.salesPeriodText}
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{copy.sales.statusLabel}</span>
-        <StatusBadge tone={goods.status.tone} label={goods.status.label} />
-        <span id={reasonId} className="text-sm">
-          {goods.status.description}
-        </span>
+    <div className="flex flex-col gap-12">
+      <PageHero title={goods.name}>
+        <PlainText>{goods.description}</PlainText>
+      </PageHero>
+      <div className="grid gap-6 md:grid-cols-3">
+        <p className="card">
+          <span className="card__label">{copy.sales.priceLabel}</span>{" "}
+          <span className="card__value num">{goods.priceText}</span>
+        </p>
+        <p className="card">
+          <span className="card__label">{copy.sales.periodLabel}</span>{" "}
+          <span className="num">{goods.salesPeriodText}</span>
+        </p>
+        <div className="card items-start">
+          <span className="card__label">{copy.sales.statusLabel}</span>
+          <StatusBadge tone={goods.status.tone} label={goods.status.label} />
+          <span id={reasonId} className="card__note">
+            {goods.status.description}
+          </span>
+        </div>
       </div>
-      <p className="text-sm">{goods.pickupNotice}</p>
-      {eligibilityFailed ? (
-        <PageState
-          state="unavailable"
-          message={copy.pageState.unavailable(copy.entry.eligibilitySubject)}
-          onRetry={onRetry}
+      <div className="surface-ink bleed section-y relative">
+        <Sticker
+          kind="chip"
+          color="teal"
+          tilt={5}
+          size={48}
+          className="absolute -top-6 right-[max(var(--page-x),calc((100vw-var(--content-max))/2))]"
         />
-      ) : null}
-      <AddResultNotice result={result} />
-      <AddToCartForm
-        buildLine={(quantity) => ({ kind: "GOODS", goodsRef: goods.goodsRef, quantity })}
-        unitPrice={goods.unitPrice}
-        maxSelectableQuantity={goods.maxSelectableQuantity}
-        addable={goods.addable}
-        reasonId={reasonId}
-        onResult={setResult}
-      />
-      <p className="flex flex-wrap gap-4">
-        <Link href={CART_HREF} prefetch={false} className={linkClass}>
-          {copy.sales.viewCart}
-        </Link>
-        <Link href={GOODS_HREF} prefetch={false} className={linkClass}>
-          {copy.goods.detail.backToList}
-        </Link>
-      </p>
+        <p className="measure">{goods.pickupNotice}</p>
+      </div>
+      <div className="flex flex-col gap-6">
+        {eligibilityFailed ? (
+          <PageState
+            state="unavailable"
+            message={copy.pageState.unavailable(copy.entry.eligibilitySubject)}
+            onRetry={onRetry}
+          />
+        ) : null}
+        <AddResultNotice result={result} />
+        <AddToCartForm
+          buildLine={(quantity) => ({ kind: "GOODS", goodsRef: goods.goodsRef, quantity })}
+          unitPrice={goods.unitPrice}
+          maxSelectableQuantity={goods.maxSelectableQuantity}
+          addable={goods.addable}
+          reasonId={reasonId}
+          onResult={setResult}
+        />
+        <p className="flex flex-wrap gap-x-6 gap-y-3">
+          <Link href={CART_HREF} prefetch={false} className={linkClass}>
+            {copy.sales.viewCart}
+          </Link>
+          <Link href={GOODS_HREF} prefetch={false} className={linkClass}>
+            {copy.goods.detail.backToList}
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
@@ -166,8 +184,8 @@ export function GoodsDetailPage({ goodsRef }: { goodsRef: Ref<"goods"> }) {
     );
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.goods.detail.heading}</h1>
+    <div className="flex flex-col gap-12">
+      <PageHero title={copy.goods.detail.heading} />
       {model.kind === "loading" ? (
         <PageState state="loading" />
       ) : (

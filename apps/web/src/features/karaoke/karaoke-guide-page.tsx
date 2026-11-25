@@ -9,6 +9,8 @@ import { PageState } from "../../presentation/components/page-state";
 import { SectionHeading } from "../../presentation/components/section-heading";
 import { StatusBadge } from "../../presentation/components/status-badge";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { buildKaraokeGuideModel } from "./karaoke-guide-model";
 
@@ -44,13 +46,22 @@ export function KaraokeGuidePage() {
   const model = buildKaraokeGuideModel(input);
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="text-2xl font-bold">{guide.heading}</h1>
-      <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-12">
+      <PageHero title={guide.heading}>
         <p>{guide.intro}</p>
-        <p>{guide.usageUnit}</p>
-        <p>{guide.duration}</p>
-        <p>{guide.purchaseLimit}</p>
+      </PageHero>
+      <div className="surface-ink bleed section-y relative">
+        <Sticker
+          kind="note"
+          tilt={-6}
+          size={56}
+          className="absolute -top-7 left-[max(var(--page-x),calc((100vw-var(--content-max))/2))]"
+        />
+        <div className="measure flex flex-col gap-3">
+          <p>{guide.usageUnit}</p>
+          <p>{guide.duration}</p>
+          <p>{guide.purchaseLimit}</p>
+        </div>
       </div>
       {model.kind === "loading" ? <PageState state="loading" /> : null}
       {model.kind === "unavailable" ? (
@@ -62,29 +73,35 @@ export function KaraokeGuidePage() {
       ) : null}
       {model.kind === "ready" ? (
         <>
-          <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2">
-            <dt className="font-semibold">{guide.priceLabel}</dt>
-            <dd>{model.priceText}</dd>
-            <dt className="font-semibold">{guide.periodLabel}</dt>
-            <dd>{model.salesPeriodText}</dd>
-            <dt className="font-semibold">{guide.statusLabel}</dt>
-            <dd className="flex flex-col items-start gap-1">
-              <StatusBadge tone={model.saleStatus.tone} label={model.saleStatus.label} />
-              <span>{model.saleStatus.description}</span>
-            </dd>
+          <dl className="grid gap-6 md:grid-cols-3">
+            <div className="card">
+              <dt className="card__label">{guide.priceLabel}</dt>
+              <dd className="card__value num">{model.priceText}</dd>
+            </div>
+            <div className="card">
+              <dt className="card__label">{guide.periodLabel}</dt>
+              <dd className="num">{model.salesPeriodText}</dd>
+            </div>
+            <div className="card">
+              <dt className="card__label">{guide.statusLabel}</dt>
+              <dd className="flex flex-col items-start gap-2">
+                <StatusBadge tone={model.saleStatus.tone} label={model.saleStatus.label} />
+                <span className="card__note">{model.saleStatus.description}</span>
+              </dd>
+            </div>
           </dl>
-          <section aria-labelledby="karaoke-dates" className="flex flex-col gap-3">
+          <section aria-labelledby="karaoke-dates" className="flex flex-col gap-6">
             <SectionHeading id="karaoke-dates">{guide.datesHeading}</SectionHeading>
             {model.dates.kind === "empty" ? (
               <PageState state="empty" message={guide.datesEmpty} />
             ) : (
-              <ul className="flex flex-col gap-2">
+              <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {model.dates.items.map((item) => (
-                  <li key={item.date}>
+                  <li key={item.date} className="flex">
                     <Link
                       href={item.href}
                       prefetch={false}
-                      className="text-brand underline underline-offset-4"
+                      className="card card--link w-full font-bold"
                     >
                       {guide.dateLink(item.text)}
                     </Link>

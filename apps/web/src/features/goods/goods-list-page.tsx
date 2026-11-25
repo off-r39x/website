@@ -8,6 +8,8 @@ import type { Loadable } from "../../presentation/components/list-state";
 import { PageState } from "../../presentation/components/page-state";
 import { StatusBadge } from "../../presentation/components/status-badge";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { buildGoodsListModel } from "./goods-list-model";
 
@@ -41,8 +43,8 @@ export function GoodsListPage() {
   const list = buildGoodsListModel(input);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.goods.list.heading}</h1>
+    <div className="flex flex-col gap-12">
+      <PageHero title={copy.goods.list.heading} />
       {list.kind === "loading" ? <PageState state="loading" /> : null}
       {list.kind === "empty" ? <PageState state="empty" /> : null}
       {list.kind === "unavailable" ? (
@@ -53,28 +55,30 @@ export function GoodsListPage() {
         />
       ) : null}
       {list.kind === "items" ? (
-        <ul className="flex flex-col gap-4">
-          {list.items.map((item) => (
-            <li
-              key={item.goodsRef}
-              className="flex flex-col gap-1 rounded-base border border-border p-3"
-            >
-              <Link
-                href={item.href}
-                prefetch={false}
-                className="font-semibold text-brand underline underline-offset-4"
-              >
-                {item.name}
-              </Link>
-              <p>{item.shortDescription}</p>
-              <p>{item.priceText}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge tone={item.status.tone} label={item.status.label} />
-                <span className="text-sm">{item.status.description}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="surface-ink bleed section-y relative">
+          <Sticker
+            kind="chip"
+            color="lemon"
+            tilt={-4}
+            size={48}
+            className="absolute -top-6 left-[max(var(--page-x),calc((100vw-var(--content-max))/2))]"
+          />
+          <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {list.items.map((item) => (
+              <li key={item.goodsRef} className="card">
+                <Link href={item.href} prefetch={false} className="link text-h3 self-start">
+                  {item.name}
+                </Link>
+                <p>{item.shortDescription}</p>
+                <p className="card__value num">{item.priceText}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge tone={item.status.tone} label={item.status.label} />
+                  <span className="card__note">{item.status.description}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
   );

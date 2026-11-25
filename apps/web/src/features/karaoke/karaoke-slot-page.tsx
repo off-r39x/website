@@ -13,6 +13,8 @@ import { SectionHeading } from "../../presentation/components/section-heading";
 import { StatusBadge } from "../../presentation/components/status-badge";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { CartRecovery } from "../cart/cart-recovery";
 import {
@@ -26,9 +28,7 @@ import { buildKaraokeSlotModel, karaokeEligibilityTarget } from "./karaoke-slot-
 import { type KaraokePurchasePhase, useKaraokePurchase } from "./use-karaoke-purchase";
 
 const detail = copy.karaoke.slotDetail;
-const linkClass = "text-brand underline underline-offset-4";
-const alertClass =
-  "flex flex-col gap-2 rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg";
+const linkClass = "link";
 const REASON_ID = "karaoke-slot-disabled-reason";
 const FAILURE_ID = "karaoke-slot-failure";
 
@@ -147,10 +147,10 @@ export function KaraokeSlotPage({ slotRef }: { slotRef: Ref<"slot"> }) {
   const model = buildKaraokeSlotModel(state.slot, eligibility);
   if (model.kind === "not_found") return <NotFoundView />;
 
-  const heading = <h1 className="text-2xl font-bold">{copy.karaoke.slotDetail.heading}</h1>;
+  const heading = <PageHero title={copy.karaoke.slotDetail.heading} />;
   if (model.kind === "loading") {
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-12">
         {heading}
         <PageState state="loading" />
       </div>
@@ -158,7 +158,7 @@ export function KaraokeSlotPage({ slotRef }: { slotRef: Ref<"slot"> }) {
   }
   if (model.kind === "unavailable") {
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-12">
         {heading}
         <PageState
           state="unavailable"
@@ -178,34 +178,43 @@ export function KaraokeSlotPage({ slotRef }: { slotRef: Ref<"slot"> }) {
   const withWayBack = phaseKind === "conflict" || phaseKind === "expired";
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-12">
       {heading}
-      <section aria-labelledby="karaoke-slot-info" className="flex flex-col gap-3">
+      <section
+        aria-labelledby="karaoke-slot-info"
+        className="surface-ink bleed section-y relative flex flex-col gap-6"
+      >
+        <Sticker
+          kind="note"
+          tilt={5}
+          size={56}
+          className="absolute -top-7 left-[max(var(--page-x),calc((100vw-var(--content-max))/2))]"
+        />
         <SectionHeading id="karaoke-slot-info">{detail.infoHeading}</SectionHeading>
-        <dl className="flex flex-col gap-2">
-          <div>
-            <dt className="text-sm font-semibold">{detail.dateLabel}</dt>
-            <dd>{model.dateText}</dd>
+        <dl className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="card">
+            <dt className="card__label">{detail.dateLabel}</dt>
+            <dd className="card__value num">{model.dateText}</dd>
           </div>
-          <div>
-            <dt className="text-sm font-semibold">{detail.timeLabel}</dt>
-            <dd>{model.timeText}</dd>
+          <div className="card">
+            <dt className="card__label">{detail.timeLabel}</dt>
+            <dd className="card__value num">{model.timeText}</dd>
           </div>
-          <div>
-            <dt className="text-sm font-semibold">{copy.karaoke.guide.priceLabel}</dt>
-            <dd>{model.priceText}</dd>
+          <div className="card">
+            <dt className="card__label">{copy.karaoke.guide.priceLabel}</dt>
+            <dd className="card__value num">{model.priceText}</dd>
           </div>
-          <div className="flex flex-col items-start gap-1">
-            <dt className="text-sm font-semibold">{detail.stateLabel}</dt>
-            <dd className="flex flex-col items-start gap-1">
+          <div className="card">
+            <dt className="card__label">{detail.stateLabel}</dt>
+            <dd className="flex flex-col items-start gap-2">
               <StatusBadge tone={model.tone} label={model.stateLabel} />
-              <span>{model.description}</span>
+              <span className="card__note">{model.description}</span>
             </dd>
           </div>
         </dl>
-        <p>{copy.karaoke.guide.purchaseLimit}</p>
+        <p className="measure">{copy.karaoke.guide.purchaseLimit}</p>
       </section>
-      <section aria-labelledby="karaoke-slot-action" className="flex flex-col gap-3">
+      <section aria-labelledby="karaoke-slot-action" className="flex flex-col gap-6">
         <SectionHeading id="karaoke-slot-action">{detail.actionHeading}</SectionHeading>
         {eligibility.kind === "unavailable" && failure === null ? (
           <PageState
@@ -228,13 +237,16 @@ export function KaraokeSlotPage({ slotRef }: { slotRef: Ref<"slot"> }) {
         </div>
         {model.disabledReason === null ? null : <p id={REASON_ID}>{model.disabledReason}</p>}
         {progress === null ? null : (
-          <div role="status" className="text-sm">
+          <div role="status" className="text-small font-bold">
             {progress}
           </div>
         )}
         {failure === null ? null : (
-          <div ref={alertRef} role="alert" tabIndex={-1} className={alertClass}>
-            <p id={FAILURE_ID}>{failure}</p>
+          <div ref={alertRef} role="alert" tabIndex={-1} className="alert">
+            <p id={FAILURE_ID}>
+              <span className="error-dot" aria-hidden="true" />
+              {failure}
+            </p>
             {withWayBack ? (
               <p>
                 <Link href={model.dayHref} prefetch={false} className={linkClass}>
@@ -247,7 +259,7 @@ export function KaraokeSlotPage({ slotRef }: { slotRef: Ref<"slot"> }) {
         {phaseKind === "cart_recovery" ? (
           <CartRecovery onRecovered={purchase.dismissCartRecovery} />
         ) : null}
-        <p className="text-sm">{detail.separateNote}</p>
+        <p className="text-small measure">{detail.separateNote}</p>
         <p>
           <Link href={model.dayHref} prefetch={false} className={linkClass}>
             {detail.backToDay}
