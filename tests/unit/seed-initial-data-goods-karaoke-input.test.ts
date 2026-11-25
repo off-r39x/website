@@ -127,7 +127,10 @@ describe("TC-TST-SEED-003-025 the shape of the four top-level keys and the defer
       "a null exclusive_scopes",
       (i) => ({ ...i, karaoke: { ...karaokeOf(i), exclusive_scopes: null } }),
     ],
-    ["an empty slot_windows array", (i) => ({ ...i, karaoke: { ...karaokeOf(i), slot_windows: [] } })],
+    [
+      "an empty slot_windows array",
+      (i) => ({ ...i, karaoke: { ...karaokeOf(i), slot_windows: [] } }),
+    ],
     ["a null slot_windows", (i) => ({ ...i, karaoke: { ...karaokeOf(i), slot_windows: null } })],
   ];
   for (const [label, mutate] of rejected) {
@@ -140,29 +143,61 @@ describe("TC-TST-SEED-003-025 the shape of the four top-level keys and the defer
 describe("TC-TST-SEED-003-025 Goods, Sales Configuration and Scope values: the same conditions as the CHECKs (DB-SEED-003)", () => {
   const goods0 = (i: InitialDataInput) => goodsOf(i)[0] as Record<string, unknown>;
   const config = (i: InitialDataInput) => karaokeOf(i).sales_configuration;
-  const scope0 = (i: InitialDataInput) => karaokeOf(i).exclusive_scopes[0] as Record<string, unknown>;
+  const scope0 = (i: InitialDataInput) =>
+    karaokeOf(i).exclusive_scopes[0] as Record<string, unknown>;
 
   const rejected: [string, (i: InitialDataInput) => void][] = [
     ["Goods without a name", (i) => delete goods0(i).name],
-    ["Goods with a numeric name", (i) => void (goods0(i).name = 1)],
-    ["Goods with a negative unit_amount", (i) => void (goods0(i).unit_amount = -1)],
-    ["Goods with a fractional unit_amount", (i) => void (goods0(i).unit_amount = 1.5)],
-    ["Goods with a lower-case currency", (i) => void (goods0(i).currency = "jpy")],
+    [
+      "Goods with a numeric name",
+      (i) => {
+        goods0(i).name = 1;
+      },
+    ],
+    [
+      "Goods with a negative unit_amount",
+      (i) => {
+        goods0(i).unit_amount = -1;
+      },
+    ],
+    [
+      "Goods with a fractional unit_amount",
+      (i) => {
+        goods0(i).unit_amount = 1.5;
+      },
+    ],
+    [
+      "Goods with a lower-case currency",
+      (i) => {
+        goods0(i).currency = "jpy";
+      },
+    ],
     ["Goods without a currency", (i) => delete goods0(i).currency],
-    ["Goods with purchase_limit 0", (i) => void (goods0(i).purchase_limit = 0)],
+    [
+      "Goods with purchase_limit 0",
+      (i) => {
+        goods0(i).purchase_limit = 0;
+      },
+    ],
     ["Goods without sales_starts_at", (i) => delete goods0(i).sales_starts_at],
     ["Goods without sales_ends_at", (i) => delete goods0(i).sales_ends_at],
     [
       "Goods whose sales period is empty",
-      (i) => void (goods0(i).sales_ends_at = goods0(i).sales_starts_at),
+      (i) => {
+        goods0(i).sales_ends_at = goods0(i).sales_starts_at;
+      },
     ],
     [
       "Goods whose sales period is reversed",
-      (i) => void (goods0(i).sales_starts_at = "2030-06-01T00:00:00+09:00"),
+      (i) => {
+        goods0(i).sales_starts_at = "2030-06-01T00:00:00+09:00";
+      },
     ],
     [
       "a timestamp without an offset",
-      (i) => void (goods0(i).sales_starts_at = "2030-04-01T00:00:00"),
+      (i) => {
+        goods0(i).sales_starts_at = "2030-04-01T00:00:00";
+      },
     ],
     [
       "only the second Goods row invalid",
@@ -172,19 +207,56 @@ describe("TC-TST-SEED-003-025 Goods, Sales Configuration and Scope values: the s
       },
     ],
     ["a Sales Configuration without a name", (i) => delete config(i).name],
-    ["a Sales Configuration with a negative unit_amount", (i) => void (config(i).unit_amount = -1)],
-    ["a Sales Configuration with currency JP", (i) => void (config(i).currency = "JP")],
-    ["a Sales Configuration with purchase_limit 0", (i) => void (config(i).purchase_limit = 0)],
+    [
+      "a Sales Configuration with a negative unit_amount",
+      (i) => {
+        config(i).unit_amount = -1;
+      },
+    ],
+    [
+      "a Sales Configuration with currency JP",
+      (i) => {
+        config(i).currency = "JP";
+      },
+    ],
+    [
+      "a Sales Configuration with purchase_limit 0",
+      (i) => {
+        config(i).purchase_limit = 0;
+      },
+    ],
     [
       "a Sales Configuration whose sales period is reversed",
-      (i) => void (config(i).sales_starts_at = "2030-06-01T00:00:00+09:00"),
+      (i) => {
+        config(i).sales_starts_at = "2030-06-01T00:00:00+09:00";
+      },
     ],
-    ["a Sales Configuration with a description", (i) => void (config(i).description = "x")],
+    [
+      "a Sales Configuration with a description",
+      (i) => {
+        config(i).description = "x";
+      },
+    ],
     ["a Scope without a name", (i) => delete scope0(i).name],
     ["a Scope without sort_order (no DB DEFAULT relied on)", (i) => delete scope0(i).sort_order],
-    ["a Scope with a fractional sort_order", (i) => void (scope0(i).sort_order = 0.5)],
-    ["a Scope with sort_order beyond integer", (i) => void (scope0(i).sort_order = 2147483648)],
-    ["a Scope with a string sort_order", (i) => void (scope0(i).sort_order = "0")],
+    [
+      "a Scope with a fractional sort_order",
+      (i) => {
+        scope0(i).sort_order = 0.5;
+      },
+    ],
+    [
+      "a Scope with sort_order beyond integer",
+      (i) => {
+        scope0(i).sort_order = 2147483648;
+      },
+    ],
+    [
+      "a Scope with a string sort_order",
+      (i) => {
+        scope0(i).sort_order = "0";
+      },
+    ],
   ];
   for (const [label, mutate] of rejected) {
     it(`TC-TST-SEED-003-025 ${label} is rejected`, () => {
@@ -207,7 +279,8 @@ describe("TC-TST-SEED-001-006 fields the command never accepts for Goods and Kar
   const cases: [string, string, unknown, (i: InitialDataInput) => Record<string, unknown>][] = [];
   const goods = (i: InitialDataInput) => goodsOf(i)[0] as Record<string, unknown>;
   const config = (i: InitialDataInput) => karaokeOf(i).sales_configuration;
-  const scope = (i: InitialDataInput) => karaokeOf(i).exclusive_scopes[0] as Record<string, unknown>;
+  const scope = (i: InitialDataInput) =>
+    karaokeOf(i).exclusive_scopes[0] as Record<string, unknown>;
   const window = (i: InitialDataInput) => karaokeOf(i).slot_windows[0] as Record<string, unknown>;
   const common: [string, unknown][] = [
     ["id", 1],
@@ -259,14 +332,16 @@ describe("TC-TST-SEED-001-006 fields the command never accepts for Goods and Kar
 });
 
 describe("TC-TST-SEED-003-026 Slot windows (DB-SEED-003 (1)-(4), KRK-GEN-002/003, DB-KRK-002)", () => {
-  const withWindows = (
-    windows: { window_start: string; window_end: string }[],
-    scopeCount = 1,
-  ) => buildInitialDataInput({ karaoke: buildKaraokeInput({ windows, scopeCount }) });
+  const withWindows = (windows: { window_start: string; window_end: string }[], scopeCount = 1) =>
+    buildInitialDataInput({ karaoke: buildKaraokeInput({ windows, scopeCount }) });
 
   it("TC-TST-SEED-003-026 (1) an empty or reversed window is rejected", () => {
-    expectRejected(withWindows([windowAt("2030-05-10T18:00:00+09:00", "2030-05-10T18:00:00+09:00")]));
-    expectRejected(withWindows([windowAt("2030-05-10T19:00:00+09:00", "2030-05-10T18:00:00+09:00")]));
+    expectRejected(
+      withWindows([windowAt("2030-05-10T18:00:00+09:00", "2030-05-10T18:00:00+09:00")]),
+    );
+    expectRejected(
+      withWindows([windowAt("2030-05-10T19:00:00+09:00", "2030-05-10T18:00:00+09:00")]),
+    );
   });
 
   it("TC-TST-SEED-003-026 (1) a window without an offset, or not a timestamp, is rejected", () => {
@@ -283,8 +358,12 @@ describe("TC-TST-SEED-003-026 Slot windows (DB-SEED-003 (1)-(4), KRK-GEN-002/003
   });
 
   it("TC-TST-SEED-003-026 (2) a window shorter than one 20 minute cycle makes no candidate and is rejected", () => {
-    expectRejected(withWindows([windowAt("2030-05-10T18:00:00+09:00", "2030-05-10T18:19:59+09:00")]));
-    expectAccepted(withWindows([windowAt("2030-05-10T18:00:00+09:00", "2030-05-10T18:20:00+09:00")]));
+    expectRejected(
+      withWindows([windowAt("2030-05-10T18:00:00+09:00", "2030-05-10T18:19:59+09:00")]),
+    );
+    expectAccepted(
+      withWindows([windowAt("2030-05-10T18:00:00+09:00", "2030-05-10T18:20:00+09:00")]),
+    );
   });
 
   it("TC-TST-SEED-003-026 (3) windows whose candidates overlap are rejected", () => {
@@ -336,9 +415,7 @@ describe("TC-TST-SEED-003-026 Slot windows (DB-SEED-003 (1)-(4), KRK-GEN-002/003
     expectAccepted(withWindows([windowAt(startText, end(500))], 2));
     expectRejected(withWindows([windowAt(startText, end(501))], 2));
     // Split over windows, the total still counts.
-    expectRejected(
-      withWindows([windowAt(startText, end(600)), windowAt(end(600), end(1001))], 1),
-    );
+    expectRejected(withWindows([windowAt(startText, end(600)), windowAt(end(600), end(1001))], 1));
   });
 });
 
@@ -360,7 +437,9 @@ describe("TC-TST-SEED-001-007 Slot candidates follow the standard algorithm (SPE
   });
 
   it("TC-TST-SEED-001-007 KRK-GEN-002: no incomplete last cycle; KRK-GEN-003: the anchor is not rounded", () => {
-    expect(times([windowAt("2030-05-10T18:00:00+09:00", "2030-05-10T18:50:00+09:00")])).toHaveLength(2);
+    expect(
+      times([windowAt("2030-05-10T18:00:00+09:00", "2030-05-10T18:50:00+09:00")]),
+    ).toHaveLength(2);
     expect(times([windowAt("2030-05-10T18:07:00+09:00", "2030-05-10T18:47:00+09:00")])).toEqual([
       [0, "2030-05-10T09:07:00.000Z", "2030-05-10T09:22:00.000Z", "2030-05-10T09:27:00.000Z"],
       [1, "2030-05-10T09:27:00.000Z", "2030-05-10T09:42:00.000Z", "2030-05-10T09:47:00.000Z"],
@@ -368,7 +447,9 @@ describe("TC-TST-SEED-001-007 Slot candidates follow the standard algorithm (SPE
   });
 
   it("TC-TST-SEED-001-007 a window across midnight (Asia/Tokyo) is allowed", () => {
-    expect(times([windowAt("2030-05-10T23:30:00+09:00", "2030-05-11T00:30:00+09:00")])).toHaveLength(3);
+    expect(
+      times([windowAt("2030-05-10T23:30:00+09:00", "2030-05-11T00:30:00+09:00")]),
+    ).toHaveLength(3);
   });
 
   it("TC-TST-SEED-001-007 candidates of several windows are numbered 0.. in usage_start order, whatever the input order", () => {

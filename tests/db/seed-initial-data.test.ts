@@ -217,9 +217,9 @@ describe("TC-TST-SEED-002-001 a second run is NOOP (DB-SEED-001, INF-SEED-004, R
   it("TC-TST-SEED-002-001 NOOP changes no row, no updated_at and no Audit Event, and never reads the input", async () => {
     // Every target is created first, so that the second run has no candidate (UCR-180-007: a deferred
     // Goods or Karaoke target is still a candidate, and its run reads the input).
-    expect(
-      shape((await runSeed({ input: buildCompleteInitialDataInput() })).outcome).outcome,
-    ).toBe("CREATED");
+    expect(shape((await runSeed({ input: buildCompleteInitialDataInput() })).outcome).outcome).toBe(
+      "CREATED",
+    );
     const before = await snapshotSeededTables(admin);
     const run = await runSeed({ input: buildCompleteInitialDataInput() });
     expect(shape(run.outcome).outcome).toBe("NOOP");
@@ -311,7 +311,8 @@ describe("TC-TST-SEED-002-005 N concurrent commands create one set (DB-SEED-002,
   it("TC-TST-SEED-002-005 eight barrier-started runs: one CREATED, seven NOOP, one set of rows and Audit Events", async () => {
     const parties = 8;
     const arrive = barrier(parties);
-    const input = buildInitialDataInput({ offeringCount: 2 });
+    // Every target (UCR-180-007), so that the losers have no candidate left and never read the input.
+    const input = buildCompleteInitialDataInput();
     const runs = await Promise.all(
       Array.from({ length: parties }, () =>
         runSeed({
@@ -329,7 +330,14 @@ describe("TC-TST-SEED-002-005 N concurrent commands create one set (DB-SEED-002,
     expect(outcomes.filter((o) => o.outcome === "NOOP")).toHaveLength(parties - 1);
     // Lazy input (INF-SEED-002): only the run that creates rows reads it.
     expect(runs.reduce((sum, run) => sum + run.reads(), 0)).toBe(1);
-    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: 3 });
+    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: 1 + 2 + 1 + 1 + 1 + 9 });
+    const one = async (table: string) =>
+      (await admin.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n;
+    expect(await one("app.goods")).toBe(1);
+    expect(await one("app.goods_inventory")).toBe(1);
+    expect(await one("app.karaoke_sales_configurations")).toBe(1);
+    expect(await one("app.karaoke_exclusive_scopes")).toBe(1);
+    expect(await one("app.karaoke_slots")).toBe(9);
     const created = outcomes.find((o) => o.outcome === "CREATED");
     const executionIds = new Set((await audits()).map((row) => row.operation_execution_id));
     expect([...executionIds]).toEqual([created?.operationExecutionId]);
@@ -566,9 +574,9 @@ describe("TC-TST-SEED-003-006 the seed transaction has an 8 second wall clock (p
 
 describe("TC-TST-SEED-003-005 decision order (INF-SEED-002, INF-SEED-004, DB-SEED-002)", () => {
   it("TC-TST-SEED-003-005 (a) with rows to skip, a missing or malformed input is never read: NOOP", async () => {
-    expect(
-      shape((await runSeed({ input: buildCompleteInitialDataInput() })).outcome).outcome,
-    ).toBe("CREATED");
+    expect(shape((await runSeed({ input: buildCompleteInitialDataInput() })).outcome).outcome).toBe(
+      "CREATED",
+    );
     const before = await snapshotSeededTables(admin);
     for (const input of [undefined, "{not json", ""]) {
       const run = await runSeed({ input });

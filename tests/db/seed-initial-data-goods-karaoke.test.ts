@@ -4,7 +4,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { startCommitAcknowledgementDropProxy } from "../harness/db/commit-proxy.ts";
 import { prepareFoundationDatabase } from "../harness/db/foundation.ts";
 import {
-  barrier,
   buildCompleteInitialDataInput,
   buildGoodsInput,
   buildInitialDataInput,
@@ -322,7 +321,13 @@ describe("TC-TST-SEED-002-007 each target is decided on its own (DB-SEED-001)", 
       karaoke_exclusive_scopes: "DEFERRED",
       karaoke_slots: "DEFERRED",
     });
-    expect(await counts()).toMatchObject({ events: 1, offerings: 2, goods: 0, configs: 0, slots: 0 });
+    expect(await counts()).toMatchObject({
+      events: 1,
+      offerings: 2,
+      goods: 0,
+      configs: 0,
+      slots: 0,
+    });
     const before = await snapshotSeededTables(admin);
 
     const second = shape((await runSeed({ input: buildCompleteInitialDataInput() })).outcome);
@@ -340,7 +345,13 @@ describe("TC-TST-SEED-002-007 each target is decided on its own (DB-SEED-001)", 
     const after = await snapshotSeededTables(admin);
     expect(after.events).toEqual(before.events);
     expect(after.offerings).toEqual(before.offerings);
-    expect(await counts()).toMatchObject({ goods: 1, inventory: 1, configs: 1, scopes: 1, slots: 9 });
+    expect(await counts()).toMatchObject({
+      goods: 1,
+      inventory: 1,
+      configs: 1,
+      scopes: 1,
+      slots: 9,
+    });
     const [event] = await events();
     for (const row of [...(await goods()), ...(await configs()), ...(await scopes())])
       expect(row.event_id).toBe(event.id);
@@ -408,7 +419,13 @@ describe("TC-TST-SEED-002-008 deferral by null (DB-SEED-001, DB-SEED-003, INF-SE
     expect(outcome.targets?.goods).toBe("DEFERRED");
     expect(outcome.targets?.karaoke_slots).toBe("CREATED");
     expect(outcome.created?.goods).toEqual([]);
-    expect(await counts()).toMatchObject({ goods: 0, inventory: 0, configs: 1, scopes: 1, slots: 9 });
+    expect(await counts()).toMatchObject({
+      goods: 0,
+      inventory: 0,
+      configs: 1,
+      scopes: 1,
+      slots: 9,
+    });
     expect((await audits()).some((row) => row.target_type === "GOODS")).toBe(false);
   });
 
@@ -525,29 +542,6 @@ describe("TC-TST-SEED-002-010 with every target present, a re-run is NOOP and ne
   });
 });
 
-describe("TC-TST-SEED-002-011 N concurrent complete runs create one set (DB-SEED-002, INV-010-07)", () => {
-  it("TC-TST-SEED-002-011 four barrier-started runs: one CREATED, three NOOP, one set of every target", async () => {
-    const wait = barrier(4);
-    const runs = await Promise.all(
-      Array.from({ length: 4 }, () =>
-        runSeed({ input: buildCompleteInitialDataInput(), beforeSeed: wait }),
-      ),
-    );
-    const outcomes = runs.map((run) => shape(run.outcome).outcome).sort();
-    expect(outcomes).toEqual(["CREATED", "NOOP", "NOOP", "NOOP"]);
-    expect(await counts()).toEqual({
-      events: 1,
-      offerings: 2,
-      goods: 1,
-      inventory: 1,
-      configs: 1,
-      scopes: 1,
-      slots: 9,
-      audits: 1 + 2 + 1 + 1 + 1 + 9,
-    });
-  });
-});
-
 describe("TC-TST-SEED-003-027 failures roll every target back (DB-SEED-002, DB-SEED-003, REL-DB-002)", () => {
   it("TC-TST-SEED-003-027 only the second Goods row invalid: FAILED, no row of any target, no Audit Event", async () => {
     const input = buildCompleteInitialDataInput({ goodsCount: 2 });
@@ -628,15 +622,19 @@ describe("TC-TST-SEED-004-004 Audit Events for Goods and Karaoke (OBS-AUD-014, D
       expect(row.audit_result).toBe("COMMITTED");
       expect(row.precondition_result).toBe("PASSED");
     }
-    expect(byType("GOODS").map((row) => row.target_ref)).toEqual((await goods()).map((r) => r.public_ref));
+    expect(byType("GOODS").map((row) => row.target_ref)).toEqual(
+      (await goods()).map((r) => r.public_ref),
+    );
     expect(byType("GOODS")[0]?.after_state).toBe("SUSPENDED");
     expect(byType("GOODS")[0]?.changed_fields).toEqual(GOODS_FIELDS);
-    expect(byType("KARAOKE_SALES_CONFIGURATION")[0]?.target_ref).toBe((await configs())[0].public_ref);
+    expect(byType("KARAOKE_SALES_CONFIGURATION")[0]?.target_ref).toBe(
+      (await configs())[0].public_ref,
+    );
     expect(byType("KARAOKE_SALES_CONFIGURATION")[0]?.after_state).toBe("SUSPENDED");
     expect(byType("KARAOKE_SALES_CONFIGURATION")[0]?.changed_fields).toEqual(CONFIG_FIELDS);
-    expect(refs(byType("KARAOKE_EXCLUSIVE_SCOPE").map((row) => ({ public_ref: row.target_ref })))).toEqual(
-      refs(await scopes()),
-    );
+    expect(
+      refs(byType("KARAOKE_EXCLUSIVE_SCOPE").map((row) => ({ public_ref: row.target_ref }))),
+    ).toEqual(refs(await scopes()));
     for (const row of byType("KARAOKE_EXCLUSIVE_SCOPE")) {
       expect(row.after_state).toBeNull();
       expect(row.changed_fields).toEqual(SCOPE_FIELDS);
@@ -761,11 +759,22 @@ describe("TC-TST-SEED-006-024 COMMIT result unknown for a run that creates only 
     const outcome = shape(run.outcome);
     expect(fired).toBe(1);
     expect(outcome.outcome).toBe("CREATED");
-    expect(logs.some((log) => log.event_name === "reliability.unknown_result.resolved" && log.result === "FAILED")).toBe(true);
+    expect(
+      logs.some(
+        (log) =>
+          log.event_name === "reliability.unknown_result.resolved" && log.result === "FAILED",
+      ),
+    ).toBe(true);
     const after = await snapshotSeededTables(admin);
     expect(after.events).toEqual(before.events);
     expect(after.offerings).toEqual(before.offerings);
-    expect(await counts()).toMatchObject({ goods: 1, inventory: 1, configs: 1, scopes: 1, slots: 9 });
+    expect(await counts()).toMatchObject({
+      goods: 1,
+      inventory: 1,
+      configs: 1,
+      scopes: 1,
+      slots: 9,
+    });
     expect(new Set((await slots()).map((row) => row.generation_cause_key))).toEqual(
       new Set([outcome.operationExecutionId]),
     );
