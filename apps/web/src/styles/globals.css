@@ -140,7 +140,14 @@
   --color-tone-review-fg: var(--ink);
 
   /* The one gradient DESIGN 3.1 allows, under the token name the S3 contract (section 9) fixes. */
-  --hero-gradient: linear-gradient(180deg, #f4ff70 0%, #d0ff7b 25%, #9eff8a 50%, #62fe9d 75%, #2fe5bb 100%);
+  --hero-gradient: linear-gradient(
+    180deg,
+    #f4ff70 0%,
+    #d0ff7b 25%,
+    #9eff8a 50%,
+    #62fe9d 75%,
+    #2fe5bb 100%
+  );
 
   --radius-base: var(--r-field);
   --radius-field: var(--r-field);
@@ -1139,8 +1146,10 @@
     height: auto;
   }
 
+  /* Above the opening's shockwave and particles: they never cross the quiet column (DESIGN 9.4). */
   .home-hero__copy {
     position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: flex-start;

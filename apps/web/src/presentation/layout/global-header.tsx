@@ -81,7 +81,10 @@ export function GlobalHeader({ cartCount, session, pathname, onLogout }: Props) 
           <Link
             prefetch={false}
             href={CTA_HREF}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "max-md:px-2 max-md:text-small max-md:tracking-normal")}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "max-md:px-2 max-md:text-small max-md:tracking-normal",
+            )}
           >
             {copy.layout.cta.buyTickets}
           </Link>
