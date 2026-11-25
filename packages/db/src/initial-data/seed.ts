@@ -200,7 +200,9 @@ type Recheck =
       readonly auditEventIds: string[];
     }
   | { readonly kind: "complete" }
-  | { readonly kind: "uncommitted" };
+  | { readonly kind: "uncommitted" }
+  // Not committed by this run, and the state read is one that fails the command (DB-SEED-001).
+  | { readonly kind: "inconsistent"; readonly errorCode: string };
 
 export const failedOutcome = (
   operationExecutionId: string,
@@ -1218,27 +1220,40 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
           // (DB-SEED-002): an existing Event, or the rows of a target that was EXISTING or DEFERRED
           // for this run, are not proof of success.
           const creating = plan?.targets;
-          let eventId = plan?.eventId;
-          if (eventId === undefined) {
-            const eventIds = await within(() => readEventIds(connection));
-            if (eventIds.length === 1) eventId = eventIds[0];
+          // What fails the command whatever the input or the planned states (DB-SEED-001) is checked
+          // first, as the seed attempt does, before the planned rows can be taken as success.
+          const eventIds = await within(() => readEventIds(connection));
+          const eventId = plan?.eventId ?? (eventIds.length === 1 ? eventIds[0] : undefined);
+          const found =
+            eventId === undefined
+              ? NO_TARGET_STATUS
+              : await within(() => readTargetStatus(connection, eventId));
+          const inconsistency =
+            eventIds.length >= 2
+              ? "INITIAL_DATA_EVENT_NOT_UNIQUE"
+              : found.salesConfigurations >= 2
+                ? "INITIAL_DATA_KARAOKE_SALES_CONFIGURATION_NOT_UNIQUE"
+                : found.scopesWithoutSlots
+                  ? "INITIAL_DATA_KARAOKE_SCOPE_WITHOUT_SLOTS"
+                  : undefined;
+          if (inconsistency !== undefined) {
+            verdict = { kind: "inconsistent", errorCode: inconsistency };
+          } else {
+            let complete = creating !== undefined && eventId !== undefined;
+            if (complete && creating !== undefined && eventId !== undefined) {
+              const target = eventId;
+              if (creating.entry_ticket_offerings === "CREATED")
+                complete = await within(() => hasOfferings(connection, target));
+              // The Goods and their Inventory (DB-SEED-002, DB-GDS-001): Goods alone are not complete.
+              if (creating.goods === "CREATED")
+                complete &&= found.goods && !found.goodsWithoutInventory;
+              if (creating.karaoke_sales_configuration === "CREATED")
+                complete &&= found.salesConfigurations === 1;
+              // The Scopes and their Slots (none of the Event's Scopes is without a Slot, as above).
+              if (creating.karaoke_exclusive_scopes === "CREATED") complete &&= found.scopes;
+            }
+            verdict = complete ? { kind: "complete" } : { kind: "uncommitted" };
           }
-          let complete = creating !== undefined && eventId !== undefined;
-          if (complete && creating !== undefined && eventId !== undefined) {
-            const target = eventId;
-            if (creating.entry_ticket_offerings === "CREATED")
-              complete = await within(() => hasOfferings(connection, target));
-            const found = await within(() => readTargetStatus(connection, target));
-            // The Goods and their Inventory (DB-SEED-002, DB-GDS-001): Goods alone are not complete.
-            if (creating.goods === "CREATED")
-              complete &&= found.goods && !found.goodsWithoutInventory;
-            if (creating.karaoke_sales_configuration === "CREATED")
-              complete &&= found.salesConfigurations >= 1;
-            // The Scopes and their Slots: present, with no Scope left without a Slot.
-            if (creating.karaoke_exclusive_scopes === "CREATED")
-              complete &&= found.scopes && !found.scopesWithoutSlots;
-          }
-          verdict = complete ? { kind: "complete" } : { kind: "uncommitted" };
         }
         await connection.query("ROLLBACK");
         // The re-check transaction ends within its wall clock too (SPEC-150 section 9): a ROLLBACK
@@ -1416,6 +1431,17 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
           ]),
         ) as SeedTargets;
         return { outcome: "NOOP", operationExecutionId: executionId, attemptNumber, targets };
+      }
+      if (checked.kind === "inconsistent") {
+        // This run did not commit (no Audit Event of its own), and what is there fails the command
+        // (DB-SEED-001): FAILED, neither NOOP nor retried. Nothing is repaired.
+        log({
+          ...resolved(),
+          level: "ERROR",
+          result: "FAILED",
+          failure_class: "CONSISTENCY_FAILURE",
+        });
+        return failedOutcome(executionId, attemptNumber, "CONSISTENCY_FAILURE", checked.errorCode);
       }
       // Not committed (DB-SEED-002 (3)): start over on the new connection, which already holds the
       // migration lock, with a new execution id, only within the REL-DB-001 retry budget (SPEC-150
