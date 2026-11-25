@@ -3,6 +3,7 @@ import { Client } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prepareFoundationDatabase } from "../harness/db/foundation.ts";
 import {
+  buildCompleteInitialDataInput,
   buildInitialDataInput,
   type InitialDataInput,
   migratorUrl,
@@ -37,7 +38,27 @@ const RESULT_KEYS = [
   "operation_id",
   "outcome",
   "schema_version",
+  "targets",
 ];
+// Every target present after a complete run (UCR-180-007): 1 Event, 2 Offerings, 1 Goods, 1 Sales
+// Configuration, 1 Scope and 9 Slots, one Audit Event each.
+const COMPLETE_AUDITS = 1 + 2 + 1 + 1 + 1 + 9;
+const ALL_CREATED = {
+  event: "CREATED",
+  entry_ticket_offerings: "CREATED",
+  goods: "CREATED",
+  karaoke_sales_configuration: "CREATED",
+  karaoke_exclusive_scopes: "CREATED",
+  karaoke_slots: "CREATED",
+};
+const ALL_EXISTING = {
+  event: "EXISTING",
+  entry_ticket_offerings: "EXISTING",
+  goods: "EXISTING",
+  karaoke_sales_configuration: "EXISTING",
+  karaoke_exclusive_scopes: "EXISTING",
+  karaoke_slots: "EXISTING",
+};
 const COMPLETED = "provision.initial_data_seed.completed";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -98,18 +119,18 @@ function expectNoLeak(output: string, forbidden: readonly string[]) {
 
 describe("TC-TST-SEED-003-004 exit codes and the CREATED / NOOP distinction (INF-SEED-004, INF-DEP-005)", () => {
   it("TC-TST-SEED-003-004 an empty database: exit 0 and outcome CREATED; the second run: exit 0 and outcome NOOP", async () => {
-    const input = buildInitialDataInput({ offeringCount: 2 });
+    const input = buildCompleteInitialDataInput();
     const first = await runSeedCli(baseEnv(input));
     expect(first.code).toBe(0);
     const created = resultLine(first.stdout);
     expect(created.outcome).toBe("CREATED");
-    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: 3 });
+    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: COMPLETE_AUDITS });
 
-    // NOOP must not need the input at all (INF-SEED-002, INF-SEED-004).
+    // NOOP must not need the input at all (INF-SEED-002, INF-SEED-004): no target is left to create.
     const second = await runSeedCli(baseEnv(undefined));
     expect(second.code).toBe(0);
     expect(resultLine(second.stdout).outcome).toBe("NOOP");
-    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: 3 });
+    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: COMPLETE_AUDITS });
     expect(created.outcome).not.toBe(resultLine(second.stdout).outcome);
   });
 
@@ -307,7 +328,7 @@ describe("TC-TST-SEED-005-002 stdout and log content, and what they must never c
 
   it("TC-TST-SEED-005-002 CREATED, NOOP and FAILED: result line keys, log fields and result mapping; no input value, URL, password or stack", async () => {
     const marker = newMarker();
-    const input = buildInitialDataInput({ marker, offeringCount: 2 });
+    const input = buildCompleteInitialDataInput({ marker });
     const secrets = [
       ...sensitiveValues(input),
       migratorUrl({ password }).href,
@@ -327,7 +348,15 @@ describe("TC-TST-SEED-005-002 stdout and log content, and what they must never c
       outcome: "CREATED",
       actor_ref: SEED_ACTOR_REF,
       error_code: null,
-      counts: { events: 1, entry_ticket_offerings: 2 },
+      counts: {
+        events: 1,
+        entry_ticket_offerings: 2,
+        goods: 1,
+        karaoke_sales_configurations: 1,
+        karaoke_exclusive_scopes: 1,
+        karaoke_slots: 9,
+      },
+      targets: ALL_CREATED,
     });
     expect(createdLine.operation_execution_id).toMatch(UUID);
     const dbEvents = (await admin.query("SELECT public_ref FROM app.events")).rows.map(
@@ -364,8 +393,23 @@ describe("TC-TST-SEED-005-002 stdout and log content, and what they must never c
     expect(noopLine).toMatchObject({
       outcome: "NOOP",
       actor_ref: SEED_ACTOR_REF,
-      created: { events: [], entry_ticket_offerings: [] },
-      counts: { events: 0, entry_ticket_offerings: 0 },
+      created: {
+        events: [],
+        entry_ticket_offerings: [],
+        goods: [],
+        karaoke_sales_configurations: [],
+        karaoke_exclusive_scopes: [],
+        karaoke_slots: [],
+      },
+      counts: {
+        events: 0,
+        entry_ticket_offerings: 0,
+        goods: 0,
+        karaoke_sales_configurations: 0,
+        karaoke_exclusive_scopes: 0,
+        karaoke_slots: 0,
+      },
+      targets: ALL_EXISTING,
       audit_event_ids: [],
       error_code: null,
     });
@@ -387,6 +431,8 @@ describe("TC-TST-SEED-005-002 stdout and log content, and what they must never c
       outcome: "FAILED",
       created: { events: [], entry_ticket_offerings: [] },
       counts: { events: 0, entry_ticket_offerings: 0 },
+      // A failed run decides no target (INF-SEED-005 lists the states of CREATED and NOOP).
+      targets: null,
       audit_event_ids: [],
     });
     expectCommonLogFields(logLines(failed.stderr), {
@@ -476,12 +522,12 @@ describe("TC-TST-SEED-003-008 the public command keeps the stdout and exit code 
   // `pnpm db:seed-initial-data` from the repository root, as an operator or the migration job runs it:
   // stdout is the one result line only, and the exit code is the command's own (0, 2, 3), not pnpm's.
   it("TC-TST-SEED-003-008 (a) CREATED then NOOP: exit 0, stdout is exactly the one result line", async () => {
-    const first = await runSeedCli(baseEnv(buildInitialDataInput()), { entry: "public" });
+    const first = await runSeedCli(baseEnv(buildCompleteInitialDataInput()), { entry: "public" });
     expect(first.code).toBe(0);
     const created = resultLine(first.stdout);
     expect(Object.keys(created).sort()).toEqual(RESULT_KEYS);
     expect(created.outcome).toBe("CREATED");
-    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: 3 });
+    expect(await counts()).toEqual({ events: 1, offerings: 2, audits: COMPLETE_AUDITS });
 
     const second = await runSeedCli(baseEnv(undefined), { entry: "public" });
     expect(second.code).toBe(0);

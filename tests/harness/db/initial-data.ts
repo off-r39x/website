@@ -20,10 +20,88 @@ export function newMarker(): string {
 export const PROBE_UNIT_AMOUNT = 7351912;
 export const PROBE_CAPACITY = 4817263;
 
+export type KaraokeInput = {
+  sales_configuration: Record<string, unknown>;
+  exclusive_scopes: Record<string, unknown>[];
+  slot_windows: Record<string, unknown>[];
+};
+
 export type InitialDataInput = {
   event: Record<string, unknown>;
   entry_ticket_offerings: Record<string, unknown>[];
+  /** UCR-180-007 (DB-SEED-001, DB-SEED-003): `null` defers the Goods. */
+  goods: Record<string, unknown>[] | null;
+  /** UCR-180-007: `null` defers the Karaoke Sales Configuration, the Scopes and their Slots together. */
+  karaoke: KaraokeInput | null;
 };
+
+export const GOODS_REQUIRED_COLUMNS = [
+  "name",
+  "unit_amount",
+  "currency",
+  "sales_starts_at",
+  "sales_ends_at",
+  "purchase_limit",
+] as const;
+export const KARAOKE_SALES_CONFIGURATION_COLUMNS = [
+  "name",
+  "unit_amount",
+  "currency",
+  "sales_starts_at",
+  "sales_ends_at",
+  "purchase_limit",
+] as const;
+
+/** Synthetic Goods rows (DB-SEED-006). */
+export function buildGoodsInput(
+  options: { count?: number; marker?: string; variant?: "full" | "minimal" } = {},
+): Record<string, unknown>[] {
+  const marker = options.marker ?? newMarker();
+  return Array.from({ length: options.count ?? 1 }, (_, index) => ({
+    name: `${marker} 合成データ グッズ ${index + 1}`,
+    ...(options.variant === "minimal"
+      ? {}
+      : { description: `${marker} 合成データ グッズの説明 ${index + 1}` }),
+    unit_amount: PROBE_UNIT_AMOUNT + 100 + index,
+    currency: "JPY",
+    sales_starts_at: "2030-04-01T00:00:00+09:00",
+    sales_ends_at: "2030-05-12T21:00:00+09:00",
+    purchase_limit: 2,
+  }));
+}
+
+/**
+ * Synthetic Karaoke input: one Sales Configuration, `scopeCount` Scopes and the windows (by default
+ * three synthetic days of one hour each, i.e. three Slots per window and Scope).
+ */
+export function buildKaraokeInput(
+  options: {
+    marker?: string;
+    scopeCount?: number;
+    windows?: { window_start: string; window_end: string }[];
+  } = {},
+): KaraokeInput {
+  const marker = options.marker ?? newMarker();
+  return {
+    sales_configuration: {
+      name: `${marker} 合成データ カラオケ`,
+      unit_amount: PROBE_UNIT_AMOUNT + 200,
+      currency: "JPY",
+      sales_starts_at: "2030-04-01T00:00:00+09:00",
+      sales_ends_at: "2030-05-12T21:00:00+09:00",
+      purchase_limit: 1,
+    },
+    exclusive_scopes: Array.from({ length: options.scopeCount ?? 1 }, (_, index) => ({
+      name: `${marker} 合成データ 機材 ${index + 1}`,
+      sort_order: index,
+    })),
+    slot_windows: options.windows ?? [
+      { window_start: "2030-05-10T18:00:00+09:00", window_end: "2030-05-10T19:00:00+09:00" },
+      { window_start: "2030-05-11T18:00:00+09:00", window_end: "2030-05-11T19:00:00+09:00" },
+      { window_start: "2030-05-12T18:00:00+09:00", window_end: "2030-05-12T19:00:00+09:00" },
+    ],
+  };
+}
 
 export const EVENT_INPUT_COLUMNS = [
   "name",
@@ -68,6 +146,10 @@ export function buildInitialDataInput(
     event?: Record<string, unknown>;
     /** Merged over the offering at that index. */
     offering?: (index: number) => Record<string, unknown>;
+    /** Default `null` (deferred), so that a run creates the Event and the Offerings only. */
+    goods?: Record<string, unknown>[] | null;
+    /** Default `null` (deferred). */
+    karaoke?: KaraokeInput | null;
   } = {},
 ): InitialDataInput {
   const variant = options.variant ?? "full";
@@ -108,7 +190,24 @@ export function buildInitialDataInput(
   for (const key of Object.keys(merged)) if (merged[key] === undefined) delete merged[key];
   for (const offering of offerings)
     for (const key of Object.keys(offering)) if (offering[key] === undefined) delete offering[key];
-  return { event: merged, entry_ticket_offerings: offerings };
+  return {
+    event: merged,
+    entry_ticket_offerings: offerings,
+    goods: options.goods ?? null,
+    karaoke: options.karaoke ?? null,
+  };
+}
+
+/** Every target filled in: a run on an empty database creates all of them (no candidate left). */
+export function buildCompleteInitialDataInput(
+  options: { marker?: string; scopeCount?: number; goodsCount?: number } = {},
+): InitialDataInput {
+  const marker = options.marker ?? newMarker();
+  return buildInitialDataInput({
+    marker,
+    goods: buildGoodsInput({ marker, count: options.goodsCount ?? 1 }),
+    karaoke: buildKaraokeInput({ marker, scopeCount: options.scopeCount ?? 1 }),
+  });
 }
 
 /** Values that must never appear in any output: strings of 8+ characters and numbers of 6+ digits. */
@@ -156,15 +255,25 @@ export async function resetInitialData(admin: Client): Promise<void> {
 export async function snapshotSeededTables(admin: Client): Promise<{
   events: string[];
   offerings: string[];
+  goods: string[];
+  goodsInventory: string[];
+  karaokeSalesConfigurations: string[];
+  karaokeScopes: string[];
+  karaokeSlots: string[];
   audit: string[];
 }> {
-  const text = async (table: string) =>
-    (await admin.query(`SELECT t::text AS row FROM ${table} t ORDER BY t.id`)).rows.map(
+  const text = async (table: string, key = "id") =>
+    (await admin.query(`SELECT t::text AS row FROM ${table} t ORDER BY t.${key}`)).rows.map(
       (row) => row.row as string,
     );
   return {
     events: await text("app.events"),
     offerings: await text("app.entry_ticket_offerings"),
+    goods: await text("app.goods"),
+    goodsInventory: await text("app.goods_inventory", "goods_id"),
+    karaokeSalesConfigurations: await text("app.karaoke_sales_configurations"),
+    karaokeScopes: await text("app.karaoke_exclusive_scopes"),
+    karaokeSlots: await text("app.karaoke_slots"),
     audit: await text("app.audit_events"),
   };
 }
@@ -187,7 +296,16 @@ export function recordStatements<T extends Client>(client: T, sink: string[] = [
   });
 }
 
-const ALLOWED_TABLES = new Set(["app.events", "app.entry_ticket_offerings", "app.audit_events"]);
+const ALLOWED_TABLES = new Set([
+  "app.events",
+  "app.entry_ticket_offerings",
+  "app.goods",
+  "app.goods_inventory",
+  "app.karaoke_sales_configurations",
+  "app.karaoke_exclusive_scopes",
+  "app.karaoke_slots",
+  "app.audit_events",
+]);
 
 /**
  * INF-SEED-003 / TST-SEED-005 (4): what a recorded statement is allowed to be. Returns the statements
@@ -444,9 +562,27 @@ export async function runSeedCli(
 }
 
 /** The SeedOutcome fields the tests read, typed loosely so the plan's union can be narrowed by value. */
+export type SeedTargetState = "CREATED" | "EXISTING" | "DEFERRED";
+export type SeedTargets = {
+  event: SeedTargetState;
+  entry_ticket_offerings: SeedTargetState;
+  goods: SeedTargetState;
+  karaoke_sales_configuration: SeedTargetState;
+  karaoke_exclusive_scopes: SeedTargetState;
+  karaoke_slots: SeedTargetState;
+};
 export type SeedOutcomeShape = {
   outcome: "CREATED" | "NOOP" | "FAILED" | "UNKNOWN_RESULT";
-  created?: { events: string[]; entry_ticket_offerings: string[] };
+  created?: {
+    events: string[];
+    entry_ticket_offerings: string[];
+    goods: string[];
+    karaoke_sales_configurations: string[];
+    karaoke_exclusive_scopes: string[];
+    karaoke_slots: string[];
+  };
+  /** UCR-180-007 (DB-SEED-001, INF-SEED-005): the state of each target, on CREATED and NOOP. */
+  targets?: SeedTargets;
   auditEventIds?: string[];
   operationExecutionId?: string;
   failureClass?: string;
