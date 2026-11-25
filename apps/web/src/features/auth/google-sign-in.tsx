@@ -77,7 +77,7 @@ export function GoogleSignIn({
     <div className="flex flex-col gap-3">
       {unavailable ? <ServiceFailure message={copy.auth.google.unavailable} /> : null}
       {hint !== null ? (
-        <p id={hintId} className="text-sm">
+        <p id={hintId} className="text-small">
           {hint}
         </p>
       ) : null}

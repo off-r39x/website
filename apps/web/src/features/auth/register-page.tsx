@@ -12,6 +12,8 @@ import { ErrorSummary } from "../../presentation/components/error-summary";
 import { FormField } from "../../presentation/components/form-field";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { useRouter, useSearchParams } from "../../routing/navigation";
 import { CartRecovery } from "../cart/cart-recovery";
@@ -36,7 +38,7 @@ import { ServiceFailure } from "./service-failure";
 import { useErrorSummaryFocus } from "./use-error-summary-focus";
 import { useExternalReturn } from "./use-external-return";
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-block py-2";
 
 type Failure = "rejected" | "unavailable" | "cart_busy" | "cart_blocked" | null;
 
@@ -136,105 +138,118 @@ function RegisterForm() {
   }));
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.auth.register.heading}</h1>
-      <ContinuationNoticeView notice={notice} />
-      <MethodSelector
-        legend={copy.auth.method.legendRegister}
-        value={method}
-        onChange={onMethodChange}
-        disabled={submitting}
-      />
-      {failedMethod === "google" ? <ServiceFailure message={copy.auth.google.failed} /> : null}
-      {failedMethod === "magic-link" ? (
-        <ServiceFailure message={copy.auth.magicLink.failed} />
-      ) : null}
-      {method === "password" ? (
-        <>
-          {errors.length > 0 ? <ErrorSummary items={summaryItems} summaryRef={summaryRef} /> : null}
-          {failure === "rejected" ? <ServiceFailure message={copy.auth.register.rejected} /> : null}
-          {failure === "unavailable" ? (
-            <ServiceFailure message={copy.auth.register.unavailable} />
-          ) : null}
-        </>
-      ) : null}
-      {cartBusy ? <p role="status">{copy.auth.register.cartBusy}</p> : null}
-      {cartNeedsRecovery ? <CartRecovery onRecovered={() => setFailure(null)} /> : null}
-      {method === "google" ? (
-        <GoogleSignIn
-          page="register"
-          intent={intent}
-          cartBlocked={cartBlocked}
-          onCartFailure={setFailure}
-          onAttempt={clearFailed}
+    <div className="flex flex-col">
+      <PageHero title={copy.auth.register.heading} />
+      <div className="flex w-full max-w-xl flex-col gap-6">
+        <ContinuationNoticeView notice={notice} />
+        <MethodSelector
+          legend={copy.auth.method.legendRegister}
+          value={method}
+          onChange={onMethodChange}
+          disabled={submitting}
         />
-      ) : null}
-      {method === "password" ? (
-        <form
-          noValidate
-          onSubmit={onSubmit}
-          aria-busy={submitting ? true : undefined}
-          className="flex flex-col gap-4"
-        >
-          <FormField
-            id={ids.email}
-            label={copy.auth.field.email.label}
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={setEmail}
-            error={errorOf("email")}
+        {failedMethod === "google" ? <ServiceFailure message={copy.auth.google.failed} /> : null}
+        {failedMethod === "magic-link" ? (
+          <ServiceFailure message={copy.auth.magicLink.failed} />
+        ) : null}
+        {method === "password" ? (
+          <>
+            {errors.length > 0 ? (
+              <ErrorSummary items={summaryItems} summaryRef={summaryRef} />
+            ) : null}
+            {failure === "rejected" ? (
+              <ServiceFailure message={copy.auth.register.rejected} />
+            ) : null}
+            {failure === "unavailable" ? (
+              <ServiceFailure message={copy.auth.register.unavailable} />
+            ) : null}
+          </>
+        ) : null}
+        {cartBusy ? (
+          <p role="status" className="card measure text-small font-bold">
+            {copy.auth.register.cartBusy}
+          </p>
+        ) : null}
+        {cartNeedsRecovery ? <CartRecovery onRecovered={() => setFailure(null)} /> : null}
+        {method === "google" ? (
+          <GoogleSignIn
+            page="register"
+            intent={intent}
+            cartBlocked={cartBlocked}
+            onCartFailure={setFailure}
+            onAttempt={clearFailed}
           />
-          <FormField
-            id={ids.password}
-            label={copy.auth.field.password.label}
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={setPassword}
-            hint={copy.auth.field.password.hint}
-            error={errorOf("password")}
+        ) : null}
+        {method === "password" ? (
+          <form
+            noValidate
+            onSubmit={onSubmit}
+            aria-busy={submitting ? true : undefined}
+            className="flex flex-col gap-4"
+          >
+            <FormField
+              id={ids.email}
+              label={copy.auth.field.email.label}
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={setEmail}
+              error={errorOf("email")}
+            />
+            <FormField
+              id={ids.password}
+              label={copy.auth.field.password.label}
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={setPassword}
+              hint={copy.auth.field.password.hint}
+              error={errorOf("password")}
+            />
+            <FormField
+              id={ids.passwordConfirm}
+              label={copy.auth.field.passwordConfirm.label}
+              type="password"
+              autoComplete="new-password"
+              value={passwordConfirm}
+              onChange={setPasswordConfirm}
+              error={errorOf("passwordConfirm")}
+            />
+            <div>
+              <Button type="submit" disabled={submitting || cartBlocked}>
+                {submitting ? copy.auth.form.submitting : copy.auth.register.submit}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+        {method === "magic-link" ? (
+          <MagicLinkForm
+            page="register"
+            intent={intent}
+            cartBlocked={cartBlocked}
+            onCartFailure={setFailure}
+            onAttempt={clearFailed}
           />
-          <FormField
-            id={ids.passwordConfirm}
-            label={copy.auth.field.passwordConfirm.label}
-            type="password"
-            autoComplete="new-password"
-            value={passwordConfirm}
-            onChange={setPasswordConfirm}
-            error={errorOf("passwordConfirm")}
+        ) : null}
+        {method === "email-otp" ? (
+          <EmailOtpForm
+            mode="register"
+            intent={intent}
+            email={email}
+            onEmailChange={setEmail}
+            cartBlocked={cartBlocked}
+            onCartFailure={setFailure}
           />
-          <div>
-            <Button type="submit" disabled={submitting || cartBlocked}>
-              {submitting ? copy.auth.form.submitting : copy.auth.register.submit}
-            </Button>
-          </div>
-        </form>
-      ) : null}
-      {method === "magic-link" ? (
-        <MagicLinkForm
-          page="register"
-          intent={intent}
-          cartBlocked={cartBlocked}
-          onCartFailure={setFailure}
-          onAttempt={clearFailed}
-        />
-      ) : null}
-      {method === "email-otp" ? (
-        <EmailOtpForm
-          mode="register"
-          intent={intent}
-          email={email}
-          onEmailChange={setEmail}
-          cartBlocked={cartBlocked}
-          onCartFailure={setFailure}
-        />
-      ) : null}
-      <p className="text-sm">
-        <Link href={accountPath("login", intent)} prefetch={false} className={linkClass}>
-          {copy.auth.register.toLogin}
-        </Link>
-      </p>
+        ) : null}
+      </div>
+      <div className="surface-ink bleed section-y relative mt-16">
+        <Sticker kind="note" tilt={-6} size={52} className="absolute -top-6 right-6 md:right-24" />
+        <p className="measure">
+          <Link href={accountPath("login", intent)} prefetch={false} className={linkClass}>
+            {copy.auth.register.toLogin}
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

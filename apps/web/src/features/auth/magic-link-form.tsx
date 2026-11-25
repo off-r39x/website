@@ -122,7 +122,7 @@ export function MagicLinkForm({
       {unavailable ? <ServiceFailure message={copy.auth.magicLink.unavailable} /> : null}
       {errors.length > 0 ? <ErrorSummary items={summaryItems} summaryRef={summaryRef} /> : null}
       {hint !== null ? (
-        <p id={hintId} className="text-sm">
+        <p id={hintId} className="text-small">
           {hint}
         </p>
       ) : null}
@@ -142,7 +142,7 @@ export function MagicLinkForm({
           error={emailError === undefined ? null : fieldErrorMessage(emailError)}
         />
         {sent && sentToThisAddress ? (
-          <p role="status" className="rounded-base border border-border bg-muted p-3 text-sm">
+          <p role="status" className="card measure text-small font-bold">
             {copy.auth.magicLink.sent}
           </p>
         ) : null}

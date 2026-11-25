@@ -4,11 +4,11 @@ import type { ContinuationNotice } from "./continuation-view";
 export function ContinuationNoticeView({ notice }: { notice: ContinuationNotice | null }) {
   if (notice === null) return null;
   return (
-    <div className="flex flex-col gap-1 rounded-base border border-border bg-muted p-3 text-sm">
-      <p className="font-bold">{notice.notice}</p>
-      <p>{notice.purposeLabel}</p>
-      <p>{notice.returnAfter}</p>
-      <p>{notice.revalidate}</p>
+    <div className="card measure">
+      <p className="card__label">{notice.notice}</p>
+      <p className="card__note">{notice.purposeLabel}</p>
+      <p className="card__note">{notice.returnAfter}</p>
+      <p className="card__note">{notice.revalidate}</p>
     </div>
   );
 }

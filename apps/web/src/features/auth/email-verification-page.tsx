@@ -11,12 +11,14 @@ import { useAuth } from "../../auth/use-auth";
 import { useSession } from "../../auth/use-session";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { useSearchParams } from "../../routing/navigation";
 import { CONTEXT_PARAM, readContext, removeContextFromUrl } from "./context-param";
 import { ServiceFailure } from "./service-failure";
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-block py-2";
 
 type Phase =
   | { kind: "waiting" }
@@ -71,62 +73,72 @@ function EmailVerification() {
   const authenticated = state.status === "ready" && state.session.kind === "authenticated";
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.auth.verify.heading}</h1>
+    <div className="flex flex-col">
+      <PageHero title={copy.auth.verify.heading} />
+      <div className="surface-ink bleed section-y relative mt-12">
+        <Sticker
+          kind="chip"
+          color="mint"
+          tilt={13}
+          size={48}
+          className="absolute -top-6 right-6 md:right-24"
+        />
+        <div className="measure flex flex-col gap-6">
+          {phase.kind === "waiting" ? (
+            <>
+              <p role="status" className="card measure text-small font-bold">
+                {copy.auth.verify.required}
+              </p>
+              <p>{loginLink}</p>
+            </>
+          ) : null}
 
-      {phase.kind === "waiting" ? (
-        <>
-          <p role="status" className="rounded-base border border-border bg-muted p-3 text-sm">
-            {copy.auth.verify.required}
-          </p>
-          <p className="text-sm">{loginLink}</p>
-        </>
-      ) : null}
+          {phase.kind === "verifying" ? (
+            <p role="status" className="card measure text-small font-bold">
+              {copy.auth.verify.verifying}
+            </p>
+          ) : null}
 
-      {phase.kind === "verifying" ? (
-        <p role="status" className="rounded-base border border-border bg-muted p-3 text-sm">
-          {copy.auth.verify.verifying}
-        </p>
-      ) : null}
+          {phase.kind === "verified" ? (
+            <>
+              <p role="status" className="card measure text-small font-bold">
+                {copy.auth.verify.verified}
+              </p>
+              <p>
+                {authenticated ? (
+                  <Link
+                    href={continuationPath(intent ?? { key: "mypage", ref: null })}
+                    prefetch={false}
+                    className={linkClass}
+                  >
+                    {copy.auth.verify.continue}
+                  </Link>
+                ) : (
+                  loginLink
+                )}
+              </p>
+            </>
+          ) : null}
 
-      {phase.kind === "verified" ? (
-        <>
-          <p role="status" className="rounded-base border border-border bg-muted p-3 text-sm">
-            {copy.auth.verify.verified}
-          </p>
-          <p className="text-sm">
-            {authenticated ? (
-              <Link
-                href={continuationPath(intent ?? { key: "mypage", ref: null })}
-                prefetch={false}
-                className={linkClass}
-              >
-                {copy.auth.verify.continue}
-              </Link>
-            ) : (
-              loginLink
-            )}
-          </p>
-        </>
-      ) : null}
+          {phase.kind === "invalid" ? (
+            <>
+              <ServiceFailure message={copy.auth.verify.invalid} />
+              <p>{loginLink}</p>
+            </>
+          ) : null}
 
-      {phase.kind === "invalid" ? (
-        <>
-          <ServiceFailure message={copy.auth.verify.invalid} />
-          <p className="text-sm">{loginLink}</p>
-        </>
-      ) : null}
-
-      {phase.kind === "unavailable" ? (
-        <>
-          <ServiceFailure message={copy.auth.verify.unavailable} />
-          <div>
-            <Button type="button" variant="outline" onClick={() => void verify()}>
-              {copy.auth.verify.retry}
-            </Button>
-          </div>
-        </>
-      ) : null}
+          {phase.kind === "unavailable" ? (
+            <>
+              <ServiceFailure message={copy.auth.verify.unavailable} />
+              <div>
+                <Button type="button" variant="outline" onClick={() => void verify()}>
+                  {copy.auth.verify.retry}
+                </Button>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

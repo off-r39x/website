@@ -13,6 +13,8 @@ import { ErrorSummary } from "../../presentation/components/error-summary";
 import { FormField } from "../../presentation/components/form-field";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { useRouter, useSearchParams } from "../../routing/navigation";
 import { CartRecovery } from "../cart/cart-recovery";
@@ -36,7 +38,7 @@ import { ServiceFailure } from "./service-failure";
 import { useErrorSummaryFocus } from "./use-error-summary-focus";
 import { useExternalReturn } from "./use-external-return";
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-block py-2";
 // Named so the destination calls below read as page names, not as data.
 const RESET_PAGE = "password-reset";
 
@@ -130,114 +132,131 @@ function LoginForm() {
   }));
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.auth.login.heading}</h1>
-      <ContinuationNoticeView notice={notice} />
-      {showUpdated ? (
-        <p role="status" className="rounded-base border border-border bg-muted p-3 text-sm">
-          {copy.auth.login.passwordUpdated}
-        </p>
-      ) : null}
-      <MethodSelector
-        legend={copy.auth.method.legendLogin}
-        value={method}
-        onChange={onMethodChange}
-        disabled={submitting}
-      />
-      {failedMethod === "google" ? <ServiceFailure message={copy.auth.google.failed} /> : null}
-      {failedMethod === "magic-link" ? (
-        <ServiceFailure message={copy.auth.magicLink.failed} />
-      ) : null}
-      {method === "password" ? (
-        <>
-          {errors.length > 0 ? <ErrorSummary items={summaryItems} summaryRef={summaryRef} /> : null}
-          {failure === "credential" ? (
-            <ServiceFailure message={copy.auth.login.credentialFailure} />
-          ) : null}
-          {failure === "unavailable" ? (
-            <ServiceFailure message={copy.auth.login.unavailable} />
-          ) : null}
-        </>
-      ) : null}
-      {cartBusy ? <p role="status">{copy.auth.login.cartBusy}</p> : null}
-      {cartNeedsRecovery ? <CartRecovery onRecovered={() => setFailure(null)} /> : null}
-      {method === "google" ? (
-        <GoogleSignIn
-          page="login"
-          intent={intent}
-          cartBlocked={cartBlocked}
-          onCartFailure={setFailure}
-          onAttempt={clearFailed}
+    <div className="flex flex-col">
+      <PageHero title={copy.auth.login.heading} />
+      <div className="flex w-full max-w-xl flex-col gap-6">
+        <ContinuationNoticeView notice={notice} />
+        {showUpdated ? (
+          <p role="status" className="card measure text-small font-bold">
+            {copy.auth.login.passwordUpdated}
+          </p>
+        ) : null}
+        <MethodSelector
+          legend={copy.auth.method.legendLogin}
+          value={method}
+          onChange={onMethodChange}
+          disabled={submitting}
         />
-      ) : null}
-      {method === "password" ? (
-        <form
-          noValidate
-          onSubmit={onSubmit}
-          aria-busy={submitting ? true : undefined}
-          className="flex flex-col gap-4"
-        >
-          <FormField
-            id={emailId}
-            label={copy.auth.field.email.label}
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={setEmail}
-            error={errorOf("email")}
+        {failedMethod === "google" ? <ServiceFailure message={copy.auth.google.failed} /> : null}
+        {failedMethod === "magic-link" ? (
+          <ServiceFailure message={copy.auth.magicLink.failed} />
+        ) : null}
+        {method === "password" ? (
+          <>
+            {errors.length > 0 ? (
+              <ErrorSummary items={summaryItems} summaryRef={summaryRef} />
+            ) : null}
+            {failure === "credential" ? (
+              <ServiceFailure message={copy.auth.login.credentialFailure} />
+            ) : null}
+            {failure === "unavailable" ? (
+              <ServiceFailure message={copy.auth.login.unavailable} />
+            ) : null}
+          </>
+        ) : null}
+        {cartBusy ? (
+          <p role="status" className="card measure text-small font-bold">
+            {copy.auth.login.cartBusy}
+          </p>
+        ) : null}
+        {cartNeedsRecovery ? <CartRecovery onRecovered={() => setFailure(null)} /> : null}
+        {method === "google" ? (
+          <GoogleSignIn
+            page="login"
+            intent={intent}
+            cartBlocked={cartBlocked}
+            onCartFailure={setFailure}
+            onAttempt={clearFailed}
           />
-          <FormField
-            id={passwordId}
-            label={copy.auth.field.password.label}
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={setPassword}
-            error={errorOf("password")}
+        ) : null}
+        {method === "password" ? (
+          <form
+            noValidate
+            onSubmit={onSubmit}
+            aria-busy={submitting ? true : undefined}
+            className="flex flex-col gap-4"
+          >
+            <FormField
+              id={emailId}
+              label={copy.auth.field.email.label}
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={setEmail}
+              error={errorOf("email")}
+            />
+            <FormField
+              id={passwordId}
+              label={copy.auth.field.password.label}
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={setPassword}
+              error={errorOf("password")}
+            />
+            <div>
+              <Button type="submit" disabled={submitting || cartBlocked}>
+                {submitting ? copy.auth.form.submitting : copy.auth.login.submit}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+        {method === "magic-link" ? (
+          <MagicLinkForm
+            page="login"
+            intent={intent}
+            cartBlocked={cartBlocked}
+            onCartFailure={setFailure}
+            onAttempt={clearFailed}
           />
-          <div>
-            <Button type="submit" disabled={submitting || cartBlocked}>
-              {submitting ? copy.auth.form.submitting : copy.auth.login.submit}
-            </Button>
-          </div>
-        </form>
-      ) : null}
-      {method === "magic-link" ? (
-        <MagicLinkForm
-          page="login"
-          intent={intent}
-          cartBlocked={cartBlocked}
-          onCartFailure={setFailure}
-          onAttempt={clearFailed}
+        ) : null}
+        {method === "email-otp" ? (
+          <EmailOtpForm
+            mode="login"
+            intent={intent}
+            email={email}
+            onEmailChange={setEmail}
+            cartBlocked={cartBlocked}
+            onCartFailure={setFailure}
+          />
+        ) : null}
+      </div>
+      <div className="surface-ink bleed section-y relative mt-16">
+        <Sticker
+          kind="chip"
+          color="coral"
+          tilt={5}
+          size={48}
+          className="absolute -top-6 right-6 md:right-24"
         />
-      ) : null}
-      {method === "email-otp" ? (
-        <EmailOtpForm
-          mode="login"
-          intent={intent}
-          email={email}
-          onEmailChange={setEmail}
-          cartBlocked={cartBlocked}
-          onCartFailure={setFailure}
-        />
-      ) : null}
-      <ul className="flex flex-col gap-2 text-sm">
-        <li>
-          <Link href={accountPath(RESET_PAGE, intent)} prefetch={false} className={linkClass}>
-            {copy.auth.login.toPasswordReset}
-          </Link>
-        </li>
-        <li>
-          <Link href={accountPath("register", intent)} prefetch={false} className={linkClass}>
-            {copy.auth.login.toRegister}
-          </Link>
-        </li>
-        <li>
-          <Link href={continuationCancelPath(intent)} prefetch={false} className={linkClass}>
-            {copy.auth.login.cancel}
-          </Link>
-        </li>
-      </ul>
+        <ul className="measure flex flex-col gap-2">
+          <li>
+            <Link href={accountPath(RESET_PAGE, intent)} prefetch={false} className={linkClass}>
+              {copy.auth.login.toPasswordReset}
+            </Link>
+          </li>
+          <li>
+            <Link href={accountPath("register", intent)} prefetch={false} className={linkClass}>
+              {copy.auth.login.toRegister}
+            </Link>
+          </li>
+          <li>
+            <Link href={continuationCancelPath(intent)} prefetch={false} className={linkClass}>
+              {copy.auth.login.cancel}
+            </Link>
+          </li>
+        </ul>
+      </div>
     </div>
   );
 }

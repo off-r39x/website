@@ -6,6 +6,8 @@ import { ErrorSummary } from "../../presentation/components/error-summary";
 import { FormField } from "../../presentation/components/form-field";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { useRouter, useSearchParams } from "../../routing/navigation";
 import { CONTEXT_PARAM, readContext, removeContextFromUrl } from "./context-param";
@@ -19,19 +21,28 @@ import { LOGIN_AFTER_UPDATE_PATH } from "./login-notice";
 import { ServiceFailure } from "./service-failure";
 import { useErrorSummaryFocus } from "./use-error-summary-focus";
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-block py-2";
 const REQUEST_AGAIN_PATH = "/account/password-reset";
 
 function InvalidContext() {
   return (
-    <>
-      <ServiceFailure message={copy.auth.resetComplete.invalid} />
-      <p className="text-sm">
-        <Link href={REQUEST_AGAIN_PATH} prefetch={false} className={linkClass}>
-          {copy.auth.resetComplete.requestAgain}
-        </Link>
-      </p>
-    </>
+    <div className="surface-ink bleed section-y relative mt-12">
+      <Sticker
+        kind="chip"
+        color="lemon"
+        tilt={7}
+        size={48}
+        className="absolute -top-6 right-6 md:right-24"
+      />
+      <div className="measure flex flex-col gap-6">
+        <ServiceFailure message={copy.auth.resetComplete.invalid} />
+        <p>
+          <Link href={REQUEST_AGAIN_PATH} prefetch={false} className={linkClass}>
+            {copy.auth.resetComplete.requestAgain}
+          </Link>
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -107,7 +118,7 @@ function ResetCompleteForm() {
   if (context === null || invalidated) return <InvalidContext />;
 
   return (
-    <>
+    <div className="flex w-full max-w-xl flex-col gap-6">
       {errors.length > 0 ? <ErrorSummary items={summaryItems} summaryRef={summaryRef} /> : null}
       {unavailable ? <ServiceFailure message={copy.auth.resetComplete.unavailable} /> : null}
       <form
@@ -141,14 +152,14 @@ function ResetCompleteForm() {
           </Button>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 
 export function PasswordResetCompletePage() {
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.auth.resetComplete.heading}</h1>
+    <div className="flex flex-col">
+      <PageHero title={copy.auth.resetComplete.heading} />
       <Suspense fallback={null}>
         <ResetCompleteForm />
       </Suspense>

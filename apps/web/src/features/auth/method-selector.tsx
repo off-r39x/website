@@ -20,20 +20,21 @@ export function MethodSelector({
 }) {
   const baseId = useId();
   return (
-    <fieldset className="flex flex-col gap-2" disabled={disabled}>
-      <legend className="text-sm font-medium">{legend}</legend>
+    <fieldset className="flex flex-col gap-1" disabled={disabled}>
+      <legend className="field-label mb-2">{legend}</legend>
       {AUTH_METHODS.map((method) => {
         const id = `${baseId}-${method}`;
         return (
-          <div key={method} className="flex items-center gap-2">
+          <div key={method} className="flex min-h-11 items-center gap-3">
             <input
               id={id}
               type="radio"
               name={baseId}
               checked={value === method}
               onChange={() => onChange(method)}
+              className="size-5"
             />
-            <label htmlFor={id} className="text-sm">
+            <label htmlFor={id} className="font-bold">
               {authMethodLabel(method)}
             </label>
           </div>

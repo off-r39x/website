@@ -196,7 +196,7 @@ export function EmailOtpForm({
     <div className="flex flex-col gap-4">
       {failure !== null ? <ServiceFailure message={failureMessage[failure]} /> : null}
       {sent ? (
-        <p role="status" className="rounded-base border border-border bg-muted p-3 text-sm">
+        <p role="status" className="card measure text-small font-bold">
           {copy.auth.otp.sent}
         </p>
       ) : null}

@@ -7,6 +7,8 @@ import { ErrorSummary } from "../../presentation/components/error-summary";
 import { FormField } from "../../presentation/components/form-field";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { useSearchParams } from "../../routing/navigation";
 import {
@@ -18,7 +20,7 @@ import {
 import { ServiceFailure } from "./service-failure";
 import { useErrorSummaryFocus } from "./use-error-summary-focus";
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-block py-2";
 
 type Outcome = "accepted" | "unavailable" | null;
 
@@ -63,46 +65,59 @@ function ResetRequestForm() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.auth.reset.heading}</h1>
-      {errors.length > 0 ? (
-        <ErrorSummary
-          items={errors.map((error) => ({ fieldId: emailId, message: fieldErrorMessage(error) }))}
-          summaryRef={summaryRef}
+    <div className="flex flex-col">
+      <PageHero title={copy.auth.reset.heading} />
+      <div className="flex w-full max-w-xl flex-col gap-6">
+        {errors.length > 0 ? (
+          <ErrorSummary
+            items={errors.map((error) => ({ fieldId: emailId, message: fieldErrorMessage(error) }))}
+            summaryRef={summaryRef}
+          />
+        ) : null}
+        {outcome === "accepted" ? (
+          <p role="status" className="card measure text-small font-bold">
+            {copy.auth.reset.accepted}
+          </p>
+        ) : null}
+        {outcome === "unavailable" ? (
+          <ServiceFailure message={copy.auth.reset.unavailable} />
+        ) : null}
+        <form
+          noValidate
+          onSubmit={onSubmit}
+          aria-busy={submitting ? true : undefined}
+          className="flex flex-col gap-4"
+        >
+          <FormField
+            id={emailId}
+            label={copy.auth.field.email.label}
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={setEmail}
+            error={emailError === undefined ? null : fieldErrorMessage(emailError)}
+          />
+          <div>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? copy.auth.form.submitting : copy.auth.reset.submit}
+            </Button>
+          </div>
+        </form>
+      </div>
+      <div className="surface-ink bleed section-y relative mt-16">
+        <Sticker
+          kind="chip"
+          color="teal"
+          tilt={-4}
+          size={48}
+          className="absolute -top-6 right-6 md:right-24"
         />
-      ) : null}
-      {outcome === "accepted" ? (
-        <p role="status" className="rounded-base border border-border bg-muted p-3 text-sm">
-          {copy.auth.reset.accepted}
+        <p className="measure">
+          <Link href={accountPath("login", intent)} prefetch={false} className={linkClass}>
+            {copy.auth.reset.backToLogin}
+          </Link>
         </p>
-      ) : null}
-      {outcome === "unavailable" ? <ServiceFailure message={copy.auth.reset.unavailable} /> : null}
-      <form
-        noValidate
-        onSubmit={onSubmit}
-        aria-busy={submitting ? true : undefined}
-        className="flex flex-col gap-4"
-      >
-        <FormField
-          id={emailId}
-          label={copy.auth.field.email.label}
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={setEmail}
-          error={emailError === undefined ? null : fieldErrorMessage(emailError)}
-        />
-        <div>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? copy.auth.form.submitting : copy.auth.reset.submit}
-          </Button>
-        </div>
-      </form>
-      <p className="text-sm">
-        <Link href={accountPath("login", intent)} prefetch={false} className={linkClass}>
-          {copy.auth.reset.backToLogin}
-        </Link>
-      </p>
+      </div>
     </div>
   );
 }
