@@ -871,7 +871,8 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
-    /* The Header logo hangs about 52px (desktop) / 64px (mobile) below the bar; keep the title clear of it. */
+    /* The hero's own top room (DESIGN 6.4). The Header logo hangs below the bar and may cross the hero's top left
+       while scrolling; that overlap is accepted and never padded for (DESIGN 8.3). */
     padding-block: var(--sp-9) var(--sp-6);
   }
 
@@ -897,7 +898,7 @@
     gap: var(--sp-2);
   }
 
-  /* ---- Header (DESIGN 8.3; SPEC-050 8.5 keeps CTA, Cart and account visible on every viewport) ------------- */
+  /* ---- Header (DESIGN 8.3, SPEC-050 8.5) ---------------------------------------------------------------- */
   .site-header {
     position: sticky;
     top: 0;
@@ -914,74 +915,141 @@
   .site-header__inner {
     position: relative;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: var(--sp-2);
-    min-height: var(--header-h);
+    height: var(--header-h);
     max-width: calc(var(--content-max) + var(--page-x) * 2);
     margin-inline: auto;
-    padding-block: var(--sp-2);
-    /* The logo is 120px wide and sits at the left; the controls keep clear of it. */
-    padding-inline: calc(var(--page-x) + 120px + var(--sp-4)) var(--page-x);
+    padding-inline: var(--page-x);
   }
 
-  @media (max-width: 767px) {
-    .site-header__inner {
-      padding-inline-start: calc(var(--page-x) + 120px + var(--sp-2));
-    }
-  }
-
+  /* The logo is a 120px sticker 4px from the top that hangs below the bar (DESIGN 8.3, 10). Its overhang crosses
+     the top left of the content on purpose (a quiet-zone exception there): never shrink it, never pad for it. */
   .site-header__home {
     position: absolute;
     top: var(--sp-1);
     left: var(--page-x);
     display: block;
-    width: 120px;
     border-radius: var(--r-card);
+    transition:
+      opacity var(--dur-base) linear,
+      visibility var(--dur-base) linear;
   }
 
   .site-header__logo {
     display: block;
     width: 120px;
     height: 120px;
-    transition:
-      opacity var(--dur-base) linear,
-      visibility var(--dur-base) linear;
   }
 
+  /* Text stand-in only when no logo asset is configured (SPEC-050 24.3). */
   .site-header__name {
-    display: none;
-  }
-
-  /* While the Home hero shows the big logo, the Header does not show a second one (DESIGN 6.3, 7.2). The link
-     stays the site name link (SPEC-050 8.5), with the name as text in place of the logo. */
-  html[data-hero-in-view] .site-header__logo {
-    visibility: hidden;
-    opacity: 0;
-    position: absolute;
-  }
-
-  html[data-hero-in-view] .site-header__name {
     display: block;
+    max-width: 160px;
     padding-block: var(--sp-3);
     font-size: var(--fs-small);
     font-weight: 900;
     line-height: 1.4;
   }
 
-  .site-header__plain {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding-inline: var(--sp-2);
-    border-radius: var(--r-field);
-    font-weight: 700;
-    text-decoration: none;
+  /* While the Home hero shows the big logo the slot stays empty: hidden, so the invisible link takes no focus
+     (DESIGN 6.3, 8.3). Opacity only; the logo itself never moves. */
+  html[data-hero-in-view] .site-header__home {
+    visibility: hidden;
+    opacity: 0;
   }
 
-  .site-header__plain:hover {
+  /* Wide screens: navigation, Cart, account and CTA in one row on the right. Narrow: only the menu button. The row
+     of eight destinations plus the 120px logo does not fit one 72px bar below about 1200px, and DESIGN 8.3 rules
+     out both a second row and a smaller logo, so the menu-button layout runs up to 1279px. */
+  .site-header__bar {
+    display: none;
+  }
+
+  @media (min-width: 1280px) {
+    .site-header__bar {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-5);
+    }
+
+    /* Two classes, so it wins over .menu-button below. */
+    .menu-button.site-header__menu-button {
+      display: none;
+    }
+  }
+
+  /* Nav item: 44px tap height; the current page and hover show a 6px mint band with a 3px ink line, 4px above
+     the link's bottom edge, the hover band growing from the left (DESIGN 8.3). */
+  .site-nav__link {
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: var(--fs-body);
+    font-weight: 700;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .site-nav__link::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    right: 0;
+    bottom: var(--sp-1);
+    left: 0;
+    height: 6px;
+    border-bottom: var(--line-ui) solid var(--ink);
     background: var(--mint);
+    scale: 0 1;
+    transform-origin: left;
+    transition: scale var(--dur-fast) var(--ease-snap);
+  }
+
+  .site-nav__link:hover::after,
+  .site-nav__link[aria-current="page"]::after,
+  .site-nav__link[aria-expanded="true"]::after {
+    scale: 1 1;
+  }
+
+  /* 48px round menu button with a 3px ink edge (DESIGN 8.3). */
+  .menu-button {
+    display: inline-grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border: var(--line-ui) solid var(--ink);
+    border-radius: 50%;
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) linear;
+  }
+
+  .menu-button:hover {
+    background: var(--mint);
+  }
+
+  .menu-button--close {
+    border-color: var(--paper);
+    background: transparent;
+    color: var(--paper);
+  }
+
+  .menu-button--close:hover {
+    background: transparent;
+    color: var(--mint);
+    border-color: var(--mint);
   }
 
   .count-seal {
@@ -993,13 +1061,132 @@
     border: 2px solid var(--ink);
     border-radius: var(--r-pill);
     background: var(--lemon);
+    color: var(--ink);
     font-family: var(--font-display);
     font-size: var(--fs-small);
     font-weight: 700;
     line-height: 1;
   }
 
-  /* Menu panels: black surface dropping from the Header (a disclosure, SPEC-050 8.5 / contract S10). */
+  /* Mobile menu (DESIGN 8.3): a full-screen black surface. It opens as a diamond growing from the menu button
+     (--mx / --my, measured on open); the links rise 16px, 80ms after it, 40ms apart. */
+  .mobile-menu {
+    isolation: isolate;
+  }
+
+  /* Clips the giant frame to the dialog, so it never widens the scrollable area. */
+  .mobile-menu__backdrop {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .motion-ok .mobile-menu {
+    animation: menu-diamond var(--dur-base) var(--ease-snap);
+  }
+
+  /* The giant white-and-grey frame sits right of the left-aligned links and is cut off on the empty side, so its
+     lines never cross the white text (DESIGN 7.3). */
+  .mobile-menu__diamond {
+    position: absolute;
+    top: 50%;
+    left: 72%;
+    width: 120vmax;
+    max-width: none;
+    translate: 0 -50%;
+  }
+
+  .mobile-menu__bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: var(--header-h);
+    padding-inline: var(--page-x);
+  }
+
+  .mobile-menu__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-6);
+    padding: var(--sp-4) var(--page-x) var(--sp-8);
+  }
+
+  .mobile-menu__list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-menu__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: 44px;
+    color: var(--paper);
+    font-family: "Mochiy Pop One", var(--font-display);
+    font-size: 36px;
+    font-weight: 400;
+    line-height: 1.4;
+    text-decoration: none;
+  }
+
+  .mobile-menu__link:hover,
+  .mobile-menu__link[aria-current="page"] {
+    color: var(--mint);
+  }
+
+  .mobile-menu__link[aria-current="page"] {
+    text-decoration: underline var(--line-ui) var(--mint);
+    text-underline-offset: 0.2em;
+  }
+
+  .mobile-menu__sublink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--paper);
+    font-family: var(--font-body);
+    font-size: var(--fs-h3);
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: left;
+    text-decoration: underline var(--line-ui) var(--mint);
+    text-underline-offset: 0.25em;
+    cursor: pointer;
+  }
+
+  .mobile-menu__sublink:hover {
+    color: var(--mint);
+  }
+
+  .motion-ok .mobile-menu li,
+  .motion-ok .mobile-menu__enter {
+    animation: menu-link-in var(--dur-base) var(--ease-snap) both;
+    animation-delay: 80ms;
+  }
+
+  /* sibling-index() staggers the links 40ms apart where supported; elsewhere they rise together after 80ms. */
+  @supports (animation-delay: calc(sibling-index() * 1ms)) {
+    .motion-ok .mobile-menu li,
+    .motion-ok .mobile-menu__enter {
+      animation-delay: calc(80ms + (var(--menu-offset, 0) + sibling-index() - 1) * 40ms);
+    }
+  }
+
+  .mobile-menu__account {
+    --menu-offset: 7;
+  }
+
+  .mobile-menu__cta {
+    --menu-offset: 13;
+  }
+
+  /* Account menu: a disclosure dropping from the wide Header (black surface). */
   .menu-panel {
     position: absolute;
     z-index: var(--z-overlay);
@@ -1029,14 +1216,8 @@
     text-decoration: none;
   }
 
-  .menu-panel__link:hover,
-  .menu-panel__link[aria-current="page"] {
+  .menu-panel__link:hover {
     color: var(--mint);
-  }
-
-  .menu-panel__link[aria-current="page"] {
-    text-decoration: underline 3px var(--mint);
-    text-underline-offset: 0.25em;
   }
 
   .menu-panel__action {
@@ -1216,6 +1397,33 @@
   }
   70% {
     rotate: calc(var(--tilt, 0deg) + 3deg);
+  }
+}
+
+/* A diamond opening from the menu button; calc(100vw + 100vh) reaches the farthest corner from any point. */
+@keyframes menu-diamond {
+  from {
+    clip-path: polygon(
+      var(--mx) var(--my),
+      var(--mx) var(--my),
+      var(--mx) var(--my),
+      var(--mx) var(--my)
+    );
+  }
+  to {
+    clip-path: polygon(
+      var(--mx) calc(var(--my) - 100vw - 100vh),
+      calc(var(--mx) + 100vw + 100vh) var(--my),
+      var(--mx) calc(var(--my) + 100vw + 100vh),
+      calc(var(--mx) - 100vw - 100vh) var(--my)
+    );
+  }
+}
+
+@keyframes menu-link-in {
+  from {
+    opacity: 0;
+    translate: 0 16px;
   }
 }
 
@@ -1419,7 +1627,8 @@
 @media (prefers-reduced-motion: reduce) {
   .btn,
   .card--link,
-  .site-header__logo {
+  .site-header__home,
+  .site-nav__link::after {
     transition-property: color, background-color, border-color, opacity, visibility;
   }
 

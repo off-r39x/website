@@ -29,16 +29,21 @@ describe("TC-PG-PUB-001-243 S10 structure: Header menu, Floating Ticket Button, 
     expect(header).not.toMatch(/hidden md:block/);
   });
 
-  it("builds the menu as a disclosure with aria-expanded, aria-controls and Escape, not a dialog or an ARIA menu", () => {
+  it("builds the narrow-screen menu as a full-screen Dialog with focus moved in and a close button, not an ARIA menu (SPEC-050 8.5 v2.3.0)", () => {
     const menu = read("src/presentation/layout/header-menu.tsx");
     expect(menu).toMatch(/^\s*["']use client["']/);
-    expect(menu).toMatch(/aria-expanded/);
-    expect(menu).toMatch(/aria-controls/);
-    expect(menu).toMatch(/Escape/);
+    // Base UI Dialog: aria-expanded on the trigger, focus trap, Escape and focus return.
+    expect(menu).toMatch(/ui\/dialog/);
+    expect(menu).toMatch(/side="full"/);
+    expect(menu).toMatch(/initialFocus=\{closeRef\}/);
+    expect(menu).toMatch(/finalFocus=/);
     expect(menu).toMatch(/copy\.layout\.menu\.button/);
-    expect(menu).not.toMatch(/role=["'](menu|menuitem|dialog)["']/);
-    expect(menu).not.toMatch(/ui\/dialog/);
-    expect(menu).not.toMatch(/md:hidden/);
+    expect(menu).toMatch(/copy\.layout\.menu\.close/);
+    expect(menu).not.toMatch(/role=["'](menu|menuitem)["']/);
+    // The CTA is the last destination in the menu (DESIGN 8.3).
+    expect(menu.lastIndexOf("CTA_HREF")).toBeGreaterThan(
+      menu.lastIndexOf("ACCOUNT_MENU_ITEMS.map"),
+    );
   });
 
   it("renders the Floating Ticket Button as a fixed Link to the Entry Ticket page with its own label", () => {

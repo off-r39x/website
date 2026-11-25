@@ -2,14 +2,20 @@
 
 import { useCallback } from "react";
 import { assets } from "../../config/assets";
-import { CTA_HREF, GUEST_ACCOUNT_LINKS, MYPAGE_HREF, SITE_NAME } from "../../config/site";
+import {
+  CTA_HREF,
+  GUEST_ACCOUNT_LINKS,
+  MYPAGE_HREF,
+  PRIMARY_NAV,
+  SITE_NAME,
+} from "../../config/site";
 import { Link } from "../../routing/link";
 import { buttonVariants } from "../components/ui/button";
-import { cn } from "../components/ui/cn";
 import { copy } from "../copy/ja";
 import { AccountMenu } from "./account-menu";
 import { CartLink } from "./cart-link";
 import { HeaderMenu } from "./header-menu";
+import { PrimaryNav } from "./primary-nav";
 import { SiteNameLink } from "./site-name-link";
 
 export type HeaderSession = "loading" | "guest" | "authenticated";
@@ -21,8 +27,7 @@ type Props = {
   onLogout: () => void;
 };
 
-const plainLinkClass = "site-header__plain text-small md:text-body";
-
+const NAV_ITEMS = PRIMARY_NAV.filter((item) => item.collapsible);
 const LOGIN = GUEST_ACCOUNT_LINKS.find((link) => link.key === "login");
 const REGISTER = GUEST_ACCOUNT_LINKS.find((link) => link.key === "register");
 
@@ -44,10 +49,10 @@ function useScrolledSentinel() {
 }
 
 /**
- * Global Header (SPEC-050 8.5, DESIGN 8.3). DOM order is the Tab order: site name, the menu button, the main CTA,
- * Cart, then the account area. The logo is a 120px sticker hanging below the bar at the left; CTA, Cart and the
- * account links stay on the bar on every viewport (SPEC-050 8.5), so on a narrow screen the bar wraps instead of
- * hiding them behind the menu as DESIGN 8.3 would.
+ * Global Header (SPEC-050 8.5, DESIGN 8.3): a white bar, 72px (60px narrow). The logo is a 120px sticker 4px from
+ * the top, hanging below the bar at the left; it is hidden (slot kept) while the Home hero shows the logo. Wide
+ * screens keep the navigation, Cart, the account area and the secondary CTA on the bar, in that Tab order; narrow
+ * screens hide them (display: none) and show only the menu button, whose dialog holds the same destinations.
  */
 export function GlobalHeader({ cartCount, session, pathname, onLogout }: Props) {
   const sentinel = useScrolledSentinel();
@@ -62,55 +67,59 @@ export function GlobalHeader({ cartCount, session, pathname, onLogout }: Props) 
         <div className="site-header__inner">
           <SiteNameLink pathname={pathname} className="site-header__home">
             {assets.logo === null ? (
-              SITE_NAME
+              <span className="site-header__name">{SITE_NAME}</span>
             ) : (
-              <>
-                <img
-                  src={assets.logo.src}
-                  alt={assets.logo.alt}
-                  width={assets.logo.width}
-                  height={assets.logo.height}
-                  decoding="async"
-                  className="site-header__logo"
-                />
-                <span className="site-header__name">{SITE_NAME}</span>
-              </>
+              <img
+                src={assets.logo.src}
+                alt={assets.logo.alt}
+                width={assets.logo.width}
+                height={assets.logo.height}
+                decoding="async"
+                className="site-header__logo"
+              />
             )}
           </SiteNameLink>
-          <HeaderMenu currentPath={pathname} showRegister={session !== "authenticated"} />
-          <Link
-            prefetch={false}
-            href={CTA_HREF}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "max-md:px-2 max-md:text-small max-md:tracking-normal",
-            )}
-          >
-            {copy.layout.cta.buyTickets}
-          </Link>
-          <CartLink count={cartCount} className={plainLinkClass} />
-          {session === "authenticated" ? (
-            <>
-              <Link prefetch={false} href={MYPAGE_HREF} className={plainLinkClass}>
-                {copy.layout.account.mypage}
+          <div className="site-header__bar">
+            <PrimaryNav
+              items={NAV_ITEMS}
+              label={copy.layout.nav.primaryLabel}
+              currentPath={pathname}
+              listClassName="flex-nowrap"
+              linkClassName="site-nav__link"
+            />
+            <CartLink count={cartCount} className="site-nav__link" />
+            {session === "authenticated" ? (
+              <>
+                <Link prefetch={false} href={MYPAGE_HREF} className="site-nav__link">
+                  {copy.layout.account.mypage}
+                </Link>
+                <AccountMenu onLogout={onLogout} />
+              </>
+            ) : null}
+            {session === "guest" && LOGIN !== undefined ? (
+              <Link prefetch={false} href={LOGIN.href} className="site-nav__link">
+                {copy.layout.account.login}
               </Link>
-              <AccountMenu onLogout={onLogout} />
-            </>
-          ) : null}
-          {session === "guest" && LOGIN !== undefined ? (
-            <Link prefetch={false} href={LOGIN.href} className={plainLinkClass}>
-              {copy.layout.account.login}
-            </Link>
-          ) : null}
-          {session === "guest" && REGISTER !== undefined ? (
+            ) : null}
+            {session === "guest" && REGISTER !== undefined ? (
+              <Link prefetch={false} href={REGISTER.href} className="site-nav__link">
+                {copy.layout.account.register}
+              </Link>
+            ) : null}
             <Link
               prefetch={false}
-              href={REGISTER.href}
-              className={cn(plainLinkClass, "hidden md:inline-flex")}
+              href={CTA_HREF}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              {copy.layout.account.register}
+              {copy.layout.cta.buyTickets}
             </Link>
-          ) : null}
+          </div>
+          <HeaderMenu
+            currentPath={pathname}
+            cartCount={cartCount}
+            session={session}
+            onLogout={onLogout}
+          />
         </div>
       </header>
     </>

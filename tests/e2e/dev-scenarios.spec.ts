@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
+import { checkHeader } from "../harness/browser/header-menu.ts";
 import { SCENARIO_CONTROLS } from "../harness/browser/scenario-controls.ts";
 import {
   authenticatedSession,
@@ -264,15 +265,15 @@ test.describe("TC-DEV-WEB-013-204 unavailable browser storage does not crash the
     const runtime = watchRuntimeErrors(page);
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: copy.layout.cta.buyTickets, exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: copy.layout.cart.label, exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: copy.layout.account.login, exact: true }),
-    ).toBeVisible();
+    await checkHeader(page, (h) =>
+      expect(h.getByRole("link", { name: copy.layout.cta.buyTickets, exact: true })).toBeVisible(),
+    );
+    await checkHeader(page, (h) =>
+      expect(h.getByRole("link", { name: copy.layout.cart.label, exact: true })).toBeVisible(),
+    );
+    await checkHeader(page, (h) =>
+      expect(h.getByRole("link", { name: copy.layout.account.login, exact: true })).toBeVisible(),
+    );
 
     await page.goto("/dev/scenarios");
     await expect(

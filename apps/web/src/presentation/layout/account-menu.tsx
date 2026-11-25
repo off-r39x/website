@@ -3,7 +3,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ACCOUNT_MENU_ITEMS } from "../../config/site";
 import { Link } from "../../routing/link";
-import { Button } from "../components/ui/button";
 import { copy } from "../copy/ja";
 
 /** Disclosure menu of the Mypage destinations plus Logout (a button, not a Link). */
@@ -34,18 +33,16 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div ref={rootRef}>
-      <Button
+      <button
         ref={buttonRef}
         type="button"
-        variant="outline"
-        size="sm"
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen((value) => !value)}
-        className={open ? "bg-mint" : ""}
+        className="site-nav__link"
       >
         {copy.layout.account.menuButton}
-      </Button>
+      </button>
       {open ? (
         <nav
           id={menuId}

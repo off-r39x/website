@@ -236,12 +236,6 @@ export const removeButton = (scope: Locator): Locator =>
 /** The page-level add-result live region (role=status, present and empty before the first add). */
 export const liveRegion = (page: Page): Locator => mainOf(page).locator('[role="status"]');
 
-export const headerCartLink = (page: Page, count: number | null = null): Locator =>
-  page.getByRole("banner").getByRole("link", {
-    name: count === null ? copy.layout.cart.label : copy.layout.cart.labelWithCount(count),
-    exact: true,
-  });
-
 export const proceedButton = (page: Page): Locator =>
   mainOf(page).getByRole("button", { name: copy.cart.proceed.label, exact: true });
 

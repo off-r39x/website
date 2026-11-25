@@ -3347,6 +3347,7 @@
       "suite": "e2e-ui-mock",
       "upstream_rule_ids": [
         "PG-PUB-001",
+        "SPEC-050-24.3",
         "SPEC-050-8.2",
         "SPEC-050-8.5",
         "SPEC-050-31-29",
@@ -3364,7 +3365,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "guest header shows site name link to /, CTA to /entry, Cart to /cart and Login; the primary navigation is collapsed behind the Header menu button on both viewports; registration stays in the desktop header only"
+        "the guest reaches the 4 navigation Links, CTA, Cart, Login and registration (on the 72px bar at 1280px and wider; in the menu dialog below, where the 60px bar holds only the logo and the 48px menu button); the 120px logo sits 4px from the top; no member-only controls"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -3499,6 +3500,7 @@
       "suite": "e2e-ui-mock",
       "upstream_rule_ids": [
         "PG-PUB-001",
+        "SPEC-050-24.3",
         "SPEC-050-25",
         "TST-E2E-003",
         "TST-E2E-004",
@@ -3514,7 +3516,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "tab order is skip link, site name, nav / menu, CTA, Cart, account links; skip link targets the single main landmark and moves focus"
+        "Tab order: skip link, site name, then the 4 navigation Links, Cart, Login, registration and the CTA on the wide bar, or the menu button on narrow layouts; on Home the hidden logo (visibility hidden, slot kept) takes no focus while the hero shows the logo"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -3528,6 +3530,7 @@
       "suite": "e2e-ui-mock",
       "upstream_rule_ids": [
         "PG-PUB-001",
+        "SPEC-050-24.3",
         "SPEC-050-8.5",
         "SPEC-050-24.1",
         "SPEC-050-25",
@@ -3545,7 +3548,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "CTA, Cart and Login stay in the viewport with no horizontal scroll on both viewports; the Header menu opens a navigation of the 4 Links (S10 replaced the mobile drawer), closes on selection and keeps CTA / Cart / Login in the Header"
+        "at 375 / 768 / 1024 / 1280 / 1440px no horizontal scroll and the CTA, Cart, Login, registration and the 4 navigation Links are reachable (one 72px row right of the logo on the wide bar, the menu dialog otherwise); the menu dialog lists the CTA last"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -14250,6 +14253,7 @@
       "suite": "e2e-ui-mock",
       "upstream_rule_ids": [
         "PG-PUB-001",
+        "SPEC-050-24.3",
         "SPEC-050-8.5",
         "SPEC-050-25",
         "TST-E2E-003",
@@ -14266,7 +14270,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "Header menu button toggles aria-expanded with aria-controls, panel rendered only while open, 4 Links (no menuitems), keyboard operable, current page marked, inside the viewport"
+        "the menu button toggles a full-screen black dialog (aria-expanded), focus moves to its close button and stays inside on Tab / Shift+Tab; it lists the 4 navigation Links, Cart, the account links and the CTA last, marks the current page, has no menuitems and no horizontal overflow"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -14280,6 +14284,7 @@
       "suite": "e2e-ui-mock",
       "upstream_rule_ids": [
         "PG-PUB-001",
+        "SPEC-050-24.3",
         "SPEC-050-8.5",
         "SPEC-050-25",
         "TST-E2E-003",
@@ -14296,7 +14301,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "Header menu closes on Escape (focus returns to the button), outside press, selecting a link and route change; Back does not reopen it"
+        "Escape and the close button close the menu and return focus to the menu button; selecting a link navigates, closes it and leaves focus to the destination; Back does not reopen it; it opens again after a navigation"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],

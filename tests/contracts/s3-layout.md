@@ -300,15 +300,10 @@ export function SessionProvider(props: { children: ReactNode; port?: AuthPort })
 
 ### 4.2 Header（`<header>`、固定表示）
 
-- `position: fixed`（または `sticky`）で top 0。**ページを scroll しても viewport の上端に表示され続ける**（`boundingBox().y` が 0）。fixed の場合、本文が Header の裏に隠れないよう `main` に上余白を付ける。
-- DOM 順（= Tab 順。SPEC-050 §25）:
-  1. サイト名 Link（accessible name = `SITE_NAME`、`href="/"`。`assets.logo` が `null` ならテキストのみ。見出しにしない）
-  2. **desktop（md 以上）**: `<nav aria-label={copy.layout.nav.primaryLabel}>` に `collapsible:true` の 4 link（名前は `copy.layout.nav.items.{event,entry,karaoke,goods}`、href は `PRIMARY_NAV`）。**mobile（md 未満）**: nav の代わりに Drawer の trigger button（§5）
-  3. 主要 CTA Link（§4.4）
-  4. Cart Link（§4.3）
-  5. Account area（§4.6 / §4.7）
-- desktop の nav と mobile の trigger は CSS の `hidden` / `md:hidden` ではなく、**非表示側が accessibility tree に出ない**ようにする（`display:none` ならよい）。
-- mobile（412px）で CTA、Cart、Login（または Mypage）が**すべて viewport 内に表示**され、**横 scroll が発生しない**（`documentElement.scrollWidth <= clientWidth`）。サイト名は省略表示してよいが Link として focus できる。
+- `position: sticky` で top 0。**ページを scroll しても viewport の上端に表示され続ける**（`boundingBox().y` が 0）。
+- 配置・DOM 順・Tab 順・メニューは **S10 契約 §2（SPEC-050 v2.3.0 §8.5、docs/DESIGN.md §8.3）** に従う。要約: 1280px 以上はサイト名 → 4 nav Link → Cart → Account → 主要 CTA をバーに 1 行で常時表示。1280px 未満はサイト名とメニューボタンだけで、残りは全画面メニュー Dialog（CTA が最後）。
+- 非表示側は `display:none` で、accessibility tree に出ない。
+- どの幅でも**横 scroll が発生しない**（`documentElement.scrollWidth <= clientWidth`）。CTA、Cart、Login（または Mypage）は、狭い幅ではメニュー Dialog の中で viewport 内に表示される。サイト名（ロゴ）は Home のヒーロー表示中は非表示（S10 §2）。
 
 ### 4.3 Cart Link
 
@@ -318,7 +313,7 @@ export function SessionProvider(props: { children: ReactNode; port?: AuthPort })
 
 ### 4.4 主要 CTA
 
-- `<a href="/entry">` accessible name `copy.layout.cta.buyTickets`（`チケットを購入する`）。Guest にも Authenticated にも**同じ href** で常時表示。Drawer の外（Header 直下）に置く。Button 風の見た目でよいが `<a>`（Navigation は Link、SPEC-050 §25）。
+- `<a href="/entry">` accessible name `copy.layout.cta.buyTickets`（`チケットを購入する`）。Guest にも Authenticated にも**同じ href**。広い幅はバー（副ボタン）、狭い幅はメニュー Dialog の最後（S10 §2）。Button 風の見た目でよいが `<a>`（Navigation は Link、SPEC-050 §25）。
 
 ### 4.5 Footer（`<footer>`）
 
@@ -329,13 +324,13 @@ export function SessionProvider(props: { children: ReactNode; port?: AuthPort })
 
 ### 4.6 Guest の Account area（session が `ready` かつ `guest`、または `unavailable`）
 
-- Link `ログイン`（`copy.layout.account.login`、`/account/login`）は **desktop / mobile とも Header 直下に常時表示**（Drawer の外）。
-- Link `アカウント登録`（`copy.layout.account.register`、`/account/register`）: **desktop は Header 直下**、**mobile は Drawer 内**（Header 直下に出さない）。
+- Link `ログイン`（`copy.layout.account.login`、`/account/login`）と Link `アカウント登録`（`copy.layout.account.register`、`/account/register`）: 広い幅はバー、狭い幅はメニュー Dialog の中（S10 §2）。
 - Mypage 内の本人データ Link、Logout、`マイページ` を出さない。
 
 ### 4.7 Authenticated の Account area（session が `ready` かつ `authenticated`）
 
-- Link `マイページ`（`copy.layout.account.mypage`、`/mypage`）を Header 直下に常時表示（Drawer の外）。`ログイン` / `アカウント登録` は出さない。
+- Link `マイページ`（`copy.layout.account.mypage`、`/mypage`）: 広い幅はバー、狭い幅はメニュー Dialog の中。`ログイン` / `アカウント登録` は出さない。
+- 狭い幅のメニュー Dialog では、Account menu の 5 Link とログアウトを `<nav aria-label="アカウント">` に直接並べる（disclosure にしない。S10 §2）。以下は広い幅の Account menu。
 - Account menu（`AccountMenu`）: `<button type="button" aria-expanded aria-controls>` 名前 `アカウントメニュー`（`copy.layout.account.menuButton`）。
   - 閉じているとき `aria-expanded="false"`、メニュー内容は表示されない。クリックで `aria-expanded="true"` になり、`<nav aria-label="アカウント">`（`copy.layout.account.menuLabel`）が表示される。
   - 内容: `ACCOUNT_MENU_ITEMS` の 5 Link（名前 `プロフィール`、`注文`、`Entry Ticket`、`Karaoke`、`Goods`。`copy.layout.account.{profile,orders,entryTickets,karaoke,goods}`）と、`<button type="button">` `ログアウト`（`copy.layout.account.logout`）。Logout は **Link ではなく button**（SPEC-050 §25）。
@@ -344,17 +339,9 @@ export function SessionProvider(props: { children: ReactNode; port?: AuthPort })
   - Logout は Browser 側の Cart も clear する（FR-CRT-012、SPEC-050 §15.6、AR-SES-009、UF-AUTH-004）: `signOut()` が終わったあと（reject しても）shell が Cart store の `clear()` を呼び、localStorage の `r39x.cart.v1` が削除され、Header の件数付き Cart Link が消える（件数なしの `カート` Link になる）。provider 側の失敗でも壊れた Cart でも同じ。Guest → 初回 Login では Cart に触れない（`tests/e2e/cart-store.spec.ts` TC-PG-CRT-001-523。契約は s5-cart.md §2.3 / §5.3 / §8）。
 - session が `loading` の間、Account area には `ログイン` も `マイページ` も出さない（placeholder だけ。誤った状態のちらつきを避ける）。
 
-## 5. Mobile Drawer（md 未満）
+## 5. Mobile Drawer（廃止）
 
-- trigger: `<button type="button" aria-expanded aria-controls>` 名前 `メニューを開く`（`copy.layout.drawer.open`）。閉じているとき `aria-expanded="false"`、`role="dialog"` の要素は DOM に**存在しない**（または非表示）。
-- 開く: `role="dialog"`、accessible name `メニュー`（`copy.layout.drawer.title`）、`aria-modal`。`@base-ui/react` の Dialog ベース。
-  - 開いた直後に focus が dialog **内**へ移る。
-  - **focus trap**: Tab / Shift+Tab を何度押しても `document.activeElement` は dialog 内に留まる。Drawer の外（CTA、Cart、skip link など）へ focus が出ない。
-  - `Escape` で閉じ、**focus が trigger（`メニューを開く`）へ戻る**。
-  - dialog 内に close button（名前 `メニューを閉じる`、`copy.layout.drawer.close`）。
-  - 内容: `<nav aria-label="メインナビゲーション">` に `collapsible:true` の 4 Link（`Event`、`Entry Ticket`、`Karaoke`、`Goods`）。Guest のときは Link `アカウント登録` も含む（§4.6）。**CTA、Cart、`ログイン`、`マイページ` は Drawer の外（Header）にある**。
-  - Link を選んで遷移したら Drawer は閉じる（layout は遷移で unmount されないため、pathname の変化で閉じる）。
-- desktop（md 以上）では trigger も dialog も出ない。
+旧 Drawer は S10 で disclosure に置き換え、SPEC-050 v2.3.0 で全画面のメニュー Dialog に置き換えた。現行の契約は S10 契約 §2。
 
 ## 6. システムページ
 

@@ -65,14 +65,6 @@ export const linkIn = (page: Page, name: string): Locator =>
 export const alertsIn = (page: Page): Locator => mainOf(page).locator('[role="alert"]');
 export const statusesIn = (page: Page): Locator => mainOf(page).locator('[role="status"]');
 
-export const headerBanner = (page: Page): Locator => page.getByRole("banner");
-export const headerLogin = (page: Page): Locator =>
-  headerBanner(page).getByRole("link", { name: copy.layout.account.login, exact: true });
-export const headerMypage = (page: Page): Locator =>
-  headerBanner(page).getByRole("link", { name: copy.layout.account.mypage, exact: true });
-export const accountMenuButton = (page: Page): Locator =>
-  headerBanner(page).getByRole("button", { name: copy.layout.account.menuButton, exact: true });
-
 /** Fills Login and submits with the form's own button (the Header also has a "ログイン" link). */
 export async function loginWith(
   page: Page,
@@ -82,15 +74,6 @@ export async function loginWith(
   await field(page, copy.auth.field.email.label).fill(email);
   await field(page, copy.auth.field.password.label).fill(password);
   await submitButton(page, copy.auth.login.submit).click();
-}
-
-/** Opens the Account menu and presses Logout. */
-export async function logoutViaMenu(page: Page): Promise<void> {
-  await accountMenuButton(page).click();
-  await page
-    .getByRole("navigation", { name: copy.layout.account.menuLabel })
-    .getByRole("button", { name: copy.layout.account.logout, exact: true })
-    .click();
 }
 
 // ---- state readers -------------------------------------------------------------------------

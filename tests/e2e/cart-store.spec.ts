@@ -5,7 +5,6 @@ import {
   cartEntries,
   entryLine,
   goodsLine,
-  headerCartLink,
   mainOf,
   offeringName,
   openSecondTab,
@@ -16,6 +15,13 @@ import {
   type StoredLine,
   writeStorage,
 } from "../harness/browser/cart.ts";
+import {
+  clickHeaderCartLink,
+  expectHeaderCartLink,
+  expectHeaderLogin,
+  expectNoHeaderCartCount,
+  logoutViaHeader,
+} from "../harness/browser/header-menu.ts";
 import { gotoHydrated } from "../harness/browser/hydration.ts";
 import { fixClock } from "../harness/browser/public.ts";
 import {
@@ -45,16 +51,14 @@ test.describe("TC-PG-CRT-001-521 the Header count follows every change in the sa
     page,
   }) => {
     await openCart(page, [entryLine(OFFERING.regular, 1), goodsLine(GOODS.tshirt, 1)]);
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
     await quantityInput(rowByHeading(page, offeringName(OFFERING.regular))).fill("4");
-    await expect(headerCartLink(page, 5)).toBeVisible();
+    await expectHeaderCartLink(page, 5);
     await page.getByRole("main").getByRole("button", { name: copy.cart.remove }).first().click();
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     await page.getByRole("main").getByRole("button", { name: copy.cart.remove }).first().click();
-    await expect(headerCartLink(page, null)).toBeVisible();
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: /カート（\d+点）/ }),
-    ).toHaveCount(0);
+    await expectHeaderCartLink(page, null);
+    await expectNoHeaderCartCount(page);
   });
 
   test("adding on the Entry page shows the new count in the Header at once, and it is the same count on /cart", async ({
@@ -65,13 +69,13 @@ test.describe("TC-PG-CRT-001-521 the Header count follows every change in the sa
     await gotoHydrated(page, "/entry");
     const row = rowByHeading(page, offeringName(OFFERING.regular));
     await addButton(row).click();
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     await addButton(row).click();
-    await expect(headerCartLink(page, 2)).toBeVisible();
-    await headerCartLink(page, 2).click();
+    await expectHeaderCartLink(page, 2);
+    await clickHeaderCartLink(page, 2);
     await expect(page).toHaveURL(/\/cart$/);
     await expect(rows(page)).toHaveCount(1);
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
   });
 });
 
@@ -81,7 +85,7 @@ test.describe("TC-PG-CRT-001-522 another tab's change reaches this tab, includin
     context,
   }) => {
     await openCart(page, [entryLine(OFFERING.regular, 1)]);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     const other = await openSecondTab(context);
     await other.goto("/entry");
     const row = rowByHeading(other, offeringName(OFFERING.limit));
@@ -91,7 +95,7 @@ test.describe("TC-PG-CRT-001-522 another tab's change reaches this tab, includin
       .poll(() => readCart(other))
       .toEqual(stored([entryLine(OFFERING.regular, 1), entryLine(OFFERING.limit, 2)]));
     await expect(rows(page)).toHaveCount(2);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     await expect(rowByHeading(page, offeringName(OFFERING.limit))).toBeVisible();
     await other.close();
   });
@@ -105,7 +109,7 @@ test.describe("TC-PG-CRT-001-522 another tab's change reaches this tab, includin
     await other.goto("/");
     await writeStorage(other, KEYS.cart, JSON.stringify(stored([entryLine(OFFERING.regular, 3)])));
     await expect(quantityInput(rows(page).nth(0))).toHaveValue("3");
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     await other.evaluate((key) => window.localStorage.removeItem(key), KEYS.cart);
     await expect(main(page)).toContainText(copy.cart.empty);
     await expect(rows(page)).toHaveCount(0);
@@ -135,14 +139,12 @@ test.describe("TC-PG-CRT-001-522 another tab's change reaches this tab, includin
     await fixClock(page);
     await seedLocalStorage(page, cartEntries([goodsLine(GOODS.tshirt, 3)]));
     await gotoHydrated(page, "/");
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     const other = await openSecondTab(context);
     await other.goto("/");
     await other.evaluate(() => window.localStorage.clear());
-    await expect(headerCartLink(page, null)).toBeVisible();
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: /カート（\d+点）/ }),
-    ).toHaveCount(0);
+    await expectHeaderCartLink(page, null);
+    await expectNoHeaderCartCount(page);
     await other.close();
   });
 
@@ -154,27 +156,20 @@ test.describe("TC-PG-CRT-001-522 another tab's change reaches this tab, includin
     const other = await openSecondTab(context);
     await other.goto("/cart");
     await expect(rows(other)).toHaveCount(2);
-    await expect(headerCartLink(other, 3)).toBeVisible();
+    await expectHeaderCartLink(other, 3);
     await other.close();
   });
 });
 
 test.describe("TC-PG-CRT-001-523 Logout clears the Cart, a guest's first login keeps it, and the Cart never holds account data (FR-CRT-012, FR-CRT-003, SPEC-050 15.6 / 26.4, AR-SES-009, UF-AUTH-004)", () => {
-  const loginLink = (page: Page) =>
-    page.getByRole("banner").getByRole("link", { name: copy.layout.account.login, exact: true });
-  const logout = async (page: Page) => {
-    await page.getByRole("button", { name: copy.layout.account.menuButton, exact: true }).click();
-    await page.getByRole("button", { name: copy.layout.account.logout, exact: true }).click();
-  };
+  const logout = logoutViaHeader;
   /** The post-conditions of a Logout (SPEC-050 15.6, AR-SES-009): Home, guest, no stored Cart, no count, Empty Cart. */
   const expectLoggedOutAndCleared = async (page: Page) => {
     await expect(page).toHaveURL(/\/$/);
-    await expect(loginLink(page)).toBeVisible();
+    await expectHeaderLogin(page);
     await expect.poll(() => readCartRaw(page)).toBeNull();
-    await expect(headerCartLink(page, null)).toBeVisible();
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: /カート（\d+点）/ }),
-    ).toHaveCount(0);
+    await expectHeaderCartLink(page, null);
+    await expectNoHeaderCartCount(page);
     await gotoHydrated(page, "/cart");
     await expect(main(page)).toContainText(copy.cart.empty);
     await expect(rows(page)).toHaveCount(0);
@@ -187,7 +182,7 @@ test.describe("TC-PG-CRT-001-523 Logout clears the Cart, a guest's first login k
     await openCart(page, [entryLine(OFFERING.regular, 2)], {
       [KEYS.session]: authenticatedSession(),
     });
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
     await logout(page);
     await expectLoggedOutAndCleared(page);
   });
@@ -209,7 +204,7 @@ test.describe("TC-PG-CRT-001-523 Logout clears the Cart, a guest's first login k
         },
       }),
     });
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     await logout(page);
     await expectLoggedOutAndCleared(page);
   });
@@ -240,15 +235,13 @@ test.describe("TC-PG-CRT-001-523 Logout clears the Cart, a guest's first login k
     const other = await openSecondTab(context);
     await gotoHydrated(other, "/cart");
     await expect(rows(other)).toHaveCount(1);
-    await expect(headerCartLink(other, 2)).toBeVisible();
+    await expectHeaderCartLink(other, 2);
     await logout(page);
     await expect(main(other)).toContainText(copy.cart.empty);
     await expect(rows(other)).toHaveCount(0);
-    await expect(headerCartLink(other, null)).toBeVisible();
-    await expect(
-      other.getByRole("banner").getByRole("link", { name: /カート（\d+点）/ }),
-    ).toHaveCount(0);
-    await expect(loginLink(other)).toBeVisible();
+    await expectHeaderCartLink(other, null);
+    await expectNoHeaderCartCount(other);
+    await expectHeaderLogin(other);
     expect(await readCartRaw(other)).toBeNull();
     await other.close();
   });

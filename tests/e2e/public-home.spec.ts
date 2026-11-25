@@ -5,6 +5,7 @@ import {
   formatJstDate,
   formatJstDateTime,
 } from "../../apps/web/src/presentation/format/datetime.ts";
+import { checkHeader } from "../harness/browser/header-menu.ts";
 import { gotoHydrated } from "../harness/browser/hydration.ts";
 import {
   expectedAnnouncements,
@@ -93,9 +94,11 @@ test.describe("TC-PG-PUB-001-602 the primary CTA and the sales shortcuts lead to
     await openHome(page);
     const heroCta = hero(page).getByRole("link", { name: copy.layout.cta.buyTickets, exact: true });
     await expect(heroCta).toHaveAttribute("href", "/entry");
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: copy.layout.cta.buyTickets, exact: true }),
-    ).toHaveAttribute("href", "/entry");
+    await checkHeader(page, (h) =>
+      expect(
+        h.getByRole("link", { name: copy.layout.cta.buyTickets, exact: true }),
+      ).toHaveAttribute("href", "/entry"),
+    );
     await heroCta.click();
     await expect(page).toHaveURL(/\/entry$/);
   });

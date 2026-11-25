@@ -473,7 +473,7 @@ export const copy = {
       goods: "Goods",
       logout: "ログアウト",
     },
-    menu: { button: "メニュー" },
+    menu: { button: "メニュー", close: "メニューを閉じる" },
     // Placeholder copy: the final label is defined separately and swapped here.
     floatingTicket: { label: "入場券を手に入れる" },
     sponsors: { regionLabel: "協賛", externalSuffix: "（外部サイト）" },

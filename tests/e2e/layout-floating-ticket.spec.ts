@@ -2,10 +2,10 @@ import { expect, type Page, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
 import {
   type Box,
+  checkHeader,
   floatingTicket,
-  header,
+  gotoViaPrimaryMenu,
   intersects,
-  openPrimaryMenu,
   scrollToFraction,
 } from "../harness/browser/header-menu.ts";
 import { gotoHydrated } from "../harness/browser/hydration.ts";
@@ -83,8 +83,7 @@ test.describe("TC-PG-PUB-001-311 the Floating Ticket Button is shown on general 
     await page.evaluate(() => {
       (window as unknown as { r39xMarker: number }).r39xMarker = 1;
     });
-    const panel = await openPrimaryMenu(page);
-    await panel.getByRole("link", { name: copy.layout.nav.items.entry, exact: true }).click();
+    await gotoViaPrimaryMenu(page, copy.layout.nav.items.entry);
     await expect(page).toHaveURL(/\/entry$/);
     await expect(floatingTicket(page)).toHaveCount(0);
     await page.goBack();
@@ -109,8 +108,9 @@ test.describe("TC-PG-PUB-001-312 the Floating Ticket Button is a fixed bottom-ri
     await expect(button).toHaveText(floatingLabel());
     await expect(page.getByRole("link", { name: floatingLabel(), exact: true })).toHaveCount(1);
     // The Header main CTA stays, and its name does not match the floating button (strict-mode locators).
-    const cta = header(page).getByRole("link", { name: copy.layout.cta.buyTickets, exact: true });
-    await expect(cta).toBeVisible();
+    await checkHeader(page, (h) =>
+      expect(h.getByRole("link", { name: copy.layout.cta.buyTickets, exact: true })).toBeVisible(),
+    );
     const sameName = page.getByRole("link", { name: copy.layout.cta.buyTickets });
     expect(
       await sameName.evaluateAll(

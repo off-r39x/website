@@ -44,19 +44,17 @@ floatingTicket: { label: "入場券を手に入れる" }, // 差し替え可能�
 - `floatingTicket.label` の**文字列そのものはテストで固定しない**。テストは `copy.layout.floatingTicket.label` を参照する。制約は 3 つだけ: 空でない、`copy.layout.cta.buyTickets` と等しくなく部分文字列でもない（逆向きも）、`copy.layout.nav.items.*` / `copy.layout.cart.label*` / `copy.layout.account.*` / `copy.layout.menu.button` と相互に部分文字列にならない。Header の主要 CTA や既存の `getByRole("link", { name: copy.layout.cta.buyTickets })`（`exact` なしを含む）が strict mode で複数一致しないための条件である。
 - 既存のその他の `copy.layout` は変更しない。
 
-## 2. Header Menu（SPEC-050 §8.5, §25）
+## 2. Header と メニュー（SPEC-050 v2.3.0 §8.5, §25、docs/DESIGN.md §8.3）
 
-「メニューボタンを押したときに開く disclosure」とする。`AccountMenu`（`account-menu.tsx`）と同じ型で、Dialog にしない（modal でも focus trap でもない）。
+2026-11-25 ユーザー決定（デザインは docs/DESIGN.md を正とし SPEC より優先）により、旧 §2（全幅で disclosure のメニュー、CTA / Cart / Login は常時 Header）を置き換える。
 
-- DOM 位置: `<header>` の中、サイト名 Link の**直後**、主要 CTA の前。したがって Tab 順は desktop が skip link → サイト名 → メニューボタン → 主要 CTA → Cart → Login → アカウント登録、mobile が skip link → サイト名 → メニューボタン → 主要 CTA → Cart → Login（メニューを閉じている状態）。
-- ボタン: `<button type="button">`、accessible name = `copy.layout.menu.button`、`aria-expanded="true" | "false"`、開いている間 `aria-controls` = パネルの `id`。**mobile / desktop の両方**に表示する（旧 `md:hidden` を外す）。
-- 閉じている間はパネルを DOM に描画しない（`AccountMenu` と同じ。常時展開しない）。Header 内に Primary Navigation の Link（Event / Entry Ticket / Karaoke / Goods）は 1 つも存在しない。desktop でも同じ。
-- パネル: `<nav aria-label={copy.layout.nav.primaryLabel}>`（`<header>` の子孫）。中身は `<ul>/<li>/<Link>` の 4 項目（href は Event `/`、Entry Ticket `/entry`、Karaoke `/karaoke`、Goods `/goods`）。項目は Link であり、`role="menu"` / `role="menuitem"` を使わない。現在 Page の項目は `aria-current="page"`（既存 `PrimaryNav`）。`PrimaryNav` を再利用してよい。
-- 追加: guest の mobile では、パネルに「アカウント登録」Link（`/account/register`）も含める（旧 Drawer と同じ。desktop は Header に常時表示するのでパネルに含めない）。authenticated は含めない。
-- CTA、Cart、Login / Mypage / Account menu は**パネルに入れず**、メニューを開かなくても Header に常時表示する。パネルを開いても Header 内の位置は変わらず、これらは viewport 内に残る。
-- 閉じる操作: ボタンの再操作（toggle）、Escape、パネル外の pointerdown、パネル内 Link の選択、Route の変更（Link 以外の遷移要因を含む）。Escape で閉じた後は focus をメニューボタンへ戻す（focus がパネル内にあった場合も、ボタン上にあった場合も）。
-- 開いている間の focus は移動させない（focus はボタンに残る。Tab で次の DOM 要素であるパネルの Link へ進める）。
-- パネルは viewport の外へはみ出さない（水平方向）。開いても横 scroll を発生させない。Header は sticky のまま、scroll 後もパネルが viewport 内にある。
+- **バー**: 地は白、高さ 72px（768px 未満は 60px）。ロゴ（サイト名 Link）は幅・高さ 120px で上端 4px に置き、バーの下へはみ出す（小さくしない、本文側に余白を足さない）。スクロール後は下端に 3px の墨の線（`<html data-scrolled>`、IntersectionObserver）。
+- **広い幅（1280px 以上）**: バーの右に、`<nav aria-label={copy.layout.nav.primaryLabel}>` の 4 Link（Event / Entry Ticket / Karaoke / Goods）→ Cart → Account（Guest: ログイン、アカウント登録。Authenticated: マイページ、`アカウントメニュー` の disclosure）→ 主要 CTA（副ボタン）を 1 行で常時表示する。この順が Tab 順。メニューボタンは表示しない（`display:none`）。現在ページはミントの帯＋墨の線、ホバーで同じ帯が左から伸びる。タップ領域の高さ 44px。
+- **狭い幅（1280px 未満）**: バーにはロゴとメニューボタン（`<button>`、名前 `copy.layout.menu.button`、48px の丸、3px の墨のフチ）だけを置く。ナビ・Cart・Account・CTA は `display:none`（accessibility tree に出ない）。1280px を境にした理由: 8 つの行き先と 120px のロゴを 72px の 1 行に収められる最小幅で、DESIGN §8.3 が 2 段化とロゴ縮小を禁じるため（DESIGN の「モバイル」の扱いを 1279px まで広げた）。
+- **メニュー（Dialog）**: メニューボタンで全画面の黒面の Dialog（`role="dialog"`、名前 `copy.layout.menu.button`、Base UI Dialog = `presentation/components/ui/dialog.tsx` の `side="full"`）を開く。ボタンは `aria-expanded`。開いたら閉じるボタン（名前 `copy.layout.menu.close`）へ focus を移し、Tab / Shift+Tab で Dialog の中を巡回させる。Escape または閉じるボタンで閉じ、focus をメニューボタンへ戻す。中の Link を選んだとき・Route が変わったときは閉じ、focus は移動先に任せる。
+  - 中身の順: `<nav aria-label={primaryLabel}>`（4 Link → Cart → Guest はログイン・アカウント登録 / Authenticated はマイページ）→ Authenticated のみ `<nav aria-label={copy.layout.account.menuLabel}>`（`ACCOUNT_MENU_ITEMS` の 5 Link と `<button>` ログアウト）→ 主要 CTA（最後。黒面の主ボタン）。項目は Link（ログアウトだけ Button）。`role="menu"` / `menuitem` を使わない。
+  - 見た目と動き（DESIGN §8.3）: リンクは Mochiy Pop One 36px・左揃え、背景に巨大なダイヤ枠（白と灰の線、文字のない右側で断ち切る）。`.motion-ok` のときだけ、黒い面がメニューボタンの位置からダイヤ形に広がり（`clip-path`、`--dur-base` / `--ease-snap`）、リンクが 80ms 後から 40ms ずつ遅れて 16px 下から現れる。
+- **Home のヒーロー表示中**: バーのロゴ（サイト名 Link）は `visibility:hidden`（位置は空けたまま、focus 対象にしない）。ヒーローを過ぎたら不透明度だけで出す。テキストへの置き換えはしない。
 - Footer の navigation（`copy.layout.nav.footerLabel`）は変更しない（常時表示）。
 
 ## 3. サイト名（SPEC-050 §8.5）
@@ -154,8 +152,9 @@ segment 境界で比較する: `/entry` と `/entry/` と `/entry/x` は false�
 | `TC-PG-PUB-001-242` | Unit `layout-copy.test.ts`（同ファイルの `-221` 更新と別 describe） | `copy.layout.menu` / `floatingTicket` の制約 |
 | `TC-PG-PUB-001-243` | Unit `s10-static.test.ts` | ファイル、safe area、viewport、badge、reveal CSS、サイト名の `isPlainPrimaryClick` 配線の静的検査 |
 | `TC-PG-PUB-001-244` | Unit `plain-primary-click.test.ts` | §3 の判定規則（`isPlainPrimaryClick`） |
-| `TC-PG-PUB-001-307` | E2E `layout-header-menu.spec.ts` | メニューの開閉、内容、a11y 属性 |
-| `TC-PG-PUB-001-308` | E2E 同上 | Escape / focus return / 外側 / 選択 / Route 変更で閉じる |
+| `TC-PG-PUB-001-307` | E2E `layout-header-menu.spec.ts` | メニュー Dialog の開閉、初期 focus、focus trap、内容（CTA が最後）、全画面の黒面 |
+| `TC-PG-PUB-001-308` | E2E 同上 | Escape / 閉じるボタン / 選択 / Route 変更で閉じる、focus return と移動先への委譲 |
+| `TC-PG-PUB-001-321`〜`325` | E2E `design-shell.spec.ts` | 流れる帯、View Transitions、キャンディ文字の 2 行上限、状態表示の黒面、主ボタン 1 つ（docs/DESIGN.md） |
 | `TC-PG-PUB-001-309` | E2E 同上 | サイト名（`/` 以外から `/`、`/` で先頭へ scroll。修飾 / 主ボタン以外のクリックは既定の動作を保つ） |
 | `TC-PG-PUB-001-311` | E2E `layout-floating-ticket.spec.ts` | Route 別の表示 / 非表示（client 遷移を含む） |
 | `TC-PG-PUB-001-312` | E2E 同上 | 固定位置、scroll 追従、遷移、DOM 位置、名前の一意性 |
@@ -168,7 +167,7 @@ segment 境界で比較する: `/entry` と `/entry/` と `/entry/x` は false�
 
 ## 9. 決めた曖昧点
 
-1. メニューは modal Dialog でなく disclosure（`AccountMenu` と同型）。SPEC-050 §8.5 / §25 は「Dialog を使う場合は…」と条件付きで、disclosure ならボタン側の要件（`aria-expanded`、Keyboard、Escape、focus return、選択 / 遷移で閉じる、Link）だけを満たせばよいと解釈した。
+1. （v2.3.0 で改訂）メニューは全画面の modal Dialog（DESIGN §8.3 の focus trap / Esc）。旧版の disclosure 解釈は廃止。広い幅の `アカウントメニュー` は従来どおり disclosure。
 2. Floating button の除外 Page は先頭 segment 判定。仕様の `PG-XFN-001` は `/purchase/*`、`PG-AUTH-*` は `/account/*`、`PG-MYP-*` は `/mypage/*`、開発領域は `/dev/*`。Not Found（`PG-XFN-002`）は仕様が除外していないので表示する。
 3. Floating button の文言は仮（`入場券を手に入れる`）。テストは固定しない。
 4. 見出しの属性名と 3 状態は、テストが観測できるようにするための契約（仕様は演出の有無と安全性だけを規定している）。

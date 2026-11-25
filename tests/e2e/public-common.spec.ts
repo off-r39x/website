@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
+import { checkHeader } from "../harness/browser/header-menu.ts";
 import { gotoHydrated } from "../harness/browser/hydration.ts";
 import {
   dbJson,
@@ -184,13 +185,14 @@ test.describe("TC-PG-PUB-001-695 no horizontal scroll at 390px and the primary a
       await load(page, item.route);
       await item.ready(page);
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
-      // Content that must not be dropped on a narrow screen stays visible (SPEC-050 24.1).
-      await expect(
-        page.getByRole("link", { name: copy.layout.cta.buyTickets, exact: true }).first(),
-      ).toBeInViewport();
-      await expect(
-        page.getByRole("link", { name: copy.layout.cart.label }).first(),
-      ).toBeInViewport();
+      // Content that must not be dropped on a narrow screen stays reachable: the Header CTA and Cart are in the
+      // menu dialog there (SPEC-050 8.5, 24.1 v2.3.0).
+      await checkHeader(page, async (h) => {
+        await expect(
+          h.getByRole("link", { name: copy.layout.cta.buyTickets, exact: true }),
+        ).toBeInViewport();
+        await expect(h.getByRole("link", { name: copy.layout.cart.label })).toBeInViewport();
+      });
     });
   }
 

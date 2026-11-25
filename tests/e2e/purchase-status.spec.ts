@@ -6,11 +6,11 @@ import {
   expectedGoodsDetail,
   expectedOfferings,
   goodsLine,
-  headerCartLink,
   readCartRaw,
   readDbRaw,
   writeStorage,
 } from "../harness/browser/cart.ts";
+import { clickHeaderCartLink } from "../harness/browser/header-menu.ts";
 import {
   exerciseLeaveDuringRecheck,
   exerciseRetryAfterUnavailable,
@@ -798,7 +798,7 @@ test.describe("TC-PG-XFN-001-669 the Purchase Status page reflects only the last
       path,
       ORDER.awaiting,
       async () => {
-        await headerCartLink(page).click();
+        await clickHeaderCartLink(page);
         await expect(page).toHaveURL(/\/cart$/);
         await expect(heading1(page)).toHaveText(copy.cart.heading);
       },

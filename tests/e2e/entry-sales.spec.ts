@@ -11,7 +11,6 @@ import {
   FORBIDDEN_ELIGIBILITY_IN_STORAGE,
   FORBIDDEN_IN_CART_STORAGE,
   failCartWrites,
-  headerCartLink,
   liveRegion,
   mainOf,
   offeringName,
@@ -28,6 +27,7 @@ import {
   storedText,
   writeStorage,
 } from "../harness/browser/cart.ts";
+import { expectHeaderCartLink } from "../harness/browser/header-menu.ts";
 import { gotoHydrated, reloadHydrated } from "../harness/browser/hydration.ts";
 import { dbJson, fixClock, LOADING_FORBIDDEN, publicScenario } from "../harness/browser/public.ts";
 import {
@@ -239,7 +239,7 @@ test.describe("TC-PG-TKT-001-503 adding to the Cart stores only a reference and 
       .poll(() => readCart(page))
       .toEqual(cartWith([{ offeringRef: OFFERING.regular, quantity: 1 }]));
     expect(await readCartRaw(page)).not.toMatch(FORBIDDEN_IN_CART_STORAGE);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     await expect(page).toHaveURL(/\/entry$/);
   });
 
@@ -252,7 +252,7 @@ test.describe("TC-PG-TKT-001-503 adding to the Cart stores only a reference and 
     await expect
       .poll(() => readCart(page))
       .toEqual(cartWith([{ offeringRef: OFFERING.regular, quantity: 3 }]));
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
   });
 
   test("different offerings become different lines and the Header shows the total quantity", async ({
@@ -271,17 +271,17 @@ test.describe("TC-PG-TKT-001-503 adding to the Cart stores only a reference and 
           { offeringRef: OFFERING.limit, quantity: 2 },
         ]),
       );
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     expect(await readCartRaw(page)).not.toMatch(FORBIDDEN_IN_CART_STORAGE);
   });
 
   test("the Cart survives a reload and still holds the line", async ({ page }) => {
     await openReady(page);
     await addButton(row(page, OFFERING.regular)).click();
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     await reloadHydrated(page);
     await expect(main(page).getByRole("listitem")).toHaveCount(6);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     await expect
       .poll(() => readCart(page))
       .toEqual(cartWith([{ offeringRef: OFFERING.regular, quantity: 1 }]));
@@ -340,7 +340,7 @@ test.describe("TC-PG-TKT-001-504 the quantity selector accepts positive integers
       await expect(addButton(item)).toBeDisabled();
       expect(await describedText(addButton(item))).toContain(expected());
       expect(await readCartRaw(page)).toBeNull();
-      await expect(headerCartLink(page, null)).toBeVisible();
+      await expectHeaderCartLink(page, null);
     });
   }
 
@@ -444,7 +444,7 @@ test.describe("TC-PG-TKT-001-506 a Cart that cannot be written is reported, neve
     ).toHaveAttribute("href", "/cart");
     expect(await readCartRaw(page)).toBe("not-json");
     await expect(liveRegion(page)).not.toContainText(copy.sales.addSucceeded);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
   });
 
   test("a storage write failure shows the failure and no success", async ({ page }) => {
@@ -553,7 +553,7 @@ test.describe("TC-PG-TKT-001-510 a quantity that no longer fits in the Cart is r
   }) => {
     const seeded = cartEntries([entryLine(OFFERING.regular, Number.MAX_SAFE_INTEGER)]);
     await openReady(page, seeded);
-    await expect(headerCartLink(page, Number.MAX_SAFE_INTEGER)).toBeVisible();
+    await expectHeaderCartLink(page, Number.MAX_SAFE_INTEGER);
     await addButton(row(page, OFFERING.regular)).click();
     const alert = main(page).getByRole("alert");
     await expect(alert).toContainText(copy.sales.addQuantityOverflow);
@@ -562,7 +562,7 @@ test.describe("TC-PG-TKT-001-510 a quantity that no longer fits in the Cart is r
     await expect(liveRegion(page)).not.toContainText(copy.sales.addSucceeded);
     await expect(main(page)).not.toContainText(copy.sales.addSucceeded);
     expect(await readCartRaw(page)).toBe(seeded[KEYS.cart]);
-    await expect(headerCartLink(page, Number.MAX_SAFE_INTEGER)).toBeVisible();
+    await expectHeaderCartLink(page, Number.MAX_SAFE_INTEGER);
   });
 
   test("a storage write failure keeps its own wording, not the overflow wording", async ({

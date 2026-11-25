@@ -11,7 +11,6 @@ import {
   field,
   focused,
   guestWithPending,
-  headerLogin,
   heading1,
   linkIn,
   loginWith,
@@ -31,6 +30,7 @@ import {
   urlOf,
 } from "../harness/browser/auth.ts";
 import { writeStorage } from "../harness/browser/cart.ts";
+import { expectHeaderLogin } from "../harness/browser/header-menu.ts";
 import { gotoHydrated } from "../harness/browser/hydration.ts";
 import { fixClock } from "../harness/browser/public.ts";
 import { KEYS, seedLocalStorage } from "../harness/browser/shell.ts";
@@ -69,7 +69,7 @@ test.describe("TC-PG-AUTH-001-301 registration that needs email confirmation goe
     await expect(statusesIn(page)).toHaveText(copy.auth.verify.required);
     await expect(mainOf(page)).not.toContainText(copy.auth.verify.verified);
     expect(await readSession(page)).toEqual({ kind: "guest" });
-    await expect(headerLogin(page)).toBeVisible();
+    await expectHeaderLogin(page);
     expect(await dumpStorage(page)).not.toContain(SENTINEL_PASSWORD);
     expect(page.url()).not.toContain(SENTINEL_PASSWORD);
   });

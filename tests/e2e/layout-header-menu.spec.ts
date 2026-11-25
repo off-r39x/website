@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
 import {
+  hasHeaderBar,
   header,
+  menuTrigger,
   openPrimaryMenu,
   primaryMenuButton,
   primaryMenuPanel,
@@ -11,13 +13,22 @@ import { gotoHydrated } from "../harness/browser/hydration.ts";
 import { SITE_NAME } from "../harness/browser/shell.ts";
 
 // UI mock suite (TST-E2E-004: auxiliary, not G8). Contract: tests/contracts/s10-header-float-reveal.md sections 2, 3.
-// SPEC-050 8.5 (Header menu, site name), 25 (keyboard, Link vs Button, Escape, focus return).
+// SPEC-050 8.5 v2.3.0 (menu dialog, site name), 25 (keyboard, Link vs Button, Dialog focus, Escape, focus return);
+// DESIGN 8.3, 12. The menu exists below the wide bar's breakpoint: the desktop project checks it at 1024px.
 
 const siteName = (page: import("@playwright/test").Page) =>
   header(page).getByRole("link", { name: SITE_NAME, exact: true });
 
-test.describe("TC-PG-PUB-001-307 Header menu is a disclosure button with state, a controlled panel of Links (SPEC-050 8.5, 25)", () => {
-  test("toggles aria-expanded and renders the panel only while open", async ({ page }) => {
+async function narrow(page: import("@playwright/test").Page): Promise<void> {
+  if (hasHeaderBar(page)) await page.setViewportSize({ width: 1024, height: 768 });
+}
+
+test.describe("TC-PG-PUB-001-307 the menu button opens a full-screen dialog of Links with the CTA last (SPEC-050 8.5, 25)", () => {
+  test.beforeEach(async ({ page }) => narrow(page));
+
+  test("toggles aria-expanded, renders the dialog only while open and moves focus to the close button", async ({
+    page,
+  }) => {
     await gotoHydrated(page, "/");
     const button = primaryMenuButton(page);
     await expect(button).toBeVisible();
@@ -25,87 +36,89 @@ test.describe("TC-PG-PUB-001-307 Header menu is a disclosure button with state, 
     await expect(primaryMenuPanel(page)).toHaveCount(0);
 
     await button.click();
-    await expect(button).toHaveAttribute("aria-expanded", "true");
+    await expect(menuTrigger(page)).toHaveAttribute("aria-expanded", "true");
     const panel = primaryMenuPanel(page);
     await expect(panel).toBeVisible();
-    const id = await panel.getAttribute("id");
-    expect(id, "the open panel has an id").not.toBeNull();
-    await expect(button).toHaveAttribute("aria-controls", id ?? "");
+    const close = panel.getByRole("button", { name: copy.layout.menu.close, exact: true });
+    await expect(close).toBeFocused();
+    // Full screen and black (DESIGN 8.3).
+    const viewport = page.viewportSize();
+    const box = await panel.boundingBox();
+    expect(Math.round(box?.width ?? 0)).toBe(viewport?.width);
+    expect(Math.round(box?.height ?? 0)).toBe(viewport?.height);
+    expect(await panel.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(0, 0, 0)");
 
-    await button.click();
-    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await close.click();
     await expect(primaryMenuPanel(page)).toHaveCount(0);
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await expect(button).toBeFocused();
   });
 
-  test("is a real button reachable and operable by keyboard (Enter and Space)", async ({
-    page,
-  }) => {
+  test("is a real button operable by keyboard (Enter and Space)", async ({ page }) => {
     await gotoHydrated(page, "/");
     const button = primaryMenuButton(page);
     expect(await button.evaluate((el) => el.tagName)).toBe("BUTTON");
     await button.focus();
     await page.keyboard.press("Enter");
-    await expect(button).toHaveAttribute("aria-expanded", "true");
     await expect(primaryMenuPanel(page)).toBeVisible();
-    await page.keyboard.press("Space");
-    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await page.keyboard.press("Escape");
     await expect(primaryMenuPanel(page)).toHaveCount(0);
+    await expect(button).toBeFocused();
     await page.keyboard.press("Space");
-    await expect(button).toHaveAttribute("aria-expanded", "true");
+    await expect(primaryMenuPanel(page)).toBeVisible();
   });
 
-  test("lists the 4 navigation destinations as Links in the DOM order of the Header, marking the current page", async ({
+  test("lists the 4 navigation Links, Cart, the account links and the CTA last, marking the current page", async ({
     page,
   }) => {
     await gotoHydrated(page, "/goods");
     const panel = await openPrimaryMenu(page);
-    const links = panel.getByRole("link");
-    const names = await links.evaluateAll((els) =>
-      els.map((el) => (el.textContent ?? "").replace(/\s+/g, " ").trim()),
-    );
-    const primary = [
+    const names = await panel
+      .getByRole("link")
+      .evaluateAll((els) => els.map((el) => (el.textContent ?? "").replace(/\s+/g, " ").trim()));
+    expect(names).toEqual([
       copy.layout.nav.items.event,
       copy.layout.nav.items.entry,
       copy.layout.nav.items.karaoke,
       copy.layout.nav.items.goods,
-    ];
-    expect(names.slice(0, 4)).toEqual(primary);
+      copy.layout.cart.label,
+      copy.layout.account.login,
+      copy.layout.account.register,
+      copy.layout.cta.buyTickets,
+    ]);
+    const nav = panel.getByRole("navigation", { name: copy.layout.nav.primaryLabel, exact: true });
     await expect(
-      panel.getByRole("link", { name: copy.layout.nav.items.goods, exact: true }),
+      nav.getByRole("link", { name: copy.layout.nav.items.goods, exact: true }),
     ).toHaveAttribute("aria-current", "page");
     await expect(
-      panel.getByRole("link", { name: copy.layout.nav.items.event, exact: true }),
+      nav.getByRole("link", { name: copy.layout.nav.items.event, exact: true }),
     ).not.toHaveAttribute("aria-current", "page");
-    // The panel belongs to the banner, right after the site name and the menu button.
-    const order = await page.evaluate((buttonName) => {
-      const banner = document.querySelector("header");
-      if (banner === null) return [];
-      const button = Array.from(banner.querySelectorAll("button")).find(
-        (el) => el.getAttribute("aria-expanded") !== null && el.textContent?.trim() === buttonName,
-      );
-      const nav = banner.querySelector("nav");
-      const site = banner.querySelector("a[href='/']");
-      if (button === undefined || nav === null || site === null) return [];
-      const precedes = (a: Element, b: Element): boolean =>
-        (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-      return [precedes(site, button), precedes(button, nav)];
-    }, copy.layout.menu.button);
-    expect(order).toEqual([true, true]);
+    await expect(panel.getByRole("menuitem")).toHaveCount(0);
+    await expect(page.getByRole("menu")).toHaveCount(0);
   });
 
-  test("stays inside the viewport horizontally and keeps the Header fixed while open", async ({
-    page,
-  }) => {
+  test("keeps focus inside the dialog with Tab and Shift+Tab", async ({ page }) => {
     await gotoHydrated(page, "/");
     const panel = await openPrimaryMenu(page);
-    const viewport = page.viewportSize();
-    const box = await panel.boundingBox();
-    expect(box).not.toBeNull();
-    expect(viewport).not.toBeNull();
-    if (box !== null && viewport !== null) {
-      expect(box.x).toBeGreaterThanOrEqual(-1);
-      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+    const inside = () =>
+      page.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null);
+    for (let i = 0; i < 14; i += 1) {
+      await page.keyboard.press("Tab");
+      expect(await inside(), `Tab ${i + 1} stays inside`).toBe(true);
     }
+    for (let i = 0; i < 14; i += 1) {
+      await page.keyboard.press("Shift+Tab");
+      expect(await inside(), `Shift+Tab ${i + 1} stays inside`).toBe(true);
+    }
+    await expect(panel).toBeVisible();
+  });
+
+  test("stays inside the viewport horizontally and shows no horizontal scroll while open", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await gotoHydrated(page, "/");
+    const panel = await openPrimaryMenu(page);
     for (const name of [
       copy.layout.nav.items.event,
       copy.layout.nav.items.entry,
@@ -114,48 +127,34 @@ test.describe("TC-PG-PUB-001-307 Header menu is a disclosure button with state, 
     ]) {
       await expect(panel.getByRole("link", { name, exact: true })).toBeInViewport();
     }
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
+    const overflow = await panel.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
-    await scrollToFraction(page, 0.5);
-    await expect(header(page)).toBeInViewport();
-    await expect(primaryMenuButton(page)).toBeInViewport();
   });
 });
 
-test.describe("TC-PG-PUB-001-308 Header menu closes on Escape, outside press, selection and route change, and returns focus (SPEC-050 8.5, 25)", () => {
-  test("Escape closes it and returns focus to the button (focus on the button)", async ({
-    page,
-  }) => {
+test.describe("TC-PG-PUB-001-308 the menu closes on Escape, its close button, selection and route change (SPEC-050 8.5, 25)", () => {
+  test.beforeEach(async ({ page }) => narrow(page));
+
+  test("Escape closes it from inside and returns focus to the menu button", async ({ page }) => {
     await gotoHydrated(page, "/");
-    await openPrimaryMenu(page);
+    const panel = await openPrimaryMenu(page);
+    await panel.getByRole("link", { name: copy.layout.nav.items.karaoke, exact: true }).focus();
     await page.keyboard.press("Escape");
     await expect(primaryMenuPanel(page)).toHaveCount(0);
     await expect(primaryMenuButton(page)).toHaveAttribute("aria-expanded", "false");
     await expect(primaryMenuButton(page)).toBeFocused();
   });
 
-  test("Escape closes it and returns focus to the button (focus inside the panel)", async ({
+  test("selecting a link navigates, closes it and leaves focus to the destination", async ({
     page,
   }) => {
     await gotoHydrated(page, "/");
     const panel = await openPrimaryMenu(page);
-    await panel.getByRole("link", { name: copy.layout.nav.items.karaoke, exact: true }).focus();
-    await expect(
-      panel.getByRole("link", { name: copy.layout.nav.items.karaoke, exact: true }),
-    ).toBeFocused();
-    await page.keyboard.press("Escape");
-    await expect(primaryMenuPanel(page)).toHaveCount(0);
-    await expect(primaryMenuButton(page)).toBeFocused();
-  });
-
-  test("a press outside the menu closes it", async ({ page }) => {
-    await gotoHydrated(page, "/");
-    await openPrimaryMenu(page);
-    await page.locator("footer p").first().click();
+    await panel.getByRole("link", { name: copy.layout.nav.items.goods, exact: true }).click();
+    await expect(page).toHaveURL(/\/goods$/);
     await expect(primaryMenuPanel(page)).toHaveCount(0);
     await expect(primaryMenuButton(page)).toHaveAttribute("aria-expanded", "false");
+    await expect(primaryMenuButton(page)).not.toBeFocused();
   });
 
   test("selecting the link of the current page also closes it", async ({ page }) => {
@@ -167,21 +166,11 @@ test.describe("TC-PG-PUB-001-308 Header menu closes on Escape, outside press, se
     await expect(primaryMenuButton(page)).toHaveAttribute("aria-expanded", "false");
   });
 
-  test("a route change made outside the menu (footer link) closes it, and Back does not reopen it", async ({
-    page,
-  }) => {
+  test("Back after a navigation from the menu does not reopen it", async ({ page }) => {
     await gotoHydrated(page, "/");
-    await openPrimaryMenu(page);
-    // Keyboard activation: no pointer press happens, so only the route change can close the menu.
-    const footerLink = page
-      .getByRole("contentinfo")
-      .getByRole("navigation", { name: copy.layout.nav.footerLabel, exact: true })
-      .getByRole("link", { name: copy.layout.nav.items.karaoke, exact: true });
-    await footerLink.focus();
-    await page.keyboard.press("Enter");
+    const panel = await openPrimaryMenu(page);
+    await panel.getByRole("link", { name: copy.layout.nav.items.karaoke, exact: true }).click();
     await expect(page).toHaveURL(/\/karaoke$/);
-    await expect(primaryMenuPanel(page)).toHaveCount(0);
-    await expect(primaryMenuButton(page)).toHaveAttribute("aria-expanded", "false");
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);
     await expect(primaryMenuPanel(page)).toHaveCount(0);

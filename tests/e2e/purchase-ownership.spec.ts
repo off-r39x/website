@@ -1,12 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
-import {
-  accountMenuButton,
-  loginWith,
-  logoutViaMenu,
-  unverifiedSession,
-} from "../harness/browser/auth.ts";
+import { loginWith, unverifiedSession } from "../harness/browser/auth.ts";
 import { readDbRaw } from "../harness/browser/cart.ts";
+import { expectAccountControls, logoutViaHeader } from "../harness/browser/header-menu.ts";
 import { gotoHydrated } from "../harness/browser/hydration.ts";
 import { fixClock } from "../harness/browser/public.ts";
 import {
@@ -149,9 +145,9 @@ test.describe("TC-PG-XFN-001-682 Purchase Status is behind the AuthGate and retu
   }) => {
     await openAs(page, `/purchase/orders/${ORDER.confirmedEntry}`);
     await expect(outcomeRegion(page)).toContainText(copy.order.state.CONFIRMED);
-    await logoutViaMenu(page);
+    await logoutViaHeader(page);
     await expect(page).toHaveURL(/\/$/);
-    await expect(accountMenuButton(page)).toHaveCount(0);
+    await expectAccountControls(page, false);
     await page.evaluate((needle: string) => {
       const w = window as unknown as { __saw?: boolean };
       w.__saw = false;

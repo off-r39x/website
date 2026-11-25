@@ -24,7 +24,7 @@ describe("TC-PG-PUB-001-221 copy.layout carries the fixed global shell wording (
     expect(copy.layout.skipLink).toBe("メインコンテンツへ移動");
     expect(copy.layout.nav.primaryLabel).toBe("メインナビゲーション");
     expect(copy.layout.nav.footerLabel).toBe("フッターナビゲーション");
-    expect(copy.layout.menu).toEqual({ button: "メニュー" });
+    expect(copy.layout.menu).toEqual({ button: "メニュー", close: "メニューを閉じる" });
     expect(copy.layout.sponsors.regionLabel).toBe("協賛");
     expect(copy.layout.sponsors.externalSuffix).toBe("（外部サイト）");
     expect(copy.layout.mockBadge).toBe("UIモック表示中");

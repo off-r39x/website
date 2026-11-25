@@ -1,6 +1,14 @@
 import { expect, type Page, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
-import { openPrimaryMenu, primaryMenuPanel } from "../harness/browser/header-menu.ts";
+import {
+  checkHeader,
+  clickHeaderLink,
+  expectAccountControls,
+  hasHeaderBar,
+  openAccountMenu,
+  openPrimaryMenu,
+  primaryMenuPanel,
+} from "../harness/browser/header-menu.ts";
 import {
   allHrefs,
   authenticatedSession,
@@ -26,10 +34,6 @@ const ROUTES = {
 const ALL_ROUTES = Object.values(ROUTES);
 
 const header = (page: Page) => page.getByRole("banner");
-const cta = (page: Page) =>
-  header(page).getByRole("link", { name: copy.layout.cta.buyTickets, exact: true });
-const cart = (page: Page) =>
-  header(page).getByRole("link", { name: copy.layout.cart.label, exact: true });
 
 async function loaded(page: Page, route: string): Promise<void> {
   await page.goto(route);
@@ -43,31 +47,22 @@ test.describe("TC-PG-PUB-001-501 no link to /admin or /staff on any page, footer
       test(`${authenticated ? "authenticated" : "guest"} ${route}`, async ({ page }) => {
         if (authenticated) await seedLocalStorage(page, { [KEYS.session]: authenticatedSession() });
         await loaded(page, route);
-        if (authenticated) {
-          await expect(
-            header(page).getByRole("button", { name: copy.layout.account.menuButton, exact: true }),
-          ).toBeVisible();
-        }
+        if (authenticated) await expectAccountControls(page);
 
         const collect = async (): Promise<string[]> => allHrefs(page);
         let hrefs = await collect();
         expect(hrefs.length).toBeGreaterThan(5);
 
-        // The Header menu (all viewports) discloses the primary navigation links.
-        await openPrimaryMenu(page);
-        hrefs = hrefs.concat(await collect());
-        await page.keyboard.press("Escape");
-        await expect(primaryMenuPanel(page)).toHaveCount(0);
-        if (authenticated) {
-          await header(page)
-            .getByRole("button", { name: copy.layout.account.menuButton, exact: true })
-            .click();
-          await expect(
-            page.getByRole("navigation", { name: copy.layout.account.menuLabel, exact: true }),
-          ).toBeVisible();
+        // The Header destinations (the bar, or the menu dialog on narrow layouts) and the account navigation.
+        if (!hasHeaderBar(page)) {
+          await openPrimaryMenu(page);
+          hrefs = hrefs.concat(await collect());
+          await page.keyboard.press("Escape");
+          await expect(primaryMenuPanel(page)).toHaveCount(0);
+        } else if (authenticated) {
+          await openAccountMenu(page);
           hrefs = hrefs.concat(await collect());
         }
-
         for (const href of hrefs) {
           const url = new URL(href);
           expect(FORBIDDEN_AREA.test(pathOf(href)), href).toBe(false);
@@ -105,12 +100,14 @@ test.describe("TC-PG-PUB-001-502 the main CTA and Cart are reachable from every 
   for (const route of ALL_ROUTES) {
     test(`${route} shows the CTA and Cart in the viewport`, async ({ page }) => {
       await loaded(page, route);
-      await expect(cta(page)).toBeVisible();
-      await expect(cta(page)).toBeInViewport();
-      await expect(cta(page)).toHaveAttribute("href", "/entry");
-      await expect(cart(page)).toBeVisible();
-      await expect(cart(page)).toBeInViewport();
-      await expect(cart(page)).toHaveAttribute("href", "/cart");
+      await checkHeader(page, async (h) => {
+        const cta = h.getByRole("link", { name: copy.layout.cta.buyTickets, exact: true });
+        const cart = h.getByRole("link", { name: copy.layout.cart.label, exact: true });
+        await expect(cta).toBeInViewport();
+        await expect(cta).toHaveAttribute("href", "/entry");
+        await expect(cart).toBeInViewport();
+        await expect(cart).toHaveAttribute("href", "/cart");
+      });
       await expect(
         header(page).getByRole("link", { name: SITE_NAME, exact: true }),
       ).toHaveAttribute("href", "/");
@@ -119,9 +116,9 @@ test.describe("TC-PG-PUB-001-502 the main CTA and Cart are reachable from every 
 
   test("the CTA and Cart navigate from a dev route", async ({ page }) => {
     await loaded(page, ROUTES.dev);
-    await cta(page).click();
+    await clickHeaderLink(page, copy.layout.cta.buyTickets);
     await expect(page).toHaveURL(/\/entry$/);
-    await cart(page).click();
+    await clickHeaderLink(page, copy.layout.cart.label);
     await expect(page).toHaveURL(/\/cart$/);
     await header(page).getByRole("link", { name: SITE_NAME, exact: true }).click();
     await expect(page).toHaveURL(/\/$/);

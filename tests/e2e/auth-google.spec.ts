@@ -11,10 +11,8 @@ import {
   googleFailurePath,
   googleReturnPath,
   googleStartButton,
-  headerLogin,
   heading1,
   loginWith,
-  logoutViaMenu,
   MARKER_PROTECTED_TEXT,
   MOCK_GOOGLE_PATH,
   mainOf,
@@ -37,12 +35,16 @@ import {
   cartEntries,
   entryLine,
   goodsLine,
-  headerCartLink,
   offeringName,
   openSecondTab,
   quantityInput,
   readCartRaw,
 } from "../harness/browser/cart.ts";
+import {
+  expectHeaderCartLink,
+  expectHeaderLogin,
+  logoutViaHeader,
+} from "../harness/browser/header-menu.ts";
 import { gotoHydrated, reloadHydrated } from "../harness/browser/hydration.ts";
 import { fixClock, horizontalOverflow } from "../harness/browser/public.ts";
 import {
@@ -158,7 +160,7 @@ test.describe("TC-PG-AUTH-003-308 Google on Login and Registration: the stand-in
     expect(documents).toContain(googleFailurePath("login"));
     expect(urlOf(page).searchParams.has("returned")).toBe(false);
     expect(await readSession(page)).toEqual({ kind: "guest" });
-    await expect(headerLogin(page)).toBeVisible();
+    await expectHeaderLogin(page);
     const users = (await readUsers(page)) ?? [];
     expect(users.some((u) => u.email === NEW_GOOGLE_EMAIL)).toBe(false);
 
@@ -179,7 +181,7 @@ test.describe("TC-PG-AUTH-003-308 Google on Login and Registration: the stand-in
     page,
   }) => {
     await openAuthPage(page, "login", "?continue=cart", cartEntries(LINES, "guest"));
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     const cartBefore = await readCartRaw(page);
     await startGoogle(page, "login");
     // The start recorded a pending result and kept the Guest Cart (FR-CRT-012 external-completion rule, steps 2 to 4).
@@ -196,7 +198,7 @@ test.describe("TC-PG-AUTH-003-308 Google on Login and Registration: the stand-in
     await expect(page).toHaveURL(/\/cart$/);
     await expect(heading1(page)).toHaveText(copy.cart.heading);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(2);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     expect(await readCartRaw(page)).toBe(cartBefore);
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
     expect(await readSession(page)).toEqual({
@@ -217,7 +219,7 @@ test.describe("TC-PG-AUTH-003-308 Google on Login and Registration: the stand-in
     await expect(alertsIn(page)).toHaveText(copy.auth.google.failed);
     expect(urlOf(page).searchParams.get("continue")).toBe("cart");
     expect(urlOf(page).searchParams.has("returned")).toBe(false);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     expect(await readCartRaw(page)).toBe(cartBefore);
     expect(await lifecycleOf(page)).toEqual({
       version: 1,
@@ -276,7 +278,7 @@ test.describe("TC-PG-AUTH-003-308 Google on Login and Registration: the stand-in
     await standInButton(page, "allowNew").click();
     await expect(page).toHaveURL(/\/cart$/);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(2);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     expect(await readCartRaw(page)).toBe(cartBefore);
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
   });
@@ -439,7 +441,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return decides: verifi
       await openReturn(page, googleReturnPath(name, "cart"), entries);
       await expect(page).toHaveURL(/\/cart$/);
       await expect(mainOf(page).getByRole("listitem")).toHaveCount(2);
-      await expect(headerCartLink(page, 3)).toBeVisible();
+      await expectHeaderCartLink(page, 3);
       expect(await readCartRaw(page)).toBe(entries[KEYS.cart]);
       expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
     });
@@ -473,7 +475,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return decides: verifi
         emailVerified: false,
       });
       expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
-      await expect(headerCartLink(page, 3)).toBeVisible();
+      await expectHeaderCartLink(page, 3);
     });
   }
 
@@ -495,7 +497,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return decides: verifi
         provenance: "guest",
         external: "pending",
       });
-      await expect(headerCartLink(page, 3)).toBeVisible();
+      await expectHeaderCartLink(page, 3);
     });
   }
 
@@ -543,7 +545,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return decides: verifi
     await expect(page).toHaveURL(/\/mypage$/);
     expect(await readCartRaw(page)).toBeNull();
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
   });
 
   test("a reload after the return was processed decides nothing again: no returned, no alert, and the Cart and the metadata are as they were", async ({
@@ -580,7 +582,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return decides: verifi
     await expect(page).toHaveURL(/\/mypage$/);
     expect(await readCartRaw(page)).toBe(cartBefore);
     expect(await lifecycleOf(page)).toEqual(metadataBefore);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
   });
 
   test("the Browser's back and forward never return to the returned=google entry", async ({
@@ -616,7 +618,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return decides: verifi
     });
     for (const path of ["/cart", "/account/login", "/mypage"]) {
       await gotoHydrated(page, path);
-      await expect(headerCartLink(page, 3)).toBeVisible();
+      await expectHeaderCartLink(page, 3);
       expect((await lifecycleOf(page))?.external, path).toBe("pending");
     }
   });
@@ -730,7 +732,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a result that arrives after anothe
   /** Guest on page 1 with one Entry line; Google started and left waiting on the stand-in screen. */
   async function startWithGuestCart(page: Page): Promise<void> {
     await openAuthPage(page, "login", "", cartEntries([entryLine(OFFERING.regular, 1)], "guest"));
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     await startGoogle(page, "login");
     expect(await lifecycleOf(page)).toEqual({
       version: 1,
@@ -755,7 +757,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a result that arrives after anothe
       });
     await quantityInput(offering).fill("1");
     await addButton(offering).click();
-    await expect(headerCartLink(second, 2)).toBeVisible();
+    await expectHeaderCartLink(second, 2);
     return second;
   }
 
@@ -775,12 +777,12 @@ test.describe("TC-FR-CRT-012-020 the screens: a result that arrives after anothe
     });
     expect(await readCartRaw(page)).toBeNull();
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     await gotoHydrated(page, "/cart");
     await expect(heading1(page)).toHaveText(copy.cart.heading);
     await expect(mainOf(page)).toContainText(copy.cart.empty);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(0);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     await second.close();
   });
 
@@ -795,7 +797,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a result that arrives after anothe
     await expect(page).toHaveURL(/\/account\/login/);
     await expect(alertsIn(page)).toHaveText(copy.auth.google.failed);
     // The Cart of demo@example.com is shown unchanged and the record is not consumed.
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
     expect((await lifecycleOf(page))?.external).toBe("superseded");
 
     // A later success (the stand-in is opened directly: a retry of the same start) is received and clears the Cart.
@@ -804,7 +806,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a result that arrives after anothe
     await expect(page).toHaveURL(/\/mypage$/);
     expect(await readCartRaw(page)).toBeNull();
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     await second.close();
   });
 
@@ -816,7 +818,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a result that arrives after anothe
     await standInButton(page, "allowNew").click();
     await expect(page).toHaveURL(/\/mypage$/);
     expect(await readCartRaw(page)).toBe(cartBefore);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
   });
 
@@ -828,7 +830,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a result that arrives after anothe
     await gotoHydrated(second, "/account/login");
     await loginWith(second, EMAIL.demo);
     await expect(second).toHaveURL(/\/mypage$/);
-    await logoutViaMenu(second);
+    await logoutViaHeader(second);
     await expect(second).toHaveURL(/\/$/);
     expect(await readCartRaw(second)).toBeNull();
     expect((await lifecycleOf(second))?.external).toBeUndefined();
@@ -837,7 +839,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a result that arrives after anothe
     await standInButton(page, "allowNew").click();
     await expect(page).toHaveURL(/\/mypage$/);
     expect(await readCartRaw(page)).toBeNull();
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     await second.close();
   });
 });

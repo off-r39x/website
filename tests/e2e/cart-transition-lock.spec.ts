@@ -1,7 +1,12 @@
 import { expect, type Page, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
 import { loginWith, readSession } from "../harness/browser/auth.ts";
-import { entryLine, headerCartLink, mainOf, readCartRaw } from "../harness/browser/cart.ts";
+import { entryLine, mainOf, readCartRaw } from "../harness/browser/cart.ts";
+import {
+  clickHeaderLink,
+  expectHeaderCartLink,
+  expectNoHeaderCartLink,
+} from "../harness/browser/header-menu.ts";
 import { gotoHydrated, waitForHydration } from "../harness/browser/hydration.ts";
 import { openAs } from "../harness/browser/purchase.ts";
 import { KEYS } from "../harness/browser/shell.ts";
@@ -35,21 +40,18 @@ test.describe("TC-FR-CRT-012-014 Browser runtime lock errors preserve Cart isola
       await loginWith(page, EMAIL.other);
       await expect(page).toHaveURL(/\/mypage$/);
       expect(await readSession(page)).toMatchObject({ kind: "authenticated", email: EMAIL.other });
-      await expect(headerCartLink(page, 2)).toBeVisible();
+      await expectHeaderCartLink(page, 2);
       // Stay in the same document and use the already selected coordinator for another Login.
       // The real Login page is reached using a client link after the Session is discarded externally.
       await page.evaluate((key) => {
         window.localStorage.removeItem(key);
         window.dispatchEvent(new StorageEvent("storage", { key }));
       }, KEYS.session);
-      await page
-        .getByRole("banner")
-        .getByRole("link", { name: copy.layout.account.login, exact: true })
-        .click();
+      await clickHeaderLink(page, copy.layout.account.login);
       await loginWith(page, EMAIL.demo);
       await expect(page).toHaveURL(/\/mypage$/);
       expect(await readCartRaw(page)).toBeNull();
-      await expect(headerCartLink(page, 2)).toHaveCount(0);
+      await expectNoHeaderCartLink(page, 2);
     });
   }
 
@@ -141,7 +143,7 @@ test.describe("TC-FR-CRT-012-014 Browser runtime lock errors preserve Cart isola
     await retry(page).click();
     await expect(mainOf(page)).toContainText(copy.cart.lifecycleBlocked.failed);
     expect(await readCartRaw(page)).toBe(before);
-    await expect(headerCartLink(page, 2)).toHaveCount(0);
+    await expectNoHeaderCartLink(page, 2);
     expect(await readSession(page)).toEqual({ kind: "guest" });
     await page.evaluate(() => window.sessionStorage.setItem("test-only-native-locks", "yes"));
     await retry(page).click();
@@ -178,7 +180,7 @@ test.describe("TC-FR-CRT-012-014 Browser runtime lock errors preserve Cart isola
     await expect(mainOf(page)).toContainText(copy.auth.login.cartBusy);
     await loginWith(page, EMAIL.other);
     await expect(page).toHaveURL(/\/account\/login$/);
-    await expect(headerCartLink(page, 2)).toHaveCount(0);
+    await expectNoHeaderCartLink(page, 2);
     expect(await readSession(page)).toEqual({ kind: "guest" });
     await other.evaluate((key) => {
       window.localStorage.setItem(key, JSON.stringify({ version: 1, provenance: "guest" }));

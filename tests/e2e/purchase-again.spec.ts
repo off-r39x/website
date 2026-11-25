@@ -8,13 +8,13 @@ import {
   FORBIDDEN_IN_CART_STORAGE,
   failCartWrites,
   goodsLine,
-  headerCartLink,
   offeringName,
   readCart,
   readCartRaw,
   readDbRaw,
   rowByHeading,
 } from "../harness/browser/cart.ts";
+import { expectHeaderCartLink } from "../harness/browser/header-menu.ts";
 import {
   actionButton,
   alertsOf,
@@ -58,7 +58,7 @@ test.describe("TC-PG-XFN-001-671 purchase again for Goods / Entry returns the it
     // Only a reference and a quantity were stored (FR-CRT-003); nothing else changed.
     expect(await readCart(page)).toEqual({ version: 1, lines: [goodsLine(GOODS.lanyard, 1)] });
     expect(await readCartRaw(page)).not.toMatch(FORBIDDEN_IN_CART_STORAGE);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     expect(parsed(await readDbRaw(page))).toEqual(dbBefore);
     expect(await parsedOrders(page)).toEqual(ordersBefore);
   });
@@ -90,14 +90,14 @@ test.describe("TC-PG-XFN-001-671 purchase again for Goods / Entry returns the it
       extra: cartEntries([goodsLine(GOODS.tshirt, 2)], "authenticated"),
     });
     await expect(outcomeRegion(page)).toContainText(copy.order.state.CANCELED);
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
     await actionButton(page, act.purchase_again).click();
     await expect(page).toHaveURL(/\/cart$/);
     expect(await readCart(page)).toEqual({
       version: 1,
       lines: [goodsLine(GOODS.tshirt, 3), entryLine(OFFERING.limit, 1)],
     });
-    await expect(headerCartLink(page, 4)).toBeVisible();
+    await expectHeaderCartLink(page, 4);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(2);
   });
 

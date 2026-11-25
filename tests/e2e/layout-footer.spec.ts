@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
+import { checkHeader, clickHeaderLink } from "../harness/browser/header-menu.ts";
 import { gotoHydrated } from "../harness/browser/hydration.ts";
 import {
   cartJson,
@@ -165,18 +166,15 @@ test.describe("TC-PG-PUB-001-404 sponsors: fetch failure hides the area and keep
 
     // Page content and navigation still work.
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: copy.layout.cta.buyTickets, exact: true }),
-    ).toBeVisible();
+    await checkHeader(page, (h) =>
+      expect(h.getByRole("link", { name: copy.layout.cta.buyTickets, exact: true })).toBeVisible(),
+    );
     await footer(page)
       .getByRole("navigation", { name: copy.layout.nav.footerLabel, exact: true })
       .getByRole("link", { name: copy.layout.nav.items.goods, exact: true })
       .click();
     await expect(page).toHaveURL(/\/goods$/);
-    await page
-      .getByRole("banner")
-      .getByRole("link", { name: copy.layout.cta.buyTickets, exact: true })
-      .click();
+    await clickHeaderLink(page, copy.layout.cta.buyTickets);
     await expect(page).toHaveURL(/\/entry$/);
   });
 });

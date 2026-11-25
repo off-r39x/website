@@ -55,16 +55,19 @@ export function DialogTitle({
 }
 
 type PopupProps = Omit<DialogPrimitive.Popup.Props, "className"> & { className?: string } & {
-  side?: "left" | "right" | "center";
+  side?: "left" | "right" | "center" | "full";
 };
 
 export function DialogContent({ className, children, side = "center", ...props }: PopupProps) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Backdrop
-        data-slot="dialog-overlay"
-        className="fixed inset-0 z-50 bg-overlay"
-      />
+      {/* A full-screen popup covers the page itself, so it needs no backdrop. */}
+      {side === "full" ? null : (
+        <DialogPrimitive.Backdrop
+          data-slot="dialog-overlay"
+          className="fixed inset-0 z-50 bg-overlay"
+        />
+      )}
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         aria-modal="true"
@@ -76,6 +79,7 @@ export function DialogContent({ className, children, side = "center", ...props }
           side === "left" && "inset-y-0 left-0 h-full w-72 max-w-[85vw] overflow-y-auto border-r-3",
           side === "right" &&
             "inset-y-0 right-0 h-full w-72 max-w-[85vw] overflow-y-auto border-l-3",
+          side === "full" && "inset-0 overflow-y-auto",
           className,
         )}
         {...props}

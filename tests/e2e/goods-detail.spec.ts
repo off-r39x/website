@@ -9,7 +9,6 @@ import {
   expectedGoodsDetail,
   FORBIDDEN_ELIGIBILITY_IN_STORAGE,
   FORBIDDEN_IN_CART_STORAGE,
-  headerCartLink,
   liveRegion,
   mainOf,
   openSecondTab,
@@ -23,6 +22,7 @@ import {
   storedText,
   writeStorage,
 } from "../harness/browser/cart.ts";
+import { expectHeaderCartLink } from "../harness/browser/header-menu.ts";
 import { gotoHydrated, reloadHydrated } from "../harness/browser/hydration.ts";
 import { dbJson, fixClock, LOADING_FORBIDDEN, publicScenario } from "../harness/browser/public.ts";
 import {
@@ -210,7 +210,7 @@ test.describe("TC-PG-GDS-002-503 adding Goods stores a reference and a quantity 
       .poll(() => readCart(page))
       .toEqual(cartWith([{ goodsRef: GOODS.towel, quantity: 2 }]));
     expect(await readCartRaw(page)).not.toMatch(FORBIDDEN_IN_CART_STORAGE);
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
     await expect(page).toHaveURL(new RegExp(`/goods/${GOODS.towel}$`));
   });
 
@@ -222,18 +222,18 @@ test.describe("TC-PG-GDS-002-503 adding Goods stores a reference and a quantity 
     await expect
       .poll(() => readCart(page))
       .toEqual(cartWith([{ goodsRef: GOODS.tshirt, quantity: 4 }]));
-    await expect(headerCartLink(page, 4)).toBeVisible();
+    await expectHeaderCartLink(page, 4);
   });
 
   test("the Cart keeps lines of two Goods pages and survives a reload", async ({ page }) => {
     await openReady(page, GOODS.tshirt);
     await addButton(main(page)).click();
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     await openReady(page, GOODS.towel);
     await addButton(main(page)).click();
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
     await reloadHydrated(page);
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
     await expect
       .poll(() => readCart(page))
       .toEqual(
@@ -662,9 +662,9 @@ test.describe("TC-PG-GDS-002-506 the Goods list links resolve to the detail page
     await expect(page).toHaveURL(new RegExp(`/goods/${GOODS.tshirt}$`));
     await expect(h1(page)).toHaveText(goods.name);
     await addButton(main(page)).click();
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     await main(page).getByRole("link", { name: copy.goods.detail.backToList, exact: true }).click();
     await expect(page).toHaveURL(/\/goods$/);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
   });
 });

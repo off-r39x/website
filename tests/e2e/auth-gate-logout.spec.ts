@@ -1,14 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
 import {
-  accountMenuButton,
   alertsIn,
   authScenario,
-  headerLogin,
-  headerMypage,
   heading1,
   loginWith,
-  logoutViaMenu,
   MARKER_PROTECTED_TEXT,
   mainOf,
   readSession,
@@ -24,13 +20,22 @@ import {
   cartEntries,
   entryLine,
   goodsLine,
-  headerCartLink,
   offeringName,
   openSecondTab,
   quantityInput,
   readCartRaw,
   writeStorage,
 } from "../harness/browser/cart.ts";
+import {
+  expectAccountControls,
+  expectHeaderCartLink,
+  expectHeaderLogin,
+  expectHeaderMypage,
+  expectNoHeaderCartCount,
+  expectNoHeaderLogin,
+  expectNoHeaderMypage,
+  logoutViaHeader,
+} from "../harness/browser/header-menu.ts";
 import { gotoHydrated, reloadHydrated } from "../harness/browser/hydration.ts";
 import { fixClock } from "../harness/browser/public.ts";
 import {
@@ -68,7 +73,7 @@ test.describe("TC-AR-SES-010-001 an expired prior session cannot carry its Cart 
         has: page.getByRole("heading", { name: offeringName(OFFERING.regular), exact: true }),
       });
     await addButton(offering).click();
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     expect(await readCartRaw(page)).not.toBeNull();
     const previousCart = await readCartRaw(page);
     await page.close();
@@ -102,7 +107,7 @@ test.describe("TC-AR-SES-010-001 an expired prior session cannot carry its Cart 
       emailVerified: true,
     });
     await expect.poll(() => readCartRaw(reauthenticated)).toBeNull();
-    await expect(headerCartLink(reauthenticated, null)).toBeVisible();
+    await expectHeaderCartLink(reauthenticated, null);
     await gotoHydrated(reauthenticated, "/cart");
     await expect(mainOf(reauthenticated)).toContainText(copy.cart.empty);
     await expect(mainOf(reauthenticated).getByRole("listitem")).toHaveCount(0);
@@ -130,9 +135,9 @@ test.describe("TC-AR-SES-007-301 AuthGate keeps protected content from a guest (
     await expect(page).toHaveURL(/\/mypage$/);
     await expect(heading1(page)).toHaveText(copy.mypage.heading);
     await expect(mainOf(page)).toContainText(MARKER_PROTECTED_TEXT);
-    await expect(headerMypage(page)).toBeVisible();
-    await expect(accountMenuButton(page)).toBeVisible();
-    await expect(headerLogin(page)).toHaveCount(0);
+    await expectHeaderMypage(page);
+    await expectAccountControls(page);
+    await expectNoHeaderLogin(page);
   });
 
   test("an authenticated user whose email is unverified is sent to Email Verification, not shown the content", async ({
@@ -180,12 +185,12 @@ test.describe("TC-PG-AUTH-003-311 Logout goes Home, clears the Cart, and back ne
   test("Logout from Mypage ends on Home (/), as a guest, and stays there", async ({ page }) => {
     await open(page, "/mypage", { [KEYS.session]: authenticatedSession() });
     await expect(heading1(page)).toHaveText(copy.mypage.heading);
-    await logoutViaMenu(page);
+    await logoutViaHeader(page);
     await expect(page).toHaveURL(/\/$/);
     expect(urlOf(page).pathname).toBe("/");
-    await expect(headerLogin(page)).toBeVisible();
-    await expect(headerMypage(page)).toHaveCount(0);
-    await expect(accountMenuButton(page)).toHaveCount(0);
+    await expectHeaderLogin(page);
+    await expectNoHeaderMypage(page);
+    await expectAccountControls(page, false);
     expect(await readSession(page)).toEqual({ kind: "guest" });
     // The gate must not turn the Logout into a later redirect to Login.
     await page.waitForLoadState("networkidle");
@@ -198,7 +203,7 @@ test.describe("TC-PG-AUTH-003-311 Logout goes Home, clears the Cart, and back ne
   }) => {
     await open(page, "/mypage", { [KEYS.session]: authenticatedSession() });
     await expect(heading1(page)).toHaveText(copy.mypage.heading);
-    await logoutViaMenu(page);
+    await logoutViaHeader(page);
     await expect(page).toHaveURL(/\/$/);
     // From here on, record whether the protected text appears in this document or after client navigation.
     await page.evaluate((needle: string) => {
@@ -223,15 +228,13 @@ test.describe("TC-PG-AUTH-003-311 Logout goes Home, clears the Cart, and back ne
       [KEYS.session]: authenticatedSession(),
       ...cartEntries(CART, "authenticated"),
     });
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     const dbBefore = await page.evaluate((key) => window.localStorage.getItem(key), KEYS.db);
-    await logoutViaMenu(page);
+    await logoutViaHeader(page);
     await expect(page).toHaveURL(/\/$/);
     await expect.poll(() => readCartRaw(page)).toBeNull();
-    await expect(headerCartLink(page, null)).toBeVisible();
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: /カート（\d+点）/ }),
-    ).toHaveCount(0);
+    await expectHeaderCartLink(page, null);
+    await expectNoHeaderCartCount(page);
     expect(await page.evaluate((key) => window.localStorage.getItem(key), KEYS.db)).toBe(dbBefore);
     await gotoHydrated(page, "/cart");
     await expect(mainOf(page)).toContainText(copy.cart.empty);
@@ -247,10 +250,10 @@ test.describe("TC-PG-AUTH-003-311 Logout goes Home, clears the Cart, and back ne
       ...authScenario({ logout: "provider_failure" }),
       [KEYS.session]: authenticatedSession(),
     });
-    await logoutViaMenu(page);
+    await logoutViaHeader(page);
     await expect(page).toHaveURL(/\/$/);
     expect(await readSession(page)).toEqual({ kind: "guest" });
-    await expect(headerLogin(page)).toBeVisible();
+    await expectHeaderLogin(page);
   });
 });
 
@@ -301,30 +304,28 @@ test.describe("TC-PG-AUTH-003-312 Header and Cart across Login and Logout (SPEC-
     await addButton(entry).click();
     await gotoHydrated(page, `/goods/${GOODS.tshirt}`);
     await addButton(mainOf(page)).click();
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     await gotoHydrated(page, "/account/login");
     const cartRaw = await readCartRaw(page);
-    await expect(headerLogin(page)).toBeVisible();
-    await expect(accountMenuButton(page)).toHaveCount(0);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderLogin(page);
+    await expectAccountControls(page, false);
+    await expectHeaderCartLink(page, 3);
 
     await loginWith(page, EMAIL.demo);
     await expect(page).toHaveURL(/\/mypage$/);
-    await expect(headerMypage(page)).toBeVisible();
-    await expect(accountMenuButton(page)).toBeVisible();
-    await expect(headerLogin(page)).toHaveCount(0);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderMypage(page);
+    await expectAccountControls(page);
+    await expectNoHeaderLogin(page);
+    await expectHeaderCartLink(page, 3);
     expect(await readCartRaw(page)).toBe(cartRaw);
 
-    await logoutViaMenu(page);
+    await logoutViaHeader(page);
     await expect(page).toHaveURL(/\/$/);
-    await expect(headerLogin(page)).toBeVisible();
-    await expect(headerMypage(page)).toHaveCount(0);
+    await expectHeaderLogin(page);
+    await expectNoHeaderMypage(page);
     await expect.poll(() => readCartRaw(page)).toBeNull();
-    await expect(headerCartLink(page, null)).toBeVisible();
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: /カート（\d+点）/ }),
-    ).toHaveCount(0);
+    await expectHeaderCartLink(page, null);
+    await expectNoHeaderCartCount(page);
   });
 
   test("a guest adds to the Cart, logs in from the Cart flow, and the lines are still there on /cart", async ({
@@ -338,13 +339,13 @@ test.describe("TC-PG-AUTH-003-312 Header and Cart across Login and Logout (SPEC-
       .getByRole("button", { name: copy.sales.add });
     await addButton.click();
     await expect(statusesIn(page)).toContainText(copy.sales.addSucceeded);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     const cartRaw = await readCartRaw(page);
     await gotoHydrated(page, "/account/login?continue=cart");
     await loginWith(page, EMAIL.demo);
     await expect(page).toHaveURL(/\/cart$/);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(1);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     expect(await readCartRaw(page)).toBe(cartRaw);
   });
 
@@ -356,6 +357,6 @@ test.describe("TC-PG-AUTH-003-312 Header and Cart across Login and Logout (SPEC-
     await reloadHydrated(page);
     await expect(heading1(page)).toHaveText(copy.mypage.heading);
     expect(await readSessionRaw(page)).toBe(raw);
-    await expect(headerMypage(page)).toBeVisible();
+    await expectHeaderMypage(page);
   });
 });

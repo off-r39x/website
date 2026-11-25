@@ -13,7 +13,6 @@ import {
   FORBIDDEN_ELIGIBILITY_IN_STORAGE,
   FORBIDDEN_IN_CART_STORAGE,
   goodsLine,
-  headerCartLink,
   mainOf,
   offeringName,
   openSecondTab,
@@ -32,6 +31,11 @@ import {
   storedText,
   writeStorage,
 } from "../harness/browser/cart.ts";
+import {
+  clickHeaderCartLink,
+  expectHeaderCartLink,
+  expectNoHeaderCartCount,
+} from "../harness/browser/header-menu.ts";
 import { gotoHydrated, reloadHydrated } from "../harness/browser/hydration.ts";
 import {
   dbJson,
@@ -103,14 +107,14 @@ test.describe("TC-PG-CRT-001-501 a guest adds Entry and Goods, changes the quant
     await expect(regular).toBeVisible();
     await quantityInput(regular).fill("2");
     await addButton(regular).click();
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
 
     await gotoHydrated(page, `/goods/${GOODS.tshirt}`);
     await expect(h1(page)).toHaveText(expectedGoodsDetail(GOODS.tshirt).name);
     await addButton(main(page)).click();
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
 
-    await headerCartLink(page, 3).click();
+    await clickHeaderCartLink(page, 3);
     await expect(page).toHaveURL(/\/cart$/);
     await expect(h1(page)).toHaveText(copy.cart.heading);
     await expect(rows(page)).toHaveCount(2);
@@ -126,24 +130,24 @@ test.describe("TC-PG-CRT-001-501 a guest adds Entry and Goods, changes the quant
       .poll(() => readCart(page))
       .toEqual(stored([entryLine(OFFERING.regular, 3), goodsLine(GOODS.tshirt, 1)]));
     await expect(regularRow).toContainText(formatMoney(multiplyMoney(price(OFFERING.regular), 3)));
-    await expect(headerCartLink(page, 4)).toBeVisible();
+    await expectHeaderCartLink(page, 4);
 
     await removeButton(tshirtRow).click();
     await expect(rows(page)).toHaveCount(1);
     await expect.poll(() => readCart(page)).toEqual(stored([entryLine(OFFERING.regular, 3)]));
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
 
     await reloadHydrated(page);
     await expect(rows(page)).toHaveCount(1);
     await expect(quantityInput(rowByHeading(page, offeringName(OFFERING.regular)))).toHaveValue(
       "3",
     );
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
 
     await removeButton(rowByHeading(page, offeringName(OFFERING.regular))).click();
     await expect(main(page)).toContainText(copy.cart.empty);
     await expect(rows(page)).toHaveCount(0);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     expect(await readCart(page)).toEqual(stored([]));
   });
 });
@@ -437,7 +441,7 @@ test.describe("TC-PG-CRT-001-505 Empty is shown only for a verified empty Cart (
       ).toBeVisible();
       await expect(alert(page)).toHaveCount(0);
       await expect(proceedButton(page)).toHaveCount(0);
-      await expect(headerCartLink(page, null)).toBeVisible();
+      await expectHeaderCartLink(page, null);
     });
   }
 
@@ -674,10 +678,8 @@ test.describe("TC-PG-CRT-001-510 a damaged Cart is reported with an explicit res
       await expect(rows(page)).toHaveCount(0);
       await expect(proceedButton(page)).toHaveCount(0);
       await expect(main(page)).not.toContainText(/[¥￥]\s*\d/);
-      await expect(headerCartLink(page, null)).toBeVisible();
-      await expect(
-        page.getByRole("banner").getByRole("link", { name: /カート（\d+点）/ }),
-      ).toHaveCount(0);
+      await expectHeaderCartLink(page, null);
+      await expectNoHeaderCartCount(page);
       await reloadHydrated(page);
       await expect(alert(page)).toContainText(copy.cart.corrupted.title);
       expect(await readCartRaw(page)).toBe(raw);
@@ -708,7 +710,7 @@ test.describe("TC-PG-CRT-001-511 the quantity field accepts a positive integer, 
       expect(await describedText(input)).toContain(copy.quantity.invalid);
       expect(await readCart(page)).toEqual(stored([entryLine(OFFERING.regular, 2)]));
       await expect(item).toContainText(formatMoney(multiplyMoney(price(OFFERING.regular), 2)));
-      await expect(headerCartLink(page, 2)).toBeVisible();
+      await expectHeaderCartLink(page, 2);
     });
   }
 
@@ -811,7 +813,7 @@ test.describe("TC-PG-CRT-001-513 a session that changes while the Cart page is o
     await expect(rows(page).nth(0)).toContainText(label.label.ON_SALE);
     await expect(proceedButton(page)).toBeEnabled();
     const cartBefore = await readCartRaw(page);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     const other = await openSecondTab(context);
     await other.goto("/");
 
@@ -823,7 +825,7 @@ test.describe("TC-PG-CRT-001-513 a session that changes while the Cart page is o
     expect(await proceedReason(page)).toContain(copy.cart.proceed.blocked);
     expect(await readCartRaw(page)).toBe(cartBefore);
     expect(await readCart(page)).toEqual(stored([entryLine(OFFERING.limit, 1)]));
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
 
     await writeStorage(other, KEYS.session, sessionJson());
     await expect(rows(page).nth(0)).toContainText(label.label.ON_SALE);

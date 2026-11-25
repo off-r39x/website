@@ -30,7 +30,6 @@ import {
   expectedGoodsDetail,
   failCartWrites,
   goodsLine,
-  headerCartLink,
   liveRegion,
   mainOf,
   offeringName,
@@ -41,6 +40,7 @@ import {
   removeButton,
   rowByHeading,
 } from "../harness/browser/cart.ts";
+import { expectHeaderCartLink } from "../harness/browser/header-menu.ts";
 import { gotoHydrated, reloadHydrated, waitForHydration } from "../harness/browser/hydration.ts";
 import { guestButton, slotRoute, slotStateInDb } from "../harness/browser/karaoke-purchase.ts";
 import { fixClock } from "../harness/browser/public.ts";
@@ -80,7 +80,7 @@ test.describe("TC-PG-CRT-001-541 a failed Cart write on the Cart page is never s
     await quantityInput(rows(page).nth(0)).fill("5");
     await expect(main(page).getByRole("alert")).toContainText(copy.cart.lifecycleBlocked.title);
     expect(await readCartRaw(page)).toBe(before);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     await expect(rows(page)).toHaveCount(0);
     await expect(proceedButton(page)).toHaveCount(0);
     await expect(liveRegion(page)).toHaveCount(0);
@@ -100,7 +100,7 @@ test.describe("TC-PG-CRT-001-541 a failed Cart write on the Cart page is never s
     await expect(main(page).getByRole("alert")).toContainText(copy.cart.lifecycleBlocked.title);
     await expect(rows(page)).toHaveCount(0);
     expect(await readCartRaw(page)).toBe(before);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     await expect(proceedButton(page)).toHaveCount(0);
   });
 });
@@ -137,7 +137,7 @@ test.describe("TC-PG-CRT-001-542 a Cart store that cannot be read (Guest, no Car
     await expect(main(page)).not.toContainText(copy.cart.empty);
     await expect(rows(page)).toHaveCount(0);
     await expect(proceedButton(page)).toHaveCount(0);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
   });
 
   test("the Entry page stays viewable but disables quantity and Add with the Cart stop reason while the store cannot be read", async ({
@@ -164,7 +164,7 @@ test.describe("TC-PG-CRT-001-542 a Cart store that cannot be read (Guest, no Car
     // No success is announced and no count is shown.
     await expect(liveRegion(page)).not.toContainText(copy.sales.addSucceeded);
     await expect(main(page)).not.toContainText(copy.sales.addSucceeded);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     // Nothing was stored (the Cart key stays absent).
     expect(await cartKeyStored(page)).toBe(false);
   });
@@ -228,7 +228,7 @@ test.describe("TC-PG-CRT-001-543 a Cart store that cannot be read stops Cart add
           main(page).getByRole("alert").filter({ hasText: copy.cart.corrupted.title }),
         ).toHaveCount(0);
         // (5) The Header does not show a count.
-        await expect(headerCartLink(page, null)).toBeVisible();
+        await expectHeaderCartLink(page, null);
         // (6) Nothing was stored: the Cart key stays absent and the seeded metadata is unchanged.
         expect(await cartKeyStored(page)).toBe(false);
       });
@@ -246,7 +246,7 @@ test.describe("TC-PG-CRT-001-543 a Cart store that cannot be read stops Cart add
     await expect(main(page)).not.toContainText(copy.cart.empty);
     await expect(rows(page)).toHaveCount(0);
     await expect(proceedButton(page)).toHaveCount(0);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     expect(await cartKeyStored(page)).toBe(false);
   });
 

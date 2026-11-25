@@ -1,20 +1,17 @@
 import { expect, type Page, test } from "@playwright/test";
 import { copy } from "../../apps/web/src/presentation/copy/ja.ts";
 import { formatBusinessDate } from "../../apps/web/src/presentation/format/datetime.ts";
+import { loginWith, readSession } from "../harness/browser/auth.ts";
+import { addButton, offeringName, readCart, rowByHeading } from "../harness/browser/cart.ts";
 import {
-  accountMenuButton,
-  loginWith,
-  logoutViaMenu,
-  readSession,
-} from "../harness/browser/auth.ts";
-import {
-  addButton,
-  headerCartLink,
-  offeringName,
-  readCart,
-  rowByHeading,
-} from "../harness/browser/cart.ts";
-import { gotoViaPrimaryMenu } from "../harness/browser/header-menu.ts";
+  checkHeader,
+  clickHeaderCartLink,
+  clickHeaderLink,
+  expectAccountControls,
+  expectHeaderCartLink,
+  gotoViaPrimaryMenu,
+  logoutViaHeader,
+} from "../harness/browser/header-menu.ts";
 import { slotRoute, slotStateInDb } from "../harness/browser/karaoke-purchase.ts";
 import { expectNoMatrixSeed, mainLink } from "../harness/browser/mypage.ts";
 import { horizontalOverflow } from "../harness/browser/public.ts";
@@ -60,30 +57,27 @@ test.describe("TC-SPEC-050-31-21-001 Entry Ticket + Goods purchase journey from 
 
     // 1. Guest browses. No session exists.
     await openAs(page, "/", { session: null });
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: copy.layout.account.login, exact: true }),
-    ).toBeVisible();
+    await checkHeader(page, (h) =>
+      expect(h.getByRole("link", { name: copy.layout.account.login, exact: true })).toBeVisible(),
+    );
     expect(await readSession(page)).toEqual({ kind: "guest" });
 
     // 2. Entry Ticket from the header CTA, then Goods from the primary navigation; both go to the Cart.
-    await page
-      .getByRole("banner")
-      .getByRole("link", { name: copy.layout.cta.buyTickets, exact: true })
-      .click();
+    await clickHeaderLink(page, copy.layout.cta.buyTickets);
     await expect(page).toHaveURL(/\/entry$/);
     const ticket = rowByHeading(page, offeringName(OFFERING.regular));
     await addButton(ticket).click();
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
 
     await gotoPrimary(page, copy.layout.nav.items.goods);
     await expect(page).toHaveURL(/\/goods$/);
     await page.locator(`a[href="/goods/${GOODS.tshirt}"]`).click();
     await expect(page).toHaveURL(new RegExp(`/goods/${GOODS.tshirt}$`));
     await addButton(mainOf(page)).click();
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
 
     // 3. Cart: the lines hold references and quantities only; the Guest is sent to Login with the Cart intent.
-    await headerCartLink(page, 2).click();
+    await clickHeaderCartLink(page, 2);
     await expect(page).toHaveURL(/\/cart$/);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(2);
     const cartBefore = JSON.stringify(await readCart(page));
@@ -123,13 +117,10 @@ test.describe("TC-SPEC-050-31-21-001 Entry Ticket + Goods purchase journey from 
     expect(ticketHref).toBeDefined();
     expect(hrefs.some((h) => /^\/mypage\/goods\/[0-9a-f-]{36}$/.test(h))).toBe(true);
     expect(await newOrders(page)).toHaveLength(1);
-    await expect(headerCartLink(page)).toBeVisible();
+    await expectHeaderCartLink(page);
 
     // 8. Mypage: the Order list has the new Order as CONFIRMED.
-    await page
-      .getByRole("banner")
-      .getByRole("link", { name: copy.layout.account.mypage, exact: true })
-      .click();
+    await clickHeaderLink(page, copy.layout.account.mypage);
     await expect(page).toHaveURL(/\/mypage$/);
     await page.goto("/mypage/orders");
     await expect(page.locator(`a[href="/mypage/orders/${orderRef}"]`)).toHaveCount(1);
@@ -146,9 +137,9 @@ test.describe("TC-SPEC-050-31-21-001 Entry Ticket + Goods purchase journey from 
     await expect(mainOf(page)).not.toContainText(copy.qr.KARAOKE);
 
     // 10. Logout ends on Home as a guest; Mypage is no longer reachable.
-    await logoutViaMenu(page);
+    await logoutViaHeader(page);
     await expect(page).toHaveURL(/\/$/);
-    await expect(accountMenuButton(page)).toHaveCount(0);
+    await expectAccountControls(page, false);
     expect(await readSession(page)).toEqual({ kind: "guest" });
     await page.goto("/mypage");
     await expect(page).toHaveURL(/\/account\/login\?continue=mypage$/);
@@ -219,7 +210,7 @@ test.describe("TC-SPEC-050-31-21-002 Karaoke purchase journey from guest to Rese
     await expect(mainOf(page)).not.toContainText(copy.qr.ENTRY);
     await expectNoMatrixSeed(page);
 
-    await logoutViaMenu(page);
+    await logoutViaHeader(page);
     await expect(page).toHaveURL(/\/$/);
     expect(await readSession(page)).toEqual({ kind: "guest" });
     expect(errors.errors).toEqual([]);
@@ -261,7 +252,7 @@ test.describe("TC-SPEC-050-31-21-003 a guest reaches every public page by naviga
     await settle(/\/announcements$/);
     await page.locator('a[href^="/announcements/"]').first().click();
     await settle(/\/announcements\/[0-9a-f-]{36}$/);
-    await headerCartLink(page).click();
+    await clickHeaderCartLink(page);
     await settle(/\/cart$/);
     expect(visited).toHaveLength(10);
     expect(errors.errors).toEqual([]);

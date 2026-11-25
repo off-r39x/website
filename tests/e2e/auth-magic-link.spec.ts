@@ -10,10 +10,8 @@ import {
   dumpStorage,
   field,
   formOf,
-  headerLogin,
   heading1,
   loginWith,
-  logoutViaMenu,
   MARKER_PROTECTED_TEXT,
   MOCK_MAGIC_LINK_PATH,
   magicFailurePath,
@@ -46,12 +44,16 @@ import {
   cartEntries,
   entryLine,
   goodsLine,
-  headerCartLink,
   offeringName,
   openSecondTab,
   quantityInput,
   readCartRaw,
 } from "../harness/browser/cart.ts";
+import {
+  expectHeaderCartLink,
+  expectHeaderLogin,
+  logoutViaHeader,
+} from "../harness/browser/header-menu.ts";
 import { gotoHydrated, reloadHydrated } from "../harness/browser/hydration.ts";
 import { fixClock } from "../harness/browser/public.ts";
 import {
@@ -261,7 +263,7 @@ test.describe("TC-PG-AUTH-003-309 Magic Link on Login and Registration: the link
     page,
   }) => {
     await openAuthPage(page, "login", "?continue=cart", cartEntries(LINES, "guest"));
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     const cartBefore = await readCartRaw(page);
     await sendMagicLink(page, EMAIL.demo);
     expect(await lifecycleOf(page)).toEqual({
@@ -275,7 +277,7 @@ test.describe("TC-PG-AUTH-003-309 Magic Link on Login and Registration: the link
     await expect(page).toHaveURL(/\/cart$/);
     await expect(heading1(page)).toHaveText(copy.cart.heading);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(2);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     expect(documents).toContain(magicReturnPath("login", "cart"));
     expect(await readCartRaw(page)).toBe(cartBefore);
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
@@ -348,10 +350,10 @@ test.describe("TC-PG-AUTH-003-309 Magic Link on Login and Registration: the link
       expect(urlOf(page).searchParams.has("returned")).toBe(false);
       expect(urlOf(page).searchParams.get("continue")).toBe("cart");
       expect(await readSession(page)).toEqual({ kind: "guest" });
-      await expect(headerLogin(page)).toBeVisible();
+      await expectHeaderLogin(page);
       expect(await readUsers(page)).toEqual(usersBefore);
       expect(await readCartRaw(page)).toBe(cartBefore);
-      await expect(headerCartLink(page, 3)).toBeVisible();
+      await expectHeaderCartLink(page, 3);
       // Not a result: the pending record of the send stays (FR-CRT-012 external-completion rule step 7).
       expect(await lifecycleOf(page)).toEqual({
         version: 1,
@@ -646,7 +648,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return of a link decid
       await openReturn(page, magicReturnPath(name, "cart"), entries);
       await expect(page).toHaveURL(/\/cart$/);
       await expect(mainOf(page).getByRole("listitem")).toHaveCount(2);
-      await expect(headerCartLink(page, 3)).toBeVisible();
+      await expectHeaderCartLink(page, 3);
       expect(await readCartRaw(page)).toBe(entries[KEYS.cart]);
       expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
     });
@@ -680,7 +682,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return of a link decid
         emailVerified: false,
       });
       expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
-      await expect(headerCartLink(page, 3)).toBeVisible();
+      await expectHeaderCartLink(page, 3);
     });
   }
 
@@ -702,7 +704,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return of a link decid
         provenance: "guest",
         external: "pending",
       });
-      await expect(headerCartLink(page, 3)).toBeVisible();
+      await expectHeaderCartLink(page, 3);
     });
   }
 
@@ -778,7 +780,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return of a link decid
     await expect(page).toHaveURL(/\/mypage$/);
     expect(await readCartRaw(page)).toBeNull();
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
   });
 
   test("a reload after the return was processed decides nothing again: no returned, no alert, and the Cart and the metadata are as they were", async ({
@@ -815,7 +817,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return of a link decid
     await expect(page).toHaveURL(/\/mypage$/);
     expect(await readCartRaw(page)).toBe(cartBefore);
     expect(await lifecycleOf(page)).toEqual(metadataBefore);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
   });
 
   test("the Browser's back and forward never return to the returned=magic-link entry", async ({
@@ -851,7 +853,7 @@ test.describe("TC-PG-AUTH-003-310 the screen shown by the return of a link decid
     });
     for (const path of ["/cart", "/account/login", "/account/register", "/mypage"]) {
       await gotoHydrated(page, path);
-      await expect(headerCartLink(page, 3)).toBeVisible();
+      await expectHeaderCartLink(page, 3);
       expect((await lifecycleOf(page))?.external, path).toBe("pending");
     }
   });
@@ -1043,13 +1045,13 @@ test.describe("TC-FR-CRT-012-020 the screens: a link that arrives after another 
       });
     await quantityInput(offering).fill("1");
     await addButton(offering).click();
-    await expect(headerCartLink(page, expectedCount)).toBeVisible();
+    await expectHeaderCartLink(page, expectedCount);
   }
 
   /** Guest with one Entry in the Cart sends a link from Login and stays on the sent state. */
   async function startWithGuestCart(page: Page): Promise<void> {
     await openAuthPage(page, "login", "", ENTRY_ONE);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     await sendMagicLink(page, SENDER_EMAIL);
     expect(await lifecycleOf(page)).toEqual({
       version: 1,
@@ -1071,12 +1073,12 @@ test.describe("TC-FR-CRT-012-020 the screens: a link that arrives after another 
   async function expectCartIsEmpty(page: Page): Promise<void> {
     expect(await readCartRaw(page)).toBeNull();
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     await gotoHydrated(page, "/cart");
     await expect(heading1(page)).toHaveText(copy.cart.heading);
     await expect(mainOf(page)).toContainText(copy.cart.empty);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(0);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
   }
 
   test("send, another method signs in as demo@example.com and adds an Entry, then the link of other@example.com is opened: the Cart is empty and the record is gone", async ({
@@ -1106,7 +1108,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a link that arrives after another 
     await standInLinkButton(page, "openExpired").click();
     await expect(page).toHaveURL(/\/account\/login/);
     await expect(alertsIn(page)).toHaveText(copy.auth.magicLink.failed);
-    await expect(headerCartLink(page, 2)).toBeVisible();
+    await expectHeaderCartLink(page, 2);
     expect((await lifecycleOf(page))?.external).toBe("superseded");
     expect(await readSession(page)).toEqual({
       kind: "authenticated",
@@ -1128,7 +1130,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a link that arrives after another 
     await openValidLink(page, "login", EMAIL.fresh);
     await expect(page).toHaveURL(/\/mypage$/);
     expect(await readCartRaw(page)).toBe(cartBefore);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     expect(await lifecycleOf(page)).toEqual({ version: 1, provenance: "authenticated" });
   });
 
@@ -1140,7 +1142,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a link that arrives after another 
     await gotoHydrated(second, "/account/login");
     await loginWith(second, EMAIL.demo);
     await expect(second).toHaveURL(/\/mypage$/);
-    await logoutViaMenu(second);
+    await logoutViaHeader(second);
     await expect(second).toHaveURL(/\/$/);
     expect(await readCartRaw(second)).toBeNull();
     expect((await lifecycleOf(second))?.external).toBeUndefined();
@@ -1149,7 +1151,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a link that arrives after another 
     await openValidLink(page, "login", NEW_LINK_EMAIL);
     await expect(page).toHaveURL(/\/mypage$/);
     expect(await readCartRaw(page)).toBeNull();
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
     await second.close();
   });
 
@@ -1180,7 +1182,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a link that arrives after another 
     await gotoHydrated(page, "/cart");
     await expect(heading1(page)).toHaveText(copy.cart.heading);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(1);
-    await expect(headerCartLink(page, 1)).toBeVisible();
+    await expectHeaderCartLink(page, 1);
     expect(await readCartRaw(page)).toBe(cartBefore);
     await second.close();
   });
@@ -1193,7 +1195,7 @@ test.describe("TC-FR-CRT-012-020 the screens: a link that arrives after another 
     await chooseMethod(page, copy.auth.method.password);
     await loginWith(page, EMAIL.demo);
     await expect(page).toHaveURL(/\/mypage$/);
-    await logoutViaMenu(page);
+    await logoutViaHeader(page);
     await expect(page).toHaveURL(/\/$/);
     expect(await readCartRaw(page)).toBeNull();
     expect((await lifecycleOf(page))?.external).toBeUndefined();

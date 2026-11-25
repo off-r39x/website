@@ -11,8 +11,6 @@ import {
   focused,
   googleRadio,
   googleStartButton,
-  headerLogin,
-  headerMypage,
   heading1,
   linkIn,
   loginWith,
@@ -41,12 +39,18 @@ import {
   cartEntries,
   entryLine,
   goodsLine,
-  headerCartLink,
   offeringName,
   quantityInput,
   readCartRaw,
   readDbRaw,
 } from "../harness/browser/cart.ts";
+import {
+  expectHeaderCartLink,
+  expectHeaderLogin,
+  expectHeaderMypage,
+  expectNoHeaderLogin,
+  expectNoHeaderMypage,
+} from "../harness/browser/header-menu.ts";
 import { gotoHydrated } from "../harness/browser/hydration.ts";
 import { fixClock } from "../harness/browser/public.ts";
 import {
@@ -90,7 +94,7 @@ test.describe("TC-PG-AUTH-003-301 Login returns to the logical destination: Cart
     await expect(page).toHaveURL(/\/cart$/);
     await expect(heading1(page)).toHaveText(copy.cart.heading);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(2);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     expect(await readCartRaw(page)).toBe(before);
     expect(await readSession(page)).toEqual({
       kind: "authenticated",
@@ -122,12 +126,12 @@ test.describe("TC-PG-AUTH-003-301 Login returns to the logical destination: Cart
     page,
   }) => {
     await openLogin(page);
-    await expect(headerLogin(page)).toBeVisible();
+    await expectHeaderLogin(page);
     await loginWith(page, EMAIL.fresh);
     await expect(page).toHaveURL(/\/mypage$/);
     await expect(heading1(page)).toHaveText(copy.mypage.heading);
-    await expect(headerMypage(page)).toBeVisible();
-    await expect(headerLogin(page)).toHaveCount(0);
+    await expectHeaderMypage(page);
+    await expectNoHeaderLogin(page);
   });
 });
 
@@ -236,8 +240,8 @@ test.describe("TC-PG-AUTH-003-303 Login failures do not authenticate and do not 
     await expect(alertsIn(page)).toHaveText(copy.auth.login.credentialFailure);
     await expect(page).toHaveURL(/\/account\/login\?continue=cart$/);
     expect(await readSession(page)).toEqual({ kind: "guest" });
-    await expect(headerLogin(page)).toBeVisible();
-    await expect(headerMypage(page)).toHaveCount(0);
+    await expectHeaderLogin(page);
+    await expectNoHeaderMypage(page);
     expect(await dumpStorage(page)).not.toContain(SENTINEL_PASSWORD);
     expect(page.url()).not.toContain(SENTINEL_PASSWORD);
     await expect(mainOf(page)).not.toContainText(SENTINEL_PASSWORD);
@@ -259,7 +263,7 @@ test.describe("TC-PG-AUTH-003-303 Login failures do not authenticate and do not 
     await expect(alertsIn(page)).toHaveText(copy.auth.login.unavailable);
     await expect(page).toHaveURL(/\/account\/login/);
     expect(await readSession(page)).toEqual({ kind: "guest" });
-    await expect(headerMypage(page)).toHaveCount(0);
+    await expectNoHeaderMypage(page);
   });
 
   test("an unverified user is sent to Email Verification with the destination, not to the purchase flow", async ({
@@ -475,7 +479,7 @@ test.describe("TC-PG-AUTH-003-306 Email OTP Login: send the code, enter it, and 
       email: EMAIL.demo,
       emailVerified: true,
     });
-    await expect(headerMypage(page)).toBeVisible();
+    await expectHeaderMypage(page);
     await page.waitForLoadState("networkidle");
     expect(runtime.errors).toEqual([]);
     expect([...seen.hosts]).toEqual([ORIGIN_HOST]);
@@ -571,14 +575,14 @@ test.describe("TC-PG-AUTH-003-306 Email OTP Login: send the code, enter it, and 
   }) => {
     const lines = [entryLine(OFFERING.regular, 2), goodsLine(GOODS.tshirt, 1)];
     await openLogin(page, "?continue=cart", cartEntries(lines, "guest"));
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     const before = await readCartRaw(page);
     await goToCodeStep(page, EMAIL.demo);
     await submitOtpCode(page, OTP_CODE, otp().submitLogin);
     await expect(page).toHaveURL(/\/cart$/);
     await expect(heading1(page)).toHaveText(copy.cart.heading);
     await expect(mainOf(page).getByRole("listitem")).toHaveCount(2);
-    await expect(headerCartLink(page, 3)).toBeVisible();
+    await expectHeaderCartLink(page, 3);
     expect(await readCartRaw(page)).toBe(before);
     const lifecycle = await page.evaluate(
       (key) => window.localStorage.getItem(key),
@@ -603,7 +607,7 @@ test.describe("TC-PG-AUTH-003-306 Email OTP Login: send the code, enter it, and 
     await expect(page).toHaveURL(/\/cart$/);
     await expect.poll(() => readCartRaw(page)).toBeNull();
     await expect(mainOf(page)).toContainText(copy.cart.empty);
-    await expect(headerCartLink(page, null)).toBeVisible();
+    await expectHeaderCartLink(page, null);
   });
 
   test("an unverified user is verified by the code (the mailbox is proven): Login goes to the destination, the stored user and Session are verified", async ({
@@ -671,8 +675,8 @@ test.describe("TC-PG-AUTH-003-307 Email OTP failures leave the visitor a Guest o
     expect(page.url()).toBe(url);
     expect(await readSession(page)).toEqual({ kind: "guest" });
     expect(await readDbRaw(page)).toBe(dbBefore);
-    await expect(headerLogin(page)).toBeVisible();
-    await expect(headerMypage(page)).toHaveCount(0);
+    await expectHeaderLogin(page);
+    await expectNoHeaderMypage(page);
 
     await setAuthScenario(page, { login: "ok" });
     await submitOtpCode(page, OTP_CODE, otp().submitLogin);
