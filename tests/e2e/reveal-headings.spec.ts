@@ -86,8 +86,9 @@ test.describe("TC-SPEC-050-25-002 headings never fade in: below the fold they ar
 
     await expect(heading).toHaveAttribute("data-reveal", "static");
     expect(await opacityOf(heading)).toBe("1");
-    const transition = await heading.evaluate((el) => getComputedStyle(el).transitionProperty);
-    expect(transition).not.toMatch(/\bopacity\b|\ball\b/);
+    // The computed default is "all 0s": what matters is that nothing animates.
+    const duration = await heading.evaluate((el) => getComputedStyle(el).transitionDuration);
+    expect(durationsAreZero(duration), `transition ${duration}`).toBe(true);
     await expect(page.getByRole("heading", { level: 2, name: text, exact: true })).toHaveCount(1);
 
     await heading.evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));

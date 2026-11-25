@@ -105,7 +105,9 @@ describe("TC-PG-PUB-001-203 the logo slot is the supplied logo, unmodified; the 
   it("serves a byte-identical copy of the supplied logo (no resize, recompression or edit)", () => {
     const root = fileURLToPath(new URL("../../../../", import.meta.url));
     const digest = (path: string): string =>
-      createHash("sha256").update(readFileSync(join(root, path))).digest("hex");
+      createHash("sha256")
+        .update(readFileSync(join(root, path)))
+        .digest("hex");
     expect(digest("apps/web/src/assets/logo.png")).toBe(digest("assets/images/logo.png"));
   });
 });
