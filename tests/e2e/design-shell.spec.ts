@@ -135,6 +135,22 @@ test.describe("TC-PG-PUB-001-322 in-app navigation runs in a view transition wit
       "::view-transition-new(*)": "none",
     });
   });
+
+  test("a full-page navigation whose transition is cut short by a resize raises no page error", async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await gotoHydrated(page, "/");
+    // A same-origin location.assign (as the Checkout hand-off does) opens the next page in a cross-document view
+    // transition (@view-transition); resizing the viewport while it runs skips it and rejects its `ready`.
+    await page.evaluate(() => window.location.assign("/goods"));
+    await page.waitForURL(/\/goods$/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(700);
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe("TC-PG-PUB-001-323 candy lettering is used for at most two lines (DESIGN 5.1)", () => {

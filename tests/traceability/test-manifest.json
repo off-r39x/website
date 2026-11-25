@@ -14560,7 +14560,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "a navigation Link starts document.startViewTransition, the Header carries view-transition-name site-header, the new root opens with a 600ms animation and the old root has none, reduced motion turns every view-transition animation off, and no path is left in sessionStorage after a reload"
+        "a navigation Link starts document.startViewTransition, the Header carries view-transition-name site-header, the new root opens with a 600ms animation and the old root has none, reduced motion turns every view-transition animation off, no path is left in sessionStorage after a reload, and a cross-document view transition skipped by a viewport resize raises no page error"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
