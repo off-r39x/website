@@ -29,9 +29,12 @@ const linkClass = "link inline-block py-2";
 
 function OfferingView({
   item,
+  primary,
   onResult,
 }: {
   item: EntryOfferingItem;
+  /** The one primary add button of the screen (DESIGN 8.1); every other offering's is secondary. */
+  primary: boolean;
   onResult: (result: AddResult) => void;
 }) {
   const reasonId = `${useId()}-reason`;
@@ -66,7 +69,7 @@ function OfferingView({
         unitPrice={item.unitPrice}
         maxSelectableQuantity={item.maxSelectableQuantity}
         addable={item.addable}
-        buttonVariant="outline"
+        buttonVariant={primary ? "default" : "outline"}
         reasonId={reasonId}
         onResult={onResult}
       />
@@ -143,6 +146,9 @@ export function EntryPage() {
 
   const eligibility = eligibilityForSession(state.eligibility, state.session, session);
   const list = buildEntryModel(state.offerings, eligibility);
+  // The first addable offering in display order carries the primary button; none when nothing is addable.
+  const primaryOfferingRef =
+    list.kind === "items" ? (list.items.find((item) => item.addable)?.offeringRef ?? null) : null;
 
   return (
     <div className="flex flex-col">
@@ -187,7 +193,12 @@ export function EntryPage() {
             <AddResultNotice result={result} />
             <ul className="grid gap-8 lg:grid-cols-2">
               {list.items.map((item) => (
-                <OfferingView key={item.offeringRef} item={item} onResult={setResult} />
+                <OfferingView
+                  key={item.offeringRef}
+                  item={item}
+                  primary={item.offeringRef === primaryOfferingRef}
+                  onResult={setResult}
+                />
               ))}
             </ul>
           </>

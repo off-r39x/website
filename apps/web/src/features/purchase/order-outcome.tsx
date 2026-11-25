@@ -4,7 +4,7 @@ import { useId } from "react";
 import { ExternalLink } from "../../presentation/components/external-link";
 import { SectionHeading } from "../../presentation/components/section-heading";
 import { StatusBadge } from "../../presentation/components/status-badge";
-import { Button } from "../../presentation/components/ui/button";
+import { Button, buttonVariants } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
 import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
@@ -47,6 +47,19 @@ export function OrderOutcome({
   const itemsId = `${baseId}-items`;
   const rightsId = `${baseId}-rights`;
   const entitlements = model.entitlements;
+  // One primary per screen (DESIGN 8.1): the state's button action, or, for a state with links only, the link to
+  // the rights when it is offered, else the link to the purchase.
+  const hasButtonAction = model.actions.some((action) => action.kind !== "link");
+  const linkActions = model.actions.flatMap((action) =>
+    action.kind === "link" ? [action.action] : [],
+  );
+  const primaryLink = hasButtonAction
+    ? null
+    : linkActions.includes("view_entitlements")
+      ? "view_entitlements"
+      : linkActions.includes("view_purchase")
+        ? "view_purchase"
+        : null;
 
   return (
     <div className="flex flex-col gap-12">
@@ -83,7 +96,12 @@ export function OrderOutcome({
           {model.actions.map((action) => {
             if (action.kind === "link") {
               return (
-                <Link key={action.action} href={action.href} prefetch={false} className={linkClass}>
+                <Link
+                  key={action.action}
+                  href={action.href}
+                  prefetch={false}
+                  className={action.action === primaryLink ? buttonVariants() : linkClass}
+                >
                   {action.label}
                 </Link>
               );
@@ -93,7 +111,6 @@ export function OrderOutcome({
               <Button
                 key={action.kind}
                 type="button"
-                variant="outline"
                 disabled={
                   pending !== null ||
                   (disableCartPurchaseAgain &&

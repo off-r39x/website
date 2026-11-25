@@ -79,7 +79,7 @@ export type AddToCartFormProps = {
   /** Element that holds the reason text of a disabled add; tied to the button by aria-describedby. */
   reasonId: string;
   onResult: (result: AddResult) => void;
-  /** Look of the add button: "outline" where several forms share one screen (DESIGN 8.1: one primary per screen). */
+  /** Look of the add button: "outline" for all but one form where several share a screen (DESIGN 8.1: one primary). */
   buttonVariant?: "default" | "outline";
 };
 
