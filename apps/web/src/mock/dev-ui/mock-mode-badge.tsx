@@ -6,7 +6,7 @@ import { copy } from "../../presentation/copy/ja";
 export function MockModeBadge() {
   if (!isUiMockEnabled(readBuildEnv())) return null;
   return (
-    <div className="pointer-events-none fixed bottom-2 left-2 z-30 rounded-base bg-tone-pending-bg px-2 py-1 text-xs font-medium text-tone-pending-fg shadow">
+    <div className="chip pointer-events-none fixed bottom-2 left-2 z-30 bg-lemon">
       {copy.layout.mockBadge}
     </div>
   );

@@ -15,7 +15,7 @@ function SponsorLogoItem({ item }: { item: SponsorItemModel }) {
           alt={item.name}
           referrerPolicy="no-referrer"
           onError={() => setBroken(true)}
-          className="h-10 w-auto"
+          className="h-10 w-auto max-w-40"
         />
       ) : (
         <span>{item.name}</span>
@@ -23,7 +23,7 @@ function SponsorLogoItem({ item }: { item: SponsorItemModel }) {
       {item.externalHref !== null ? (
         <>
           <span className="sr-only">{copy.layout.sponsors.externalSuffix}</span>
-          <span aria-hidden="true" className="text-xs">
+          <span aria-hidden="true" className="text-caption">
             ↗
           </span>
         </>
@@ -37,12 +37,14 @@ function SponsorLogoItem({ item }: { item: SponsorItemModel }) {
           href={item.externalHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex min-h-10 items-center gap-1 rounded-base px-1 text-sm underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 items-center gap-1 rounded-field border-3 border-paper bg-paper px-3 text-small font-bold text-ink hover:bg-mint"
         >
           {content}
         </a>
       ) : (
-        <span className="inline-flex min-h-10 items-center gap-1 px-1 text-sm">{content}</span>
+        <span className="inline-flex min-h-11 items-center gap-1 rounded-field border-3 border-paper bg-paper px-3 text-small font-bold text-ink">
+          {content}
+        </span>
       )}
     </li>
   );
@@ -52,7 +54,7 @@ function SponsorLogoItem({ item }: { item: SponsorItemModel }) {
 export function SponsorLogos({ items }: { items: readonly SponsorItemModel[] }) {
   return (
     <section aria-label={copy.layout.sponsors.regionLabel}>
-      <ul className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <ul className="flex flex-wrap items-center gap-3">
         {items.map((item) => (
           <SponsorLogoItem key={item.sponsorRef} item={item} />
         ))}

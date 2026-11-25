@@ -14,8 +14,9 @@ export function FloatingTicketButton({ pathname }: { pathname: string }) {
       href={CTA_HREF}
       data-testid="floating-ticket-button"
       className={cn(
-        buttonVariants({ size: "default" }),
-        "fixed right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 min-h-11 shadow-lg",
+        // A secondary button: the primary look is kept for the one main action of a screen (DESIGN 8.1).
+        buttonVariants({ variant: "outline", size: "sm" }),
+        "fixed right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30",
       )}
     >
       {copy.layout.floatingTicket.label}

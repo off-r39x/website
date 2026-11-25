@@ -48,7 +48,7 @@ export function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-base font-semibold", className)}
+      className={cn("text-h3", className)}
       {...props}
     />
   );
@@ -70,11 +70,12 @@ export function DialogContent({ className, children, side = "center", ...props }
         aria-modal="true"
         onKeyDown={wrapTab}
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-background p-4 text-foreground shadow-lg outline-none",
+          "fixed z-50 flex flex-col gap-4 border-ink bg-paper p-6 text-ink",
           side === "center" &&
-            "top-1/2 left-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-base",
-          side === "left" && "inset-y-0 left-0 h-full w-72 max-w-[85vw] overflow-y-auto",
-          side === "right" && "inset-y-0 right-0 h-full w-72 max-w-[85vw] overflow-y-auto",
+            "top-1/2 left-1/2 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-card border-3",
+          side === "left" && "inset-y-0 left-0 h-full w-72 max-w-[85vw] overflow-y-auto border-r-3",
+          side === "right" &&
+            "inset-y-0 right-0 h-full w-72 max-w-[85vw] overflow-y-auto border-l-3",
           className,
         )}
         {...props}

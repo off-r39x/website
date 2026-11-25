@@ -14,6 +14,8 @@ type Props = {
   onNavigate?: () => void;
   /** Extra list items after the navigation Links (for example a Link only some visitors need). */
   extraItems?: ReactNode;
+  listClassName?: string;
+  linkClassName?: string;
 };
 
 function isCurrent(currentPath: string, href: string): boolean {
@@ -31,10 +33,18 @@ export function PrimaryNav({
   id,
   onNavigate,
   extraItems,
+  listClassName,
+  linkClassName = "link inline-flex min-h-11 items-center",
 }: Props) {
   return (
     <nav id={id} aria-label={label} className={className}>
-      <ul className={cn("flex flex-wrap gap-1", orientation === "column" && "flex-col")}>
+      <ul
+        className={cn(
+          "flex flex-wrap gap-x-6 gap-y-1",
+          orientation === "column" && "flex-col",
+          listClassName,
+        )}
+      >
         {items.map((item) => (
           <li key={item.key}>
             <Link
@@ -42,7 +52,7 @@ export function PrimaryNav({
               href={item.href}
               aria-current={isCurrent(currentPath, item.href) ? "page" : undefined}
               onClick={() => onNavigate?.()}
-              className="inline-flex min-h-9 items-center rounded-base px-2 text-sm hover:bg-muted aria-[current=page]:font-semibold aria-[current=page]:underline"
+              className={cn(linkClassName, "aria-[current=page]:font-black")}
             >
               {copy.layout.nav.items[item.key]}
             </Link>

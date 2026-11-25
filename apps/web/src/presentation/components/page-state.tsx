@@ -14,19 +14,19 @@ export function PageState(props: PageStateProps) {
   switch (props.state) {
     case "loading":
       return (
-        <p role="status" className="text-sm text-foreground/80">
+        <p role="status" className="text-small font-bold">
           {copy.pageState.loading}
         </p>
       );
     case "empty":
-      return <p className="text-sm text-foreground/80">{props.message ?? copy.pageState.empty}</p>;
+      return <p className="text-small">{props.message ?? copy.pageState.empty}</p>;
     case "unavailable":
       return (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-2 rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg"
-        >
-          <p>{props.message}</p>
+        <div role="alert" className="alert">
+          <p>
+            <span className="error-dot" aria-hidden="true" />
+            {props.message}
+          </p>
           <Button type="button" variant="outline" onClick={props.onRetry}>
             {props.retryLabel ?? copy.pageState.retry}
           </Button>

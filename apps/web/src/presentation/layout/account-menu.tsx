@@ -33,7 +33,7 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
   }, [open]);
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef}>
       <Button
         ref={buttonRef}
         type="button"
@@ -42,6 +42,7 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen((value) => !value)}
+        className={open ? "bg-mint" : ""}
       >
         {copy.layout.account.menuButton}
       </Button>
@@ -49,16 +50,16 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
         <nav
           id={menuId}
           aria-label={copy.layout.account.menuLabel}
-          className="absolute right-0 z-50 mt-1 w-56 rounded-base border border-border bg-background p-2 shadow-lg"
+          className="menu-panel surface-ink right-(--page-x)"
         >
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col gap-2">
             {ACCOUNT_MENU_ITEMS.map((item) => (
               <li key={item.key}>
                 <Link
                   prefetch={false}
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  className="flex min-h-9 items-center rounded-base px-2 text-sm hover:bg-muted"
+                  className="menu-panel__link"
                 >
                   {copy.layout.account[item.key]}
                 </Link>
@@ -71,7 +72,7 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
                   setOpen(false);
                   onLogout();
                 }}
-                className="flex min-h-9 w-full items-center rounded-base px-2 text-left text-sm hover:bg-muted"
+                className="menu-panel__action"
               >
                 {copy.layout.account.logout}
               </button>

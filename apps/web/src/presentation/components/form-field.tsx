@@ -34,12 +34,12 @@ export function FormField({
     .join(" ");
 
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium">
+    <div className="flex flex-col gap-2">
+      <label htmlFor={id} className="field-label">
         {label}
       </label>
       {hint !== undefined ? (
-        <p id={hintId} className="text-sm text-foreground/80">
+        <p id={hintId} className="text-small">
           {hint}
         </p>
       ) : null}
@@ -55,7 +55,8 @@ export function FormField({
         className="w-full"
       />
       {hasError ? (
-        <p id={errorId} className="text-sm text-tone-failure-fg">
+        <p id={errorId} className="text-small font-bold">
+          <span className="error-dot" aria-hidden="true" />
           {error}
         </p>
       ) : null}

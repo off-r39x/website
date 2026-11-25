@@ -7,6 +7,7 @@ import { SiteHeader } from "../features/shell/site-header";
 import { MockModeBadge } from "../mock/dev-ui/mock-mode-badge";
 import { HydrationMarker } from "../presentation/components/hydration-marker";
 import { copy } from "../presentation/copy/ja";
+import { DecorSymbols } from "../presentation/decor/symbols";
 import { formatDocumentTitle } from "./document-title";
 import { isRouteHandle } from "./route-handle";
 
@@ -29,17 +30,15 @@ export default function RootLayout() {
       <HydrationMarker />
       <ApiProvider>
         <SessionProvider>
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-base focus:bg-brand focus:px-3 focus:py-2 focus:text-brand-foreground"
-          >
+          <a href="#main-content" className="skip-link">
             {copy.layout.skipLink}
           </a>
+          <DecorSymbols />
           <SiteHeader />
           <main
             id="main-content"
             tabIndex={-1}
-            className="mx-auto w-full max-w-6xl flex-1 px-3 py-6 outline-none"
+            className="site-main outline-none focus:shadow-none"
           >
             <Outlet />
           </main>

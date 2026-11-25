@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "react-router";
 import { HOME_HREF } from "../config/site";
 import { Button } from "../presentation/components/ui/button";
 import { copy } from "../presentation/copy/ja";
+import { PageHero } from "../presentation/decor/page-hero";
 import { Link } from "../routing/link";
 
 // The pathless route's error boundary, shown inside the root layout's main landmark so the header and footer stay.
@@ -11,10 +12,9 @@ export default function RouteError() {
   const navigate = useNavigate();
   const { pathname, search, hash } = useLocation();
   return (
-    <div className="flex flex-col gap-3">
-      <h1 className="text-2xl font-bold">{copy.errorPage.title}</h1>
+    <PageHero title={copy.errorPage.title}>
       <p>{copy.errorPage.description}</p>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-6">
         <Button
           type="button"
           onClick={() => {
@@ -23,10 +23,10 @@ export default function RouteError() {
         >
           {copy.errorPage.retry}
         </Button>
-        <Link href={HOME_HREF} className="text-brand underline underline-offset-4">
+        <Link href={HOME_HREF} className="link">
           {copy.errorPage.homeLink}
         </Link>
       </div>
-    </div>
+    </PageHero>
   );
 }
