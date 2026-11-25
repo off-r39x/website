@@ -6642,7 +6642,8 @@
         "TC-TST-SEED-006-022",
         "TC-TST-SEED-006-023",
         "TC-TST-SEED-003-027",
-        "TC-TST-SEED-006-024"
+        "TC-TST-SEED-006-024",
+        "TC-TST-SEED-006-025"
       ],
       "notes": "implementation mapping only: transaction advisory lock before the count; re-check on a new connection, under the migration lock, after an unknown COMMIT result, each re-check transaction within the transaction deadline, kept on the client too (a connection that stops answering is abandoned); the reconnect stays within 3 attempts and 3 seconds in total, each attempt bounded by what is left; the retries of the seed and of the re-check, and the retry after an uncommitted re-check (after a full jitter 55P03 backoff), stay within the attempts and elapsed budget, backoff included, each retried transaction running within what is left of the budget and a later SQLSTATE never extending a budget already applied; a COMMIT acknowledged at or after the wall clock of its transaction (the 8 s, or what is left of the retry budget), measured on the monotonic clock once the acknowledgement is seen, is an unknown result and is re-checked, never CREATED from the late acknowledgement; a ROLLBACK that ends a transaction whose verdict was reached before COMMIT, acknowledged at or after its wall clock (measured on the monotonic clock once the acknowledgement is seen), ends the transaction by its wall clock: the seed transaction is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), never NOOP, and the re-check decides nothing (UNKNOWN_RESULT); likewise a transaction that failed is ended by its wall clock when, once it is rolled back or its connection is found gone, the deadline has passed (by the timer or on the monotonic clock), whatever the error: the seed transaction is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), not a constraint rejection and not retried, and the re-check decides nothing"
     },
@@ -6662,7 +6663,8 @@
         "TC-TST-SEED-001-006",
         "TC-TST-SEED-003-025",
         "TC-TST-SEED-003-026",
-        "TC-TST-SEED-003-027"
+        "TC-TST-SEED-003-027",
+        "TC-TST-SEED-003-028"
       ],
       "notes": "implementation mapping only: strict input validation with the same conditions as the CHECK constraints; numbers are checked as written (a plain integer literal only, before JSON.parse rounding); no guessed values; a key written twice in one object is rejected (JSON.parse would keep only its last value)"
     },

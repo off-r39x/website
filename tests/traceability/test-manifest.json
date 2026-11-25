@@ -19608,6 +19608,73 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-003-028",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "REL-DB-001",
+        "TST-SEED-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput with one slot window of four millennia (about a hundred million candidates) for one and for three Scopes, and with 200,000 consecutive 20 minute windows",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Rejected with INITIAL_DATA_INPUT_INVALID without expanding a candidate: the long windows within 100 ms, the long list within 2 s; parsing never throws"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-025",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "DB-GDS-001",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17 with an existing Event, Offering, Sales Configuration and Scope with a Slot; a run that creates only Goods goes through the commit proxy, which drops the COMMIT request; before the re-check reads, a Goods row of the Event is inserted without its Inventory",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check does not take the Goods row without Inventory as complete: resolved FAILED (TEMPORARY_FAILURE), a retry is attempted, and the retry ends NOOP (the Goods target has a row and is not topped up)"
+      ],
+      "expected_db_postconditions": [
+        "One Goods row, no Inventory row and no Audit Event"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.resolved with result FAILED, then reliability.retry.attempted"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-003-024",
       "level": "Unit",
       "suite": "unit",
