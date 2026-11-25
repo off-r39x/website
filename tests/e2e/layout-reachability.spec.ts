@@ -108,9 +108,8 @@ test.describe("TC-PG-PUB-001-502 the main CTA and Cart are reachable from every 
         await expect(cart).toBeInViewport();
         await expect(cart).toHaveAttribute("href", "/cart");
       });
-      await expect(
-        header(page).getByRole("link", { name: SITE_NAME, exact: true }),
-      ).toHaveAttribute("href", "/");
+      // On Home the logo link is hidden while the hero shows the logo (SPEC-050 8.5), so it is read as an element.
+      await expect(header(page).locator("a.site-header__home")).toHaveAttribute("href", "/");
     });
   }
 
