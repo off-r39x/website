@@ -4,9 +4,8 @@
  * Design tokens and logo-derived styles (docs/DESIGN.md; SPEC-050 24.3: the look is swapped here without changing
  * page structure, state meaning or accessibility). Values come from the DESIGN appendix only.
  *
- * Fonts: the DESIGN font stacks are defined as tokens, but no font file is loaded. DESIGN 4.1 asks for Google Fonts,
- * while SPEC-140 21 (font-src 'self') and SEC-WEB-004 forbid an external font origin; the security owner wins, so
- * the stacks fall back to locally installed faces until the fonts are self-hosted.
+ * Fonts: the faces are self-hosted from Fontsource, imported by src/main.tsx (DESIGN 4.1, SPEC-050 24.3). The first
+ * family of each stack is the Fontsource family name ("Fredoka Variable" is the wdth + wght variable Fredoka).
  */
 
 :root {
@@ -28,7 +27,7 @@
   );
 
   /* Type */
-  --font-display: "Fredoka", "Mochiy Pop One", sans-serif;
+  --font-display: "Fredoka Variable", "Mochiy Pop One", sans-serif;
   --font-body: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
 
   --fs-hero: clamp(64px, 14vw, 192px);

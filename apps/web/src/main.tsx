@@ -1,3 +1,18 @@
+// Self-hosted web fonts (docs/DESIGN.md 4.1, SPEC-050 24.3): Fontsource CSS bundles the woff2 files into dist/assets,
+// so they load from the own origin (font-src 'self', SEC-WEB-004). Only the japanese and latin subset files are used:
+// the per-weight files split each weight into ~120 assets, beyond the 100 rules of dist/_headers. Within a family
+// the latin file comes last, so it is checked first for latin characters and the japanese file loads only for the rest.
+import "@fontsource-variable/fredoka/standard.css";
+import "@fontsource/mochiy-pop-one/japanese-400.css";
+import "@fontsource/mochiy-pop-one/latin-400.css";
+import "@fontsource/zen-maru-gothic/japanese-400.css";
+import "@fontsource/zen-maru-gothic/japanese-500.css";
+import "@fontsource/zen-maru-gothic/japanese-700.css";
+import "@fontsource/zen-maru-gothic/japanese-900.css";
+import "@fontsource/zen-maru-gothic/latin-400.css";
+import "@fontsource/zen-maru-gothic/latin-500.css";
+import "@fontsource/zen-maru-gothic/latin-700.css";
+import "@fontsource/zen-maru-gothic/latin-900.css";
 import "./styles/globals.css";
 // Must stay ahead of every import that defines a Zod schema (see zod-jitless.ts).
 import "./config/zod-jitless";
