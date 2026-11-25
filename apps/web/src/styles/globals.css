@@ -1,64 +1,1416 @@
 @import "tailwindcss";
 
-/* Design tokens (SPEC-050 24.3): visual values live here so the look can be swapped in one place.
-   No web font and no external resource is loaded (SEC-WEB-004). */
-@theme {
-  --color-brand: #1d4ed8;
-  --color-brand-foreground: #ffffff;
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
-  --color-muted: #f1f5f9;
-  --color-border: #cbd5e1;
-  --color-overlay: rgb(0 0 0 / 0.4);
-  --color-tone-success-bg: #dcfce7;
-  --color-tone-success-fg: #14532d;
-  --color-tone-pending-bg: #fef9c3;
-  --color-tone-pending-fg: #713f12;
-  --color-tone-failure-bg: #fee2e2;
-  --color-tone-failure-fg: #7f1d1d;
-  --color-tone-neutral-bg: #f1f5f9;
-  --color-tone-neutral-fg: #0f172a;
-  --color-tone-review-bg: #ede9fe;
-  --color-tone-review-fg: #4c1d95;
-  --radius-base: 0.5rem;
-  --font-sans:
-    system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", Meiryo,
-    sans-serif;
-  --hero-gradient: linear-gradient(135deg, #1d4ed8 0%, #4338ca 55%, #7c3aed 100%);
+/*
+ * Design tokens and logo-derived styles (docs/DESIGN.md; SPEC-050 24.3: the look is swapped here without changing
+ * page structure, state meaning or accessibility). Values come from the DESIGN appendix only.
+ *
+ * Fonts: the DESIGN font stacks are defined as tokens, but no font file is loaded. DESIGN 4.1 asks for Google Fonts,
+ * while SPEC-140 21 (font-src 'self') and SEC-WEB-004 forbid an external font origin; the security owner wins, so
+ * the stacks fall back to locally installed faces until the fonts are self-hosted.
+ */
+
+:root {
+  /* Color */
+  --ink: #000000;
+  --paper: #ffffff;
+  --stripe: #494949;
+  --coral: #ff7856;
+  --lemon: #f4ff70;
+  --mint: #62fe9d;
+  --teal: #2fe5bb;
+  --grad-candy: linear-gradient(
+    180deg,
+    #f4ff70 0%,
+    #d0ff7b 25%,
+    #9eff8a 50%,
+    #62fe9d 75%,
+    #2fe5bb 100%
+  );
+
+  /* Type */
+  --font-display: "Fredoka", "Mochiy Pop One", sans-serif;
+  --font-body: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+
+  --fs-hero: clamp(64px, 14vw, 192px);
+  --fs-h1: clamp(44px, 7.5vw, 104px);
+  --fs-h2: clamp(30px, 4.5vw, 48px);
+  --fs-h3: 24px;
+  --fs-lead: 21px;
+  --fs-body: 16px;
+  --fs-small: 14px;
+  --fs-caption: 12px;
+
+  /* Logo-derived effects */
+  --off-x: -0.06em;
+  --off-y: 0.04em;
+  --shadow-off: -5px 5px 0 var(--coral), -5px 5px 0 3px var(--ink);
+
+  /* Lines & shape */
+  --line-ui: 3px;
+  --line-sticker: 4px;
+  --edge-sticker: 8px;
+  --r-none: 0;
+  --r-field: 10px;
+  --r-card: 14px;
+  --r-pill: 999px;
+
+  /* Space */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+  --sp-9: 96px;
+  --sp-10: 128px;
+  --sp-11: 192px;
+  --section-y: clamp(72px, 10vw, 160px);
+  --page-x: clamp(16px, 5vw, 64px);
+  --content-max: 1280px;
+  --quiet-zone: 24px;
+  --gutter: 24px;
+  --header-h: 72px;
+
+  /* Motion */
+  --ease-snap: cubic-bezier(0.7, 0, 0.2, 1);
+  --ease-slap: cubic-bezier(0.2, 1.5, 0.4, 1);
+  --ease-whoosh: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 240ms;
+  --dur-slow: 480ms;
+  --dur-draw: 900ms;
+  --beat: 500ms;
+  --stagger: 80ms;
+
+  /* Layers */
+  --z-content: 10;
+  --z-sticker: 20;
+  --z-header: 50;
+  --z-overlay: 100;
 }
 
-@utility bg-hero-gradient {
-  background-image: var(--hero-gradient);
+@media (max-width: 767px) {
+  :root {
+    --gutter: 16px;
+    --header-h: 60px;
+  }
+}
+
+/* Candy gloss size. Registered so the entrance (DESIGN 9.5) can animate it. */
+@property --gloss {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 46%;
+}
+
+/*
+ * Tailwind theme mapped onto the DESIGN palette. The semantic names stay so every view keeps one source of colour;
+ * no hue outside DESIGN 3.1 is introduced (tints are color-mix of a palette colour, DESIGN 3.1).
+ */
+@theme inline {
+  --color-*: initial;
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-stripe: var(--stripe);
+  --color-coral: var(--coral);
+  --color-lemon: var(--lemon);
+  --color-mint: var(--mint);
+  --color-teal: var(--teal);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-brand: var(--ink);
+  --color-brand-foreground: var(--paper);
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-muted: color-mix(in srgb, var(--lemon) 35%, var(--paper));
+  --color-border: var(--ink);
+  --color-overlay: color-mix(in srgb, var(--ink) 60%, transparent);
+  --color-tone-success-bg: var(--mint);
+  --color-tone-success-fg: var(--ink);
+  --color-tone-pending-bg: var(--lemon);
+  --color-tone-pending-fg: var(--ink);
+  --color-tone-failure-bg: var(--coral);
+  --color-tone-failure-fg: var(--ink);
+  --color-tone-neutral-bg: var(--paper);
+  --color-tone-neutral-fg: var(--ink);
+  --color-tone-review-bg: var(--teal);
+  --color-tone-review-fg: var(--ink);
+
+  --radius-base: var(--r-field);
+  --radius-field: var(--r-field);
+  --radius-card: var(--r-card);
+  --radius-pill: var(--r-pill);
+
+  /* Utilities font-pop (display) and font-maru (body); distinct names so they never shadow the DESIGN tokens. */
+  --font-sans: var(--font-body);
+  --font-pop: var(--font-display);
+  --font-maru: var(--font-body);
+
+  --text-hero: var(--fs-hero);
+  --text-h1: var(--fs-h1);
+  --text-h2: var(--fs-h2);
+  --text-h3: var(--fs-h3);
+  --text-lead: var(--fs-lead);
+  --text-body: var(--fs-body);
+  --text-small: var(--fs-small);
+  --text-caption: var(--fs-caption);
 }
 
 @layer base {
   html {
-    scroll-padding-top: 6rem;
+    scroll-padding-top: calc(var(--header-h) + var(--sp-7));
+    background: var(--paper);
+  }
+
+  body {
+    font-family: var(--font-body);
+    font-size: var(--fs-body);
+    font-weight: 500;
+    line-height: 1.9;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+    background: var(--paper);
+    /* Decoration may bleed past the viewport; clip (not hidden) keeps position: sticky working (DESIGN 11). */
+    overflow-x: clip;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-feature-settings: "palt";
+    word-break: auto-phrase;
+    text-wrap: balance;
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-brand);
-    outline-offset: 2px;
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 7px var(--mint);
+  }
+
+  .surface-ink :focus-visible {
+    outline-color: var(--paper);
+    box-shadow: 0 0 0 7px var(--coral);
   }
 }
 
-/* Section heading fade-in (SPEC-050 25). pending hides without removing from the DOM; Reduced motion shows every heading at once. */
-[data-reveal] {
-  transition:
-    opacity 500ms ease-out,
-    transform 500ms ease-out;
+/* ---- Surfaces and layout (DESIGN 3.2, 6) ------------------------------------------------------------------ */
+
+@layer components {
+  .surface-ink {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .surface-candy {
+    background: var(--grad-candy);
+    color: var(--ink);
+  }
+
+  /* main spans the viewport and clips decoration that bleeds sideways (clip keeps position: sticky working,
+     DESIGN 11); each page root is the centred content column. */
+  .site-main {
+    flex: 1;
+    width: 100%;
+    overflow-x: clip;
+  }
+
+  .site-main > * {
+    max-width: calc(var(--content-max) + var(--page-x) * 2);
+    margin-inline: auto;
+    padding-inline: var(--page-x);
+  }
+
+  /* Stretches a section to the viewport edges from inside the centred content column. */
+  .bleed {
+    margin-inline: calc(50% - 50vw);
+    padding-inline: max(var(--page-x), calc((100vw - var(--content-max)) / 2));
+  }
+
+  .section-y {
+    padding-block: var(--section-y);
+  }
+
+  .cut-diamond {
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 56px), 50% 100%, 0 calc(100% - 56px));
+  }
+
+  /* Reading measure of Japanese body text (DESIGN 4.3). */
+  .measure {
+    max-inline-size: 38ic;
+  }
+
+  .text-lead {
+    font-size: var(--fs-lead);
+    font-weight: 700;
+    line-height: 1.75;
+    letter-spacing: 0.04em;
+  }
+
+  .text-h2 {
+    font-family: var(--font-display);
+    font-size: var(--fs-h2);
+    font-weight: 400;
+    line-height: 1.25;
+    letter-spacing: 0.02em;
+  }
+
+  .text-h3 {
+    font-size: var(--fs-h3);
+    font-weight: 900;
+    line-height: 1.5;
+    letter-spacing: 0.03em;
+  }
+
+  /* Dates, times and numbers: Fredoka 700 at width 110 (DESIGN 4.2). */
+  .num {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variation-settings:
+      "wdth" 110,
+      "wght" 700;
+    letter-spacing: 0.02em;
+  }
+
+  /* Quiet zone over a line that would otherwise run behind it (DESIGN 7.3). */
+  .quiet {
+    background: var(--paper);
+    padding: var(--quiet-zone);
+    margin: calc(var(--quiet-zone) * -1);
+  }
+
+  /* ---- Skip link (DESIGN 8.11) ------------------------------------------------------------------------- */
+  .skip-link {
+    position: absolute;
+    left: var(--sp-4);
+    top: var(--sp-4);
+    z-index: var(--z-overlay);
+    padding: var(--sp-2) var(--sp-4);
+    background: var(--paper);
+    color: var(--ink);
+    border: var(--line-ui) solid var(--ink);
+    border-radius: var(--r-field);
+    font-weight: 700;
+    translate: 0 -200%;
+  }
+
+  .skip-link:focus {
+    translate: 0 0;
+  }
+
+  /* ---- Buttons (DESIGN 8.1) ---------------------------------------------------------------------------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: 52px;
+    padding: var(--sp-2) 28px;
+    border: var(--line-ui) solid var(--ink);
+    border-radius: var(--r-pill);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.4;
+    letter-spacing: 0.04em;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    transition:
+      box-shadow var(--dur-fast) var(--ease-snap),
+      translate var(--dur-fast) var(--ease-snap),
+      background-color var(--dur-fast) linear,
+      color var(--dur-fast) linear;
+  }
+
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* Compact control for the Header and menus: same shape, the 44px tap floor (DESIGN 12). */
+  .btn--compact {
+    min-height: 44px;
+    padding: var(--sp-1) var(--sp-4);
+    font-size: var(--fs-body);
+  }
+
+  .btn-primary {
+    background: var(--grad-candy);
+    box-shadow: var(--shadow-off);
+  }
+
+  .btn-primary:not(:disabled):hover {
+    box-shadow:
+      -7px 7px 0 var(--coral),
+      -7px 7px 0 3px var(--ink);
+  }
+
+  .btn-primary:not(:disabled):active {
+    box-shadow:
+      0 0 0 var(--coral),
+      0 0 0 0 var(--ink);
+    translate: -5px 5px;
+  }
+
+  .btn-secondary:not(:disabled):hover {
+    background: var(--mint);
+  }
+
+  /* Primary on the candy surface: paper, so it does not melt into the gradient. */
+  .surface-candy .btn-primary {
+    background: var(--paper);
+  }
+
+  .surface-ink .btn-primary {
+    border-color: var(--paper);
+    box-shadow: -5px 5px 0 var(--coral);
+  }
+
+  .surface-ink .btn-primary:not(:disabled):hover {
+    box-shadow: -7px 7px 0 var(--coral);
+  }
+
+  .surface-ink .btn-primary:not(:disabled):active {
+    box-shadow: 0 0 0 var(--coral);
+  }
+
+  .surface-ink .btn-secondary {
+    background: transparent;
+    border-color: var(--paper);
+    color: var(--paper);
+  }
+
+  .surface-ink .btn-secondary:not(:disabled):hover {
+    color: var(--mint);
+    border-color: var(--mint);
+  }
+
+  /* A quiet action that is still a 44px target: text with the link underline. */
+  .btn-ghost {
+    border-color: transparent;
+    background: transparent;
+    text-decoration: underline 3px var(--coral);
+    text-underline-offset: 0.25em;
+  }
+
+  .btn-ghost:not(:disabled):hover {
+    background: var(--mint);
+  }
+
+  @media (max-width: 767px) {
+    .btn-primary:not(.btn--compact) {
+      width: 100%;
+    }
+  }
+
+  /* ---- Text links (DESIGN 8.2) ------------------------------------------------------------------------- */
+  .link {
+    color: var(--ink);
+    text-decoration-line: underline;
+    text-decoration-thickness: 3px;
+    text-decoration-color: var(--coral);
+    text-underline-offset: 0.25em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  /* The mint band behind the bottom 45% of the text. A hard stop: a flat band, not a gradient. */
+  .link:hover {
+    background-image: linear-gradient(to top, var(--mint) 45%, transparent 45%);
+  }
+
+  .surface-ink .link {
+    color: var(--paper);
+    text-decoration-color: var(--mint);
+  }
+
+  .surface-ink .link:hover {
+    color: var(--mint);
+    background-image: none;
+  }
+
+  /* ---- Cards / 札 (DESIGN 8.5) --------------------------------------------------------------------------- */
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--quiet-zone);
+    background: var(--paper);
+    color: var(--ink);
+    border: var(--line-ui) solid var(--ink);
+    border-radius: var(--r-card);
+  }
+
+  .surface-ink .card {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--paper);
+  }
+
+  .card--link {
+    text-decoration: none;
+    transition: box-shadow var(--dur-fast) var(--ease-snap);
+  }
+
+  .card--link:hover {
+    box-shadow: var(--shadow-off);
+  }
+
+  .card__label {
+    font-size: var(--fs-small);
+    font-weight: 700;
+    line-height: 1.75;
+  }
+
+  .surface-ink .card__label {
+    color: var(--mint);
+  }
+
+  .card__value {
+    font-family: var(--font-display);
+    font-size: var(--fs-h3);
+    font-weight: 700;
+    line-height: 1.4;
+    font-feature-settings: "palt";
+  }
+
+  .card__note {
+    font-size: var(--fs-small);
+    line-height: 1.75;
+  }
+
+  /* Repeated cards of the same kind lean a little on desktop only (DESIGN 6.6). Never on information cards. */
+  @media (min-width: 768px) {
+    .tilt-list > :nth-child(5n + 1) {
+      rotate: -1.2deg;
+    }
+    .tilt-list > :nth-child(5n + 2) {
+      rotate: 0.6deg;
+    }
+    .tilt-list > :nth-child(5n + 3) {
+      rotate: -0.4deg;
+    }
+    .tilt-list > :nth-child(5n + 4) {
+      rotate: 1deg;
+    }
+    .tilt-list > :nth-child(5n + 5) {
+      rotate: -0.8deg;
+    }
+  }
+
+  /* ---- Chips / tags and status badges (DESIGN 8.8) ------------------------------------------------------- */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    width: fit-content;
+    padding: 0 var(--sp-3);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-pill);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: var(--fs-small);
+    font-weight: 700;
+    line-height: 1.75;
+    white-space: nowrap;
+  }
+
+  /* Small diamond mark in front of a selected chip / list item (DESIGN 5.3, 8.8). */
+  .diamond-mark {
+    display: inline-block;
+    flex: none;
+    width: 12px;
+    height: 12px;
+    color: var(--lemon);
+  }
+
+  /* ---- Form fields (DESIGN 8.9) ------------------------------------------------------------------------ */
+  .field-label {
+    font-size: var(--fs-small);
+    font-weight: 700;
+    line-height: 1.75;
+  }
+
+  .field {
+    min-height: 52px;
+    padding: var(--sp-2) var(--sp-4);
+    border: var(--line-ui) solid var(--ink);
+    border-radius: var(--r-field);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: var(--fs-body);
+    font-weight: 500;
+  }
+
+  .field[aria-invalid="true"] {
+    box-shadow: var(--shadow-off);
+  }
+
+  .field:disabled {
+    opacity: 0.5;
+  }
+
+  /* Error and alert blocks: ink text and a coral dot, never coral text on paper (DESIGN 3.3, 8.9). */
+  .alert {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    padding: var(--sp-4);
+    border: var(--line-ui) solid var(--ink);
+    border-radius: var(--r-card);
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: var(--shadow-off);
+  }
+
+  .error-dot {
+    display: inline-block;
+    flex: none;
+    width: 0.75em;
+    height: 0.75em;
+    margin-inline-end: var(--sp-2);
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    background: var(--coral);
+    vertical-align: -0.05em;
+  }
+
+  /* ---- Candy lettering (DESIGN 5.1) ---------------------------------------------------------------------
+   * The real heading carries the text once (transparent, it sets the layout); every visible layer is a
+   * decorative, aria-hidden copy stacked over it. Order from the bottom: white die-cut edge, black line, coral
+   * offset, then the candy face with one gloss triangle per character. */
+  .candy {
+    --line-w: 0.18em;
+    --edge-w: 0.38em;
+    position: relative;
+    isolation: isolate;
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    font-family: var(--font-display);
+    font-size: var(--fs-h1);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+    font-feature-settings: "palt";
+    word-break: auto-phrase;
+    /* Room for the outer edge so the die-cut is not clipped by a neighbour. */
+    padding: calc(var(--edge-w) / 2);
+  }
+
+  .candy__text {
+    margin: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: transparent;
+  }
+
+  .candy > [aria-hidden] {
+    position: absolute;
+    inset: calc(var(--edge-w) / 2);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .candy > .candy__face {
+    z-index: 1;
+  }
+
+  .candy__edge {
+    color: var(--paper);
+    -webkit-text-stroke: var(--edge-w) var(--paper);
+  }
+
+  .candy__line {
+    color: var(--ink);
+    -webkit-text-stroke: var(--line-w) var(--ink);
+  }
+
+  .candy__line--off,
+  .candy__off {
+    translate: var(--off-x) var(--off-y);
+  }
+
+  .candy__off {
+    color: var(--coral);
+  }
+
+  .candy__face > span {
+    background:
+      linear-gradient(210deg, var(--paper) 0 var(--gloss), transparent calc(var(--gloss) + 0.5%)),
+      var(--grad-candy);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .candy :is(.candy__off, .candy__line--off) {
+    transition: translate 360ms var(--ease-snap);
+  }
+
+  .motion-ok .candy:not(.is-in) :is(.candy__off, .candy__line--off) {
+    translate: 0 0;
+  }
+
+  .candy.is-in .candy__face > span {
+    animation: gloss-flash var(--dur-slow) var(--ease-snap) calc(360ms + var(--i, 0) * 30ms) both;
+  }
+
+  /* ---- Stretch type (DESIGN 4.4) ----------------------------------------------------------------------- */
+  .stretch {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--fs-hero);
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  .stretch > * {
+    font-variation-settings:
+      "wdth" var(--w, 100),
+      "wght" 700;
+  }
+
+  .stretch > :nth-child(6n + 1) {
+    --w: 125;
+  }
+  .stretch > :nth-child(6n + 2) {
+    --w: 80;
+  }
+  .stretch > :nth-child(6n + 3) {
+    --w: 112;
+  }
+  .stretch > :nth-child(6n + 4) {
+    --w: 75;
+  }
+  .stretch > :nth-child(6n + 5) {
+    --w: 120;
+  }
+  .stretch > :nth-child(6n + 6) {
+    --w: 92;
+  }
+
+  /* ---- Diamond frame (DESIGN 5.3, 9.5) ----------------------------------------------------------------- */
+  .diamond {
+    display: block;
+    overflow: visible;
+    color: var(--ink);
+    pointer-events: none;
+  }
+
+  .diamond__front {
+    stroke: currentColor;
+  }
+
+  .diamond__back {
+    stroke: var(--stripe);
+  }
+
+  .surface-ink .diamond {
+    color: var(--paper);
+  }
+
+  .draw {
+    stroke: var(--paper);
+    stroke-dasharray: 100 100;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset var(--dur-draw) var(--ease-snap) var(--delay, 0ms);
+  }
+
+  .motion-ok [data-enter="draw"]:not(.is-in):not(.intro-seen [data-intro]) .draw {
+    stroke-dashoffset: 100;
+  }
+
+  /* ---- Stickers (DESIGN 5.4, 8.6, 9.3, 9.5) ------------------------------------------------------------ */
+  .sticker {
+    display: inline-block;
+    pointer-events: auto;
+    line-height: 0;
+  }
+
+  .sticker > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  [data-enter="sticker"] {
+    rotate: var(--tilt, 0deg);
+    transition:
+      opacity var(--dur-fast) linear,
+      scale var(--dur-slow) var(--ease-slap),
+      rotate var(--dur-slow) var(--ease-slap);
+    transition-delay: calc(var(--delay, 0ms) + var(--i, 0) * var(--stagger));
+  }
+
+  .motion-ok [data-enter="sticker"]:not(.is-in):not(.intro-seen [data-intro]) {
+    opacity: 0;
+    scale: 1.25;
+    rotate: calc(var(--tilt, 0deg) - 10deg);
+  }
+
+  @media (hover: hover) {
+    .motion-ok .sticker.is-in:hover {
+      animation: wobble var(--beat) var(--ease-snap);
+    }
+  }
+
+  .kira-loop {
+    color: var(--ink);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  /* Constant loops, wobble and the menu opening run only with .motion-ok, which motion-init.js never sets under
+     prefers-reduced-motion: reduce (DESIGN 9.8), so no override is needed there. */
+  .motion-ok .kira-loop {
+    animation: kira calc(var(--beat) * 4) var(--ease-snap) calc(var(--beat) * var(--g, 0)) infinite;
+  }
+
+  .surface-ink .kira-loop {
+    color: var(--paper);
+  }
+
+  .note-loop {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+  }
+
+  .motion-ok .note-loop {
+    animation: note calc(var(--beat) * 2) ease-in-out infinite;
+  }
+
+  .chip-sticker {
+    color: var(--lemon);
+  }
+
+  /* Name tag and round seal (DESIGN 8.6): HTML stickers wrapped in .sticker. */
+  .roundseal {
+    display: grid;
+    place-items: center;
+    width: 112px;
+    aspect-ratio: 1;
+    background: var(--lemon);
+    border: var(--line-sticker) solid var(--ink);
+    border-radius: 50%;
+    outline: var(--edge-sticker) solid var(--paper);
+    outline-offset: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  /* ---- Speed lines (DESIGN 5.5, 9.5) -------------------------------------------------------------------- */
+  .speed {
+    display: block;
+    overflow: visible;
+    color: var(--ink);
+    pointer-events: none;
+  }
+
+  .surface-ink .speed {
+    color: var(--paper);
+  }
+
+  .speed > * {
+    fill: currentColor;
+    stroke: var(--paper);
+    stroke-width: 3px;
+    paint-order: stroke;
+    stroke-linejoin: round;
+    transform-box: fill-box;
+    transform-origin: left center;
+    transition:
+      translate 420ms var(--ease-whoosh),
+      scale 420ms var(--ease-whoosh),
+      opacity var(--dur-fast) linear;
+    transition-delay: calc(var(--delay, 0ms) + var(--i, 0) * 60ms);
+  }
+
+  .surface-ink .speed > * {
+    stroke: var(--ink);
+  }
+
+  .motion-ok .speed:not(.is-in):not(.intro-seen [data-intro]) > * {
+    translate: -48px 0;
+    scale: 0.6 1;
+    opacity: 0;
+  }
+
+  /* ---- Lower-page hero (DESIGN 6.4) and section heading -------------------------------------------------- */
+  .page-hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    /* The Header logo hangs about 52px (desktop) / 64px (mobile) below the bar; keep the title clear of it. */
+    padding-block: var(--sp-9) var(--sp-6);
+  }
+
+  .page-hero__diamond {
+    position: absolute;
+    z-index: -1;
+    top: calc(var(--sp-11) * -1);
+    right: calc(var(--page-x) * -1 - var(--sp-11));
+    width: clamp(320px, 48vw, 640px);
+    aspect-ratio: 1;
+    --drift: 48px;
+  }
+
+  .page-hero__stickers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .section-heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+
+  /* ---- Header (DESIGN 8.3; SPEC-050 8.5 keeps CTA, Cart and account visible on every viewport) ------------- */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-header);
+    background: var(--paper);
+    view-transition-name: site-header;
+  }
+
+  /* The scrolled line comes from a sentinel watched by IntersectionObserver (DESIGN 8.3, 9.3). */
+  html[data-scrolled] .site-header {
+    box-shadow: 0 var(--line-ui) 0 var(--ink);
+  }
+
+  .site-header__inner {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--sp-2);
+    min-height: var(--header-h);
+    max-width: calc(var(--content-max) + var(--page-x) * 2);
+    margin-inline: auto;
+    padding-block: var(--sp-2);
+    /* The logo is 120px wide and sits at the left; the controls keep clear of it. */
+    padding-inline: calc(var(--page-x) + 120px + var(--sp-4)) var(--page-x);
+  }
+
+  .site-header__home {
+    position: absolute;
+    top: var(--sp-1);
+    left: var(--page-x);
+    display: block;
+    width: 120px;
+    border-radius: var(--r-card);
+  }
+
+  .site-header__logo {
+    display: block;
+    width: 120px;
+    height: 120px;
+    transition:
+      opacity var(--dur-base) linear,
+      visibility var(--dur-base) linear;
+  }
+
+  .site-header__name {
+    display: none;
+  }
+
+  /* While the Home hero shows the big logo, the Header does not show a second one (DESIGN 6.3, 7.2). The link
+     stays the site name link (SPEC-050 8.5), with the name as text in place of the logo. */
+  html[data-hero-in-view] .site-header__logo {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+  }
+
+  html[data-hero-in-view] .site-header__name {
+    display: block;
+    padding-block: var(--sp-3);
+    font-size: var(--fs-small);
+    font-weight: 900;
+    line-height: 1.4;
+  }
+
+  .site-header__plain {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: var(--sp-2);
+    border-radius: var(--r-field);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .site-header__plain:hover {
+    background: var(--mint);
+  }
+
+  .count-seal {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.75em;
+    height: 1.75em;
+    padding-inline: var(--sp-1);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-pill);
+    background: var(--lemon);
+    font-family: var(--font-display);
+    font-size: var(--fs-small);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* Menu panels: black surface dropping from the Header (a disclosure, SPEC-050 8.5 / contract S10). */
+  .menu-panel {
+    position: absolute;
+    z-index: var(--z-overlay);
+    top: calc(100% + var(--sp-2));
+    width: min(320px, calc(100vw - var(--page-x) * 2));
+    padding: var(--sp-5);
+    overflow: clip;
+    border: var(--line-ui) solid var(--ink);
+    border-radius: var(--r-card);
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .motion-ok .menu-panel {
+    animation: menu-open var(--dur-base) var(--ease-snap);
+  }
+
+  .menu-panel__link {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: 44px;
+    color: var(--paper);
+    font-family: var(--font-display);
+    font-size: var(--fs-h3);
+    line-height: 1.4;
+    text-decoration: none;
+  }
+
+  .menu-panel__link:hover,
+  .menu-panel__link[aria-current="page"] {
+    color: var(--mint);
+  }
+
+  .menu-panel__link[aria-current="page"] {
+    text-decoration: underline 3px var(--mint);
+    text-underline-offset: 0.25em;
+  }
+
+  .menu-panel__action {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    color: var(--paper);
+    font-weight: 700;
+    text-align: left;
+    text-decoration: underline 3px var(--mint);
+    text-underline-offset: 0.25em;
+    cursor: pointer;
+  }
+
+  .menu-panel__action:hover {
+    color: var(--mint);
+  }
+
+  /* ---- Footer (DESIGN 8.4) ------------------------------------------------------------------------------ */
+  /* The wordmark clips itself, so a sticker may still cross the footer's top edge. */
+  .site-footer {
+    display: flow-root;
+    position: relative;
+    margin-top: var(--section-y);
+  }
+
+  .footer-heading {
+    color: var(--mint);
+    font-size: var(--fs-small);
+    font-weight: 700;
+  }
+
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* The wordmark's lower half is cut. Each letter box is only the visible half, so nothing below it can be
+     "covered" by the floating button (contract S10 4.2). */
+  .wordmark {
+    height: 0.55em;
+    overflow: clip;
+    color: var(--mint);
+    font-size: var(--fs-hero);
+    line-height: 0.95;
+  }
+
+  .wordmark > [aria-hidden] {
+    display: inline-block;
+    height: 0.55em;
+    vertical-align: top;
+  }
+
+  /* ---- Home hero (DESIGN 6.3, 9.4) ---------------------------------------------------------------------- */
+  .home-hero {
+    position: relative;
+    display: grid;
+    gap: var(--sp-6);
+    align-items: center;
+    padding-block: var(--sp-6) var(--sp-9);
+  }
+
+  @media (min-width: 1024px) {
+    .home-hero {
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: var(--sp-8);
+      padding-block: var(--sp-5) var(--sp-9);
+    }
+  }
+
+  .home-hero__stage {
+    position: relative;
+    justify-self: start;
+    width: 90vw;
+    max-width: 100%;
+    aspect-ratio: 1;
+  }
+
+  @media (min-width: 1024px) {
+    .home-hero__stage {
+      width: clamp(280px, 44vw, 600px);
+    }
+  }
+
+  .home-hero__diamond {
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
+    width: 140vw;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+  }
+
+  @media (min-width: 1024px) {
+    .home-hero__diamond {
+      width: 110vw;
+    }
+  }
+
+  .home-hero__logo {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .home-hero__copy {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-4);
+  }
 }
 
-[data-reveal="pending"] {
-  opacity: 0;
-  transform: translateY(8px);
+/* ---- Keyframes (DESIGN 9) ----------------------------------------------------------------------------------- */
+
+@keyframes gloss-flash {
+  0% {
+    --gloss: 46%;
+  }
+  40% {
+    --gloss: 72%;
+  }
+  100% {
+    --gloss: 46%;
+  }
 }
+
+@keyframes kira {
+  0%,
+  25%,
+  100% {
+    scale: 1;
+    rotate: 0deg;
+  }
+  12% {
+    scale: 0.55;
+    rotate: 45deg;
+  }
+}
+
+@keyframes note {
+  0%,
+  100% {
+    translate: 0 0;
+    rotate: -6deg;
+  }
+  25%,
+  75% {
+    translate: 0 -6px;
+    rotate: 0deg;
+  }
+  50% {
+    translate: 0 0;
+    rotate: 6deg;
+  }
+}
+
+@keyframes wobble {
+  0%,
+  100% {
+    rotate: var(--tilt, 0deg);
+  }
+  20% {
+    rotate: calc(var(--tilt, 0deg) + 8deg);
+  }
+  45% {
+    rotate: calc(var(--tilt, 0deg) - 6deg);
+  }
+  70% {
+    rotate: calc(var(--tilt, 0deg) + 3deg);
+  }
+}
+
+@keyframes menu-open {
+  from {
+    clip-path: polygon(50% 0, 50% 0, 50% 0, 50% 0);
+  }
+  to {
+    clip-path: polygon(50% -150%, 250% 50%, 50% 250%, -150% 50%);
+  }
+}
+
+@supports (animation-timeline: view()) {
+  .motion-ok .parallax {
+    animation: drift linear both;
+    animation-timeline: view();
+    animation-range: cover;
+  }
+
+  @keyframes drift {
+    from {
+      translate: 0 var(--drift, 64px);
+    }
+    to {
+      translate: 0 calc(var(--drift, 64px) * -1);
+    }
+  }
+}
+
+/* ---- Home opening (DESIGN 9.4): only with .is-intro, which public/motion-init.js sets before first paint ------ */
+
+.is-intro [data-intro] {
+  --delay: var(--intro-delay, 0ms);
+}
+
+.is-intro [data-intro][data-enter="sticker"] {
+  transition:
+    opacity var(--dur-base) linear,
+    scale 800ms var(--ease-slap),
+    rotate 800ms var(--ease-slap),
+    translate 800ms var(--ease-whoosh);
+  transition-delay: calc(var(--delay, 0ms) + var(--i, 0) * var(--stagger) * 2);
+}
+
+.motion-ok.is-intro [data-intro][data-enter="sticker"]:not(.is-in) {
+  translate: var(--fx, 0px) var(--fy, 0px);
+  scale: 0.3;
+}
+
+.is-intro [data-intro] .draw {
+  transition-duration: 1600ms;
+}
+
+.is-intro .speed[data-intro] > * {
+  transition-duration: 700ms, 700ms, var(--dur-base);
+  transition-delay: calc(var(--delay, 0ms) + var(--i, 0) * 120ms);
+}
+
+/* The curtain opens as a diamond from the logo centre (approximate: hero column, upper third of the screen). */
+.is-intro body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+  background: var(--ink);
+  --cx: 50%;
+  --cy: 45vh;
+  animation: curtain 1100ms var(--ease-snap) 200ms both;
+}
+
+@media (min-width: 1024px) {
+  .is-intro body::after {
+    --cx: calc(var(--page-x) + clamp(280px, 44vw, 600px) / 2);
+    --cy: calc(var(--header-h) + clamp(280px, 44vw, 600px) / 2 + var(--sp-5));
+  }
+}
+
+@keyframes curtain {
+  from {
+    clip-path: polygon(
+      evenodd,
+      0 0,
+      100% 0,
+      100% 100%,
+      0 100%,
+      0 0,
+      var(--cx) var(--cy),
+      var(--cx) var(--cy),
+      var(--cx) var(--cy),
+      var(--cx) var(--cy),
+      var(--cx) var(--cy)
+    );
+  }
+  to {
+    clip-path: polygon(
+      evenodd,
+      0 0,
+      100% 0,
+      100% 100%,
+      0 100%,
+      0 0,
+      var(--cx) calc(var(--cy) - 120vmax),
+      calc(var(--cx) + 120vmax) var(--cy),
+      var(--cx) calc(var(--cy) + 120vmax),
+      calc(var(--cx) - 120vmax) var(--cy),
+      var(--cx) calc(var(--cy) - 120vmax)
+    );
+    visibility: hidden;
+  }
+}
+
+.is-intro .home-hero__logo {
+  animation: logo-slam 900ms both 500ms;
+}
+
+@keyframes logo-slam {
+  0% {
+    opacity: 0;
+    scale: 1.8;
+    rotate: -8deg;
+    animation-timing-function: var(--ease-snap);
+  }
+  15% {
+    opacity: 1;
+    animation-timing-function: var(--ease-snap);
+  }
+  55% {
+    scale: 0.94;
+    rotate: 1.5deg;
+    animation-timing-function: var(--ease-snap);
+  }
+  78% {
+    scale: 1.03;
+    rotate: -0.5deg;
+    animation-timing-function: var(--ease-snap);
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+    rotate: 0deg;
+  }
+}
+
+/* Shockwave diamonds and particles: created by script only during the opening; invisible by default and without
+   animation-fill-mode so nothing shows while waiting or after (DESIGN 9.4). */
+.burst {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.burst--wave {
+  width: 100%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  animation: wave 1200ms var(--ease-whoosh) var(--wave-delay, 0ms);
+}
+
+@keyframes wave {
+  from {
+    opacity: 1;
+    scale: 0.3;
+  }
+  to {
+    opacity: 0;
+    scale: 2.2;
+  }
+}
+
+.burst--bit {
+  width: var(--size);
+  height: var(--size);
+  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+  animation: bit 1600ms var(--ease-whoosh) var(--bit-delay, 0ms);
+}
+
+@keyframes bit {
+  0% {
+    opacity: 1;
+    translate: 0 0;
+    scale: 0.2;
+    rotate: 0deg;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: var(--bx) var(--by);
+    scale: 1;
+    rotate: var(--br);
+  }
+}
+
+/* ---- Reduced motion (DESIGN 9.8) --------------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal],
-  [data-reveal="pending"] {
-    opacity: 1;
-    transform: none;
-    transition: none;
+  .btn,
+  .card--link,
+  .site-header__logo {
+    transition-property: color, background-color, border-color, opacity, visibility;
+  }
+
+  .btn-primary:not(:disabled):hover,
+  .btn-primary:not(:disabled):active {
+    translate: none;
+    box-shadow: var(--shadow-off);
+  }
+
+  .surface-ink .btn-primary:not(:disabled):hover,
+  .surface-ink .btn-primary:not(:disabled):active {
+    box-shadow: -5px 5px 0 var(--coral);
+  }
+
+  .card--link:hover {
+    box-shadow: var(--shadow-off);
   }
 }
