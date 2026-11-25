@@ -320,7 +320,8 @@ describe("TC-PG-XFN-003-601 AccessDeniedView offers a way back and nothing that 
     expect(code).toMatch(/copy\.accessDenied\.mypageLink/);
     expect(code).toMatch(/listHref/);
     expect(code).toMatch(/listLabel/);
-    expect(code).toMatch(/<h1[\s>]/);
+    // The title is the page h1: written directly or through PageHero, which renders exactly one h1 (docs/DESIGN.md 6.4).
+    expect(code).toMatch(/<h1[\s>]|<PageHero\s+title=\{copy\.accessDenied\.title\}/);
     expect(code).not.toMatch(/<button[\s>]|onClick|copy\.pageState\.retry/);
     expect(code).not.toMatch(/orderRef|useApi|from\s+["'][^"']*\/(features|mock)\//);
   });
