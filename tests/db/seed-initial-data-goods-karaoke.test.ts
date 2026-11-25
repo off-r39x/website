@@ -826,3 +826,107 @@ describe("TC-TST-SEED-006-025 the re-check of a Goods run needs the Goods and th
     expect(await counts()).toMatchObject({ goods: 1, inventory: 0, audits: 0 });
   });
 });
+
+describe("TC-TST-SEED-006-026 the re-check fails on what fails the command, before it decides success (DB-SEED-001, DB-SEED-002)", () => {
+  /**
+   * The COMMIT request of the run is dropped (not committed), and before the re-check reads, other
+   * means create what the run was creating and break a DB-SEED-001 condition as well.
+   */
+  async function lostThenChanged(
+    input: InitialDataInput,
+    meanwhile: () => Promise<void>,
+  ): Promise<{ run: Awaited<ReturnType<typeof runSeed>>; logs: RecordedLog[] }> {
+    const logs: RecordedLog[] = [];
+    let connects = 0;
+    const proxy = await startCommitAcknowledgementDropProxy(new URL(url as string), {
+      mode: "drop_request",
+    });
+    try {
+      const run = await runSeed({
+        input,
+        openMain: () => connectAs("app_migrator", proxy.url),
+        logs,
+        connect: async (wrap) => {
+          connects += 1;
+          if (connects === 1) await meanwhile();
+          return wrap(await connectAs("app_migrator"));
+        },
+      });
+      expect(proxy.fired()).toBe(1);
+      return { run, logs };
+    } finally {
+      await proxy.close();
+    }
+  }
+  function expectFailedOnRecheck(
+    run: Awaited<ReturnType<typeof runSeed>>,
+    logs: RecordedLog[],
+    errorCode: string,
+  ) {
+    expect(shape(run.outcome)).toMatchObject({
+      outcome: "FAILED",
+      failureClass: "CONSISTENCY_FAILURE",
+      errorCode,
+    });
+    const resolved = logs.filter((log) => log.event_name === "reliability.unknown_result.resolved");
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0]).toMatchObject({ result: "FAILED", failure_class: "CONSISTENCY_FAILURE" });
+    // Decided by the re-check: not retried, and nothing written by this command.
+    expect(logs.some((log) => log.event_name === "reliability.retry.attempted")).toBe(false);
+  }
+
+  it("TC-TST-SEED-006-026 (a) the planned Sales Configuration is found twice: FAILED(CONSISTENCY_FAILURE), not NOOP", async () => {
+    // The run creates the Sales Configuration, the Scope and its Slots (Goods deferred).
+    const eventId = await insertManualEvent();
+    await insertManualOffering(eventId);
+    const { run, logs } = await lostThenChanged(
+      buildInitialDataInput({ goods: null, karaoke: buildKaraokeInput() }),
+      async () => {
+        const configId = await insertManualConfig(eventId);
+        await insertManualConfig(eventId);
+        await insertManualSlot(await insertManualScope(eventId), configId);
+      },
+    );
+    expectFailedOnRecheck(run, logs, "INITIAL_DATA_KARAOKE_SALES_CONFIGURATION_NOT_UNIQUE");
+    expect(await counts()).toMatchObject({ configs: 2, scopes: 1, slots: 1, audits: 0 });
+  });
+
+  it("TC-TST-SEED-006-026 (b) a Scope without Slots, though no Scope was planned: FAILED(CONSISTENCY_FAILURE), not NOOP", async () => {
+    // The run creates only the Goods; the Karaoke targets exist.
+    const eventId = await insertManualEvent();
+    await insertManualOffering(eventId);
+    const configId = await insertManualConfig(eventId);
+    await insertManualSlot(await insertManualScope(eventId), configId);
+    const { run, logs } = await lostThenChanged(
+      buildInitialDataInput({ goods: buildGoodsInput(), karaoke: buildKaraokeInput() }),
+      async () => {
+        await insertManualGoods(eventId);
+        await insertManualScope(eventId);
+      },
+    );
+    expectFailedOnRecheck(run, logs, "INITIAL_DATA_KARAOKE_SCOPE_WITHOUT_SLOTS");
+    expect(await counts()).toMatchObject({
+      goods: 1,
+      inventory: 1,
+      scopes: 2,
+      slots: 1,
+      audits: 0,
+    });
+  });
+
+  it("TC-TST-SEED-006-026 (c) a second Event: FAILED(CONSISTENCY_FAILURE), not NOOP", async () => {
+    const eventId = await insertManualEvent();
+    await insertManualOffering(eventId);
+    const configId = await insertManualConfig(eventId);
+    await insertManualSlot(await insertManualScope(eventId), configId);
+    const { run, logs } = await lostThenChanged(
+      buildInitialDataInput({ goods: buildGoodsInput(), karaoke: buildKaraokeInput() }),
+      async () => {
+        await insertManualGoods(eventId);
+        await insertManualEvent();
+      },
+    );
+    expectFailedOnRecheck(run, logs, "INITIAL_DATA_EVENT_NOT_UNIQUE");
+    expect(await counts()).toMatchObject({ events: 2, goods: 1, inventory: 1, audits: 0 });
+  });
+});
