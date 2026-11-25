@@ -607,7 +607,7 @@
     isolation: isolate;
     display: block;
     width: fit-content;
-    max-width: 100%;
+    max-width: calc(100% - var(--edge-w));
     font-family: var(--font-display);
     font-size: var(--fs-h1);
     font-weight: 700;
@@ -615,8 +615,10 @@
     letter-spacing: 0.01em;
     font-feature-settings: "palt";
     word-break: auto-phrase;
-    /* Room for the outer edge so the die-cut is not clipped by a neighbour. */
-    padding: calc(var(--edge-w) / 2);
+    /* Room for the outer edge so the die-cut is not clipped by a neighbour. A margin, never a padding: the
+       stacked layers must share the heading's exact box or they wrap differently from it. */
+    margin: calc(var(--edge-w) / 2);
+    padding: 0;
   }
 
   .candy__text {
@@ -628,7 +630,7 @@
 
   .candy > [aria-hidden] {
     position: absolute;
-    inset: calc(var(--edge-w) / 2);
+    inset: 0;
     z-index: -1;
     pointer-events: none;
   }

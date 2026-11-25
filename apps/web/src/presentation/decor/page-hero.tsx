@@ -42,7 +42,7 @@ export function PageHero({
           className="absolute right-12 bottom-0 hidden md:inline-block"
         />
       </div>
-      <CandyHeading text={title} id={titleId} tabIndex={titleTabIndex} className="pr-12 md:pr-0" />
+      <CandyHeading text={title} id={titleId} tabIndex={titleTabIndex} />
       <SpeedLines />
       {children === undefined ? null : (
         <div className="measure flex flex-col gap-3">{children}</div>
