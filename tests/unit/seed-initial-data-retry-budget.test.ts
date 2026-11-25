@@ -141,6 +141,7 @@ function scriptedClient(options: {
           rows: [
             {
               goods: present,
+              goods_without_inventory: false,
               sales_configurations: present ? 1 : 0,
               sales_configuration_id: present ? "1" : null,
               scopes: present,

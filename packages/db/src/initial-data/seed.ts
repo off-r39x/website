@@ -363,6 +363,8 @@ async function hasOfferings(client: Client, eventId: string): Promise<boolean> {
  */
 type TargetStatus = {
   readonly goods: boolean;
+  /** A Goods row of the Event has no Inventory row (DB-GDS-001): not a complete Goods target. */
+  readonly goodsWithoutInventory: boolean;
   readonly salesConfigurations: number;
   readonly salesConfigurationId: string | undefined;
   readonly scopes: boolean;
@@ -371,6 +373,8 @@ type TargetStatus = {
 async function readTargetStatus(client: Client, eventId: string): Promise<TargetStatus> {
   const result = await client.query(
     `SELECT EXISTS (SELECT 1 FROM app.goods WHERE event_id = $1) AS goods,
+            EXISTS (SELECT 1 FROM app.goods g WHERE g.event_id = $1
+                      AND NOT EXISTS (SELECT 1 FROM app.goods_inventory i WHERE i.goods_id = g.id)) AS goods_without_inventory,
             (SELECT count(*)::int FROM app.karaoke_sales_configurations WHERE event_id = $1) AS sales_configurations,
             (SELECT min(id)::text FROM app.karaoke_sales_configurations WHERE event_id = $1) AS sales_configuration_id,
             EXISTS (SELECT 1 FROM app.karaoke_exclusive_scopes WHERE event_id = $1) AS scopes,
@@ -382,6 +386,7 @@ async function readTargetStatus(client: Client, eventId: string): Promise<Target
   if (row === undefined) throw new Error("Target status was not returned");
   return {
     goods: row.goods === true,
+    goodsWithoutInventory: row.goods_without_inventory === true,
     salesConfigurations: Number(row.sales_configurations),
     salesConfigurationId:
       row.sales_configuration_id === null || row.sales_configuration_id === undefined
@@ -394,6 +399,7 @@ async function readTargetStatus(client: Client, eventId: string): Promise<Target
 
 const NO_TARGET_STATUS: TargetStatus = {
   goods: false,
+  goodsWithoutInventory: false,
   salesConfigurations: 0,
   salesConfigurationId: undefined,
   scopes: false,
@@ -1223,7 +1229,9 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
             if (creating.entry_ticket_offerings === "CREATED")
               complete = await within(() => hasOfferings(connection, target));
             const found = await within(() => readTargetStatus(connection, target));
-            if (creating.goods === "CREATED") complete &&= found.goods;
+            // The Goods and their Inventory (DB-SEED-002, DB-GDS-001): Goods alone are not complete.
+            if (creating.goods === "CREATED")
+              complete &&= found.goods && !found.goodsWithoutInventory;
             if (creating.karaoke_sales_configuration === "CREATED")
               complete &&= found.salesConfigurations >= 1;
             // The Scopes and their Slots: present, with no Scope left without a Slot.

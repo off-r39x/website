@@ -33,30 +33,36 @@ export function windowCandidateStarts(startMs: number, endMs: number): number[] 
 }
 
 /**
- * DB-SEED-003 (2) and (3) on windows given as epoch milliseconds: every window makes at least one
- * candidate, and no two candidates of different windows overlap on [usage_start, cycle_end) (touching
- * is allowed: DB-KRK-002). Returns the candidate count of one Scope, or undefined when a rule fails.
+ * DB-SEED-003 (2) to (4) on windows given as epoch milliseconds: every window makes at least one
+ * candidate, no two candidates of different windows overlap on [usage_start, cycle_end) (touching is
+ * allowed: DB-KRK-002), and one Scope gets at most `maxPerScope` candidates. Returns the candidate
+ * count of one Scope, or undefined when a rule fails.
+ *
+ * Nothing is expanded: a window's candidate count is computed from its length, and the bound is checked
+ * as each window is read, so a window of centuries or a very long list of windows is refused at once
+ * instead of building its candidates (an expansion would block the event loop, and with it the
+ * transaction deadline timer, and could exhaust memory).
  */
 export function countWindowCandidates(
   windows: readonly { readonly startMs: number; readonly endMs: number }[],
+  maxPerScope: number,
 ): number | undefined {
   const occupied: [number, number][] = [];
+  let total = 0;
   for (const window of windows) {
     if (!(window.startMs < window.endMs)) return undefined;
-    const starts = windowCandidateStarts(window.startMs, window.endMs);
-    const first = starts[0];
-    const last = starts[starts.length - 1];
-    if (first === undefined || last === undefined) return undefined;
-    // A window's candidates are contiguous: they occupy [first, last + 20 min) without a gap.
-    occupied.push([first, last + CYCLE_MS]);
+    const count = Math.floor((window.endMs - window.startMs) / CYCLE_MS);
+    if (count < 1) return undefined;
+    total += count;
+    if (total > maxPerScope) return undefined;
+    // A window's candidates are contiguous: they occupy [start, start + count * 20 min) without a gap.
+    occupied.push([window.startMs, window.startMs + count * CYCLE_MS]);
   }
   occupied.sort((a, b) => a[0] - b[0]);
-  let total = 0;
   let previousEnd = Number.NEGATIVE_INFINITY;
   for (const [from, to] of occupied) {
     if (from < previousEnd) return undefined;
     previousEnd = to;
-    total += (to - from) / CYCLE_MS;
   }
   return total;
 }

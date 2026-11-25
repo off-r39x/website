@@ -218,6 +218,8 @@ function parseRows(raw: unknown, target: InitialDataTarget): InputRow[] | undefi
  */
 function parseWindows(raw: unknown, scopeCount: number): SlotWindow[] | undefined {
   if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  // Each window makes at least one candidate: more windows than the bound allows are refused unread.
+  if (raw.length > Math.floor(MAX_SLOTS_PER_RUN / scopeCount)) return undefined;
   const windows: SlotWindow[] = [];
   const millis: { startMs: number; endMs: number }[] = [];
   for (const item of raw) {
@@ -230,8 +232,9 @@ function parseWindows(raw: unknown, scopeCount: number): SlotWindow[] | undefine
     windows.push({ window_start: start, window_end: end });
     millis.push({ startMs, endMs });
   }
-  const perScope = countWindowCandidates(millis);
-  if (perScope === undefined || perScope * scopeCount > MAX_SLOTS_PER_RUN) return undefined;
+  // The bound is checked before any candidate exists (slots.ts): per Scope, the run's share of it.
+  const perScope = countWindowCandidates(millis, Math.floor(MAX_SLOTS_PER_RUN / scopeCount));
+  if (perScope === undefined) return undefined;
   return windows;
 }
 
