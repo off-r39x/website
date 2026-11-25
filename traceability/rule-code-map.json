@@ -1196,6 +1196,7 @@
         "apps/web/src/presentation/layout",
         "apps/web/src/features/shell",
         "apps/web/src/presentation/components/ui",
+        "apps/web/src/presentation/decor",
         "apps/web/src/styles/globals.css",
         "apps/web/public/mock/sponsors",
         "apps/web/src/features/public/home-model.ts",
