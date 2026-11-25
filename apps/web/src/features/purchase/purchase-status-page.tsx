@@ -7,6 +7,7 @@ import { useApi } from "../../api-client/provider";
 import { settleRead } from "../../api-client/settle-read";
 import type { CheckoutStart, OrderDetail, Ref } from "../../api-client/types";
 import { AccessDeniedView } from "../../presentation/components/access-denied-view";
+import { InkBand } from "../../presentation/components/ink-band";
 import type { Loadable } from "../../presentation/components/list-state";
 import { PageState } from "../../presentation/components/page-state";
 import { copy } from "../../presentation/copy/ja";
@@ -209,13 +210,17 @@ export function PurchaseStatusPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHero title={variant.heading} />
-      {model.kind === "loading" ? <PageState state="loading" /> : null}
-      {model.kind === "unavailable" ? (
-        <PageState
-          state="unavailable"
-          message={copy.pageState.unavailable(variant.subject)}
-          onRetry={reload}
-        />
+      {model.kind === "loading" || model.kind === "unavailable" ? (
+        <InkBand>
+          {model.kind === "loading" ? <PageState state="loading" /> : null}
+          {model.kind === "unavailable" ? (
+            <PageState
+              state="unavailable"
+              message={copy.pageState.unavailable(variant.subject)}
+              onRetry={reload}
+            />
+          ) : null}
+        </InkBand>
       ) : null}
       {model.kind === "ready" ? (
         <OrderOutcome

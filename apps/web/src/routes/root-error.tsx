@@ -1,3 +1,4 @@
+import { InkBand } from "../presentation/components/ink-band";
 import { copy } from "../presentation/copy/ja";
 import { PageHero } from "../presentation/decor/page-hero";
 import { DecorSymbols } from "../presentation/decor/symbols";
@@ -9,9 +10,12 @@ export default function RootError() {
   return (
     <main id="main-content" tabIndex={-1} className="site-main outline-none">
       <DecorSymbols />
-      <PageHero title={copy.errorPage.title}>
-        <p>{copy.errorPage.description}</p>
-      </PageHero>
+      <div className="flex flex-col gap-12">
+        <PageHero title={copy.errorPage.title} />
+        <InkBand>
+          <p>{copy.errorPage.description}</p>
+        </InkBand>
+      </div>
     </main>
   );
 }

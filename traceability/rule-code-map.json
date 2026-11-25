@@ -2292,6 +2292,7 @@
         "apps/web/src/routes/route-error.tsx",
         "apps/web/src/routes/root-error.tsx",
         "apps/web/src/routes/dev/error-probe.tsx",
+        "apps/web/src/presentation/components/ink-band.tsx",
         "apps/web/src/presentation/components/not-found-view.tsx",
         "apps/web/src/features/goods/goods-detail-page.tsx",
         "apps/web/src/routes/public/goods-detail.tsx"
@@ -2345,6 +2346,7 @@
         "apps/web/src/features/public/announcement-list-page.tsx",
         "apps/web/src/features/public/announcement-detail-page.tsx",
         "apps/web/src/features/public/route-params.ts",
+        "apps/web/src/presentation/components/ink-band.tsx",
         "apps/web/src/presentation/components/not-found-view.tsx",
         "apps/web/src/routes/public/karaoke.tsx",
         "apps/web/src/routes/public/karaoke-day.tsx",

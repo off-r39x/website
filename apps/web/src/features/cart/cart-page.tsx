@@ -7,6 +7,7 @@ import { settleRead } from "../../api-client/settle-read";
 import type { CartLine, CartLineResolution } from "../../api-client/types";
 import { type SessionState, useSession } from "../../auth/use-session";
 import { ENTRY_HREF, GOODS_HREF, karaokeGuideHref } from "../../config/public-routes";
+import { InkBand } from "../../presentation/components/ink-band";
 import type { Loadable } from "../../presentation/components/list-state";
 import { PageState } from "../../presentation/components/page-state";
 import { SectionHeading } from "../../presentation/components/section-heading";
@@ -240,7 +241,9 @@ export function CartPage() {
     return (
       <div className="flex flex-col">
         <PageHero title={copy.cart.heading} />
-        <CartRecovery />
+        <InkBand className="mt-12">
+          <CartRecovery />
+        </InkBand>
       </div>
     );
   }
@@ -249,9 +252,11 @@ export function CartPage() {
     return (
       <div className="flex flex-col">
         <PageHero title={copy.cart.heading} />
-        <p role="status" className="card measure font-bold">
-          {copy.cart.lifecycleBusy.description}
-        </p>
+        <InkBand className="mt-12">
+          <p role="status" className="card measure font-bold">
+            {copy.cart.lifecycleBusy.description}
+          </p>
+        </InkBand>
       </div>
     );
   }
@@ -266,7 +271,9 @@ export function CartPage() {
     return (
       <div className="flex flex-col">
         <PageHero title={copy.cart.heading} />
-        <CartPurchaseFeedback phase={purchase.phase} />
+        <InkBand className="mt-12">
+          <CartPurchaseFeedback phase={purchase.phase} />
+        </InkBand>
       </div>
     );
   }
@@ -275,22 +282,27 @@ export function CartPage() {
     <div className="flex flex-col">
       <PageHero title={copy.cart.heading} />
 
+      {/* Loading and corrupted show no Karaoke guidance band, so they sit on the page's black band (DESIGN 7.1). */}
+      {model.kind === "loading" || model.kind === "corrupted" ? (
+        <InkBand className="mt-12">
+          {model.kind === "loading" ? <PageState state="loading" /> : null}
+
+          {model.kind === "corrupted" ? (
+            <div role="alert" className="alert measure">
+              <p className="font-bold">
+                <span className="error-dot" aria-hidden="true" />
+                {copy.cart.corrupted.title}
+              </p>
+              <p>{copy.cart.corrupted.description}</p>
+              <Button type="button" variant="outline" onClick={() => cart.reset()}>
+                {copy.cart.corrupted.reset}
+              </Button>
+            </div>
+          ) : null}
+        </InkBand>
+      ) : null}
+
       <div className="flex w-full max-w-3xl flex-col gap-8">
-        {model.kind === "loading" ? <PageState state="loading" /> : null}
-
-        {model.kind === "corrupted" ? (
-          <div role="alert" className="alert measure">
-            <p className="font-bold">
-              <span className="error-dot" aria-hidden="true" />
-              {copy.cart.corrupted.title}
-            </p>
-            <p>{copy.cart.corrupted.description}</p>
-            <Button type="button" variant="outline" onClick={() => cart.reset()}>
-              {copy.cart.corrupted.reset}
-            </Button>
-          </div>
-        ) : null}
-
         {model.kind === "empty" ? <PageState state="empty" message={copy.cart.empty} /> : null}
 
         {model.kind === "unavailable" ? (

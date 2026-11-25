@@ -4,6 +4,7 @@ import { type ReactNode, useEffect } from "react";
 import { getBrowserCartLifecycle } from "../features/cart/cart-lifecycle";
 import { CartRecovery } from "../features/cart/cart-recovery";
 import { useCart } from "../features/cart/use-cart";
+import { InkBand } from "../presentation/components/ink-band";
 import { PageState } from "../presentation/components/page-state";
 import { Button } from "../presentation/components/ui/button";
 import { copy } from "../presentation/copy/ja";
@@ -11,6 +12,15 @@ import { usePathname, useRouter } from "../routing/navigation";
 import { decideGate } from "./gate-decision";
 import { isLogoutInProgress } from "./logout-signal";
 import { useSession } from "./use-session";
+
+/** A gate state stands in for the whole page: its column holds the page's black band (DESIGN 7.1). */
+function GateState({ children }: { children: ReactNode }) {
+  return (
+    <div>
+      <InkBand>{children}</InkBand>
+    </div>
+  );
+}
 
 /**
  * Renders protected content only for an Authenticated User with a verified email (AR-SES-007,
@@ -48,12 +58,20 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
-  if (guestRedirect && cartBlocked) return <CartRecovery />;
+  if (guestRedirect && cartBlocked) {
+    return (
+      <GateState>
+        <CartRecovery />
+      </GateState>
+    );
+  }
   if (guestRedirect && cartBusy) {
     return (
-      <p role="status" className="text-sm text-foreground/80">
-        {copy.cart.lifecycleBusy.description}
-      </p>
+      <GateState>
+        <p role="status" className="text-small font-bold">
+          {copy.cart.lifecycleBusy.description}
+        </p>
+      </GateState>
     );
   }
 
@@ -61,24 +79,29 @@ export function AuthGate({ children }: { children: ReactNode }) {
     case "allow":
       return <>{children}</>;
     case "loading":
-      return <PageState state="loading" />;
+      return (
+        <GateState>
+          <PageState state="loading" />
+        </GateState>
+      );
     case "redirect":
       return (
-        <p role="status" className="text-sm text-foreground/80">
-          {copy.auth.gate.redirecting}
-        </p>
+        <GateState>
+          <p role="status" className="text-small font-bold">
+            {copy.auth.gate.redirecting}
+          </p>
+        </GateState>
       );
     case "unavailable":
       return (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-2 rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg"
-        >
-          <p>{copy.pageState.unavailable(copy.auth.gate.subject)}</p>
-          <Button type="button" variant="outline" onClick={() => window.location.reload()}>
-            {copy.pageState.retry}
-          </Button>
-        </div>
+        <GateState>
+          <div role="alert" className="alert">
+            <p>{copy.pageState.unavailable(copy.auth.gate.subject)}</p>
+            <Button type="button" variant="outline" onClick={() => window.location.reload()}>
+              {copy.pageState.retry}
+            </Button>
+          </div>
+        </GateState>
       );
     default: {
       const unreachable: never = decision;

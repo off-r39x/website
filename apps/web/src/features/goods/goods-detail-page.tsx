@@ -8,6 +8,7 @@ import type { GoodsDetail, Ref } from "../../api-client/types";
 import { type SessionState, useSession } from "../../auth/use-session";
 import { GOODS_HREF } from "../../config/public-routes";
 import { CART_HREF } from "../../config/site";
+import { InkBand } from "../../presentation/components/ink-band";
 import type { Loadable } from "../../presentation/components/list-state";
 import { NotFoundView } from "../../presentation/components/not-found-view";
 import { PageState } from "../../presentation/components/page-state";
@@ -186,15 +187,17 @@ export function GoodsDetailPage({ goodsRef }: { goodsRef: Ref<"goods"> }) {
   return (
     <div className="flex flex-col gap-12">
       <PageHero title={copy.goods.detail.heading} />
-      {model.kind === "loading" ? (
-        <PageState state="loading" />
-      ) : (
-        <PageState
-          state="unavailable"
-          message={copy.pageState.unavailable(copy.goods.detail.subject)}
-          onRetry={reload}
-        />
-      )}
+      <InkBand>
+        {model.kind === "loading" ? (
+          <PageState state="loading" />
+        ) : (
+          <PageState
+            state="unavailable"
+            message={copy.pageState.unavailable(copy.goods.detail.subject)}
+            onRetry={reload}
+          />
+        )}
+      </InkBand>
     </div>
   );
 }

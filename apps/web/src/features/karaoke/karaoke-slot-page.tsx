@@ -6,6 +6,7 @@ import { useApi } from "../../api-client/provider";
 import { settleRead } from "../../api-client/settle-read";
 import type { KaraokeSlotDetail, Ref } from "../../api-client/types";
 import { type SessionState, useSession } from "../../auth/use-session";
+import { InkBand } from "../../presentation/components/ink-band";
 import type { Loadable } from "../../presentation/components/list-state";
 import { NotFoundView } from "../../presentation/components/not-found-view";
 import { PageState } from "../../presentation/components/page-state";
@@ -152,7 +153,9 @@ export function KaraokeSlotPage({ slotRef }: { slotRef: Ref<"slot"> }) {
     return (
       <div className="flex flex-col gap-12">
         {heading}
-        <PageState state="loading" />
+        <InkBand>
+          <PageState state="loading" />
+        </InkBand>
       </div>
     );
   }
@@ -160,11 +163,13 @@ export function KaraokeSlotPage({ slotRef }: { slotRef: Ref<"slot"> }) {
     return (
       <div className="flex flex-col gap-12">
         {heading}
-        <PageState
-          state="unavailable"
-          message={copy.pageState.unavailable(detail.subject)}
-          onRetry={reload}
-        />
+        <InkBand>
+          <PageState
+            state="unavailable"
+            message={copy.pageState.unavailable(detail.subject)}
+            onRetry={reload}
+          />
+        </InkBand>
       </div>
     );
   }

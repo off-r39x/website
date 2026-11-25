@@ -4,6 +4,7 @@ import { type FormEvent, Suspense, useEffect, useId, useRef, useState } from "re
 import { useAuth } from "../../auth/use-auth";
 import { ErrorSummary } from "../../presentation/components/error-summary";
 import { FormField } from "../../presentation/components/form-field";
+import { InkBand } from "../../presentation/components/ink-band";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
 import { PageHero } from "../../presentation/decor/page-hero";
@@ -117,42 +118,45 @@ function ResetCompleteForm() {
 
   if (context === null || invalidated) return <InvalidContext />;
 
+  // The form is the page's only content in this state, so it sits on the black band (DESIGN 7.1).
   return (
-    <div className="flex w-full max-w-xl flex-col gap-6">
-      {errors.length > 0 ? <ErrorSummary items={summaryItems} summaryRef={summaryRef} /> : null}
-      {unavailable ? <ServiceFailure message={copy.auth.resetComplete.unavailable} /> : null}
-      <form
-        noValidate
-        onSubmit={onSubmit}
-        aria-busy={submitting ? true : undefined}
-        className="flex flex-col gap-4"
-      >
-        <FormField
-          id={ids.password}
-          label={copy.auth.field.newPassword.label}
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={setPassword}
-          hint={copy.auth.field.password.hint}
-          error={errorOf("password")}
-        />
-        <FormField
-          id={ids.passwordConfirm}
-          label={copy.auth.field.newPasswordConfirm.label}
-          type="password"
-          autoComplete="new-password"
-          value={passwordConfirm}
-          onChange={setPasswordConfirm}
-          error={errorOf("passwordConfirm")}
-        />
-        <div>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? copy.auth.form.submitting : copy.auth.resetComplete.submit}
-          </Button>
-        </div>
-      </form>
-    </div>
+    <InkBand className="mt-12">
+      <div className="flex w-full max-w-xl flex-col gap-6">
+        {errors.length > 0 ? <ErrorSummary items={summaryItems} summaryRef={summaryRef} /> : null}
+        {unavailable ? <ServiceFailure message={copy.auth.resetComplete.unavailable} /> : null}
+        <form
+          noValidate
+          onSubmit={onSubmit}
+          aria-busy={submitting ? true : undefined}
+          className="flex flex-col gap-4"
+        >
+          <FormField
+            id={ids.password}
+            label={copy.auth.field.newPassword.label}
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={setPassword}
+            hint={copy.auth.field.password.hint}
+            error={errorOf("password")}
+          />
+          <FormField
+            id={ids.passwordConfirm}
+            label={copy.auth.field.newPasswordConfirm.label}
+            type="password"
+            autoComplete="new-password"
+            value={passwordConfirm}
+            onChange={setPasswordConfirm}
+            error={errorOf("passwordConfirm")}
+          />
+          <div>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? copy.auth.form.submitting : copy.auth.resetComplete.submit}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </InkBand>
   );
 }
 

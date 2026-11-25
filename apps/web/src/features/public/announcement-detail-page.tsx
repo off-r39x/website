@@ -5,6 +5,7 @@ import { useApi } from "../../api-client/provider";
 import { settleRead } from "../../api-client/settle-read";
 import type { Announcement, Ref } from "../../api-client/types";
 import { DateTime } from "../../presentation/components/date-time";
+import { InkBand } from "../../presentation/components/ink-band";
 import type { Loadable } from "../../presentation/components/list-state";
 import { NotFoundView } from "../../presentation/components/not-found-view";
 import { PageState } from "../../presentation/components/page-state";
@@ -58,15 +59,17 @@ export function AnnouncementDetailPage({
     return (
       <div className="flex flex-col gap-12">
         <PageHero title={copy.announcements.heading} />
-        {model.kind === "loading" ? (
-          <PageState state="loading" />
-        ) : (
-          <PageState
-            state="unavailable"
-            message={copy.pageState.unavailable(copy.announcements.subject)}
-            onRetry={reload}
-          />
-        )}
+        <InkBand>
+          {model.kind === "loading" ? (
+            <PageState state="loading" />
+          ) : (
+            <PageState
+              state="unavailable"
+              message={copy.pageState.unavailable(copy.announcements.subject)}
+              onRetry={reload}
+            />
+          )}
+        </InkBand>
       </div>
     );
   }

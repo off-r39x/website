@@ -5,6 +5,7 @@ import { useApi } from "../../api-client/provider";
 import { settleRead } from "../../api-client/settle-read";
 import type { AnnouncementSummary } from "../../api-client/types";
 import { DateTime } from "../../presentation/components/date-time";
+import { InkBand } from "../../presentation/components/ink-band";
 import type { Loadable } from "../../presentation/components/list-state";
 import { PageState } from "../../presentation/components/page-state";
 import { PlainText } from "../../presentation/components/plain-text";
@@ -48,14 +49,18 @@ export function AnnouncementListPage() {
   return (
     <div className="flex flex-col gap-12">
       <PageHero title={copy.announcements.heading} />
-      {list.kind === "loading" ? <PageState state="loading" /> : null}
-      {list.kind === "empty" ? <PageState state="empty" /> : null}
-      {list.kind === "unavailable" ? (
-        <PageState
-          state="unavailable"
-          message={copy.pageState.unavailable(copy.announcements.subject)}
-          onRetry={reload}
-        />
+      {list.kind !== "items" ? (
+        <InkBand>
+          {list.kind === "loading" ? <PageState state="loading" /> : null}
+          {list.kind === "empty" ? <PageState state="empty" /> : null}
+          {list.kind === "unavailable" ? (
+            <PageState
+              state="unavailable"
+              message={copy.pageState.unavailable(copy.announcements.subject)}
+              onRetry={reload}
+            />
+          ) : null}
+        </InkBand>
       ) : null}
       {list.kind === "items" ? (
         <div className="surface-ink bleed section-y relative">

@@ -5,6 +5,7 @@ import { useApi } from "../../api-client/provider";
 import { settleRead } from "../../api-client/settle-read";
 import type { BusinessDateJst, KaraokeDay } from "../../api-client/types";
 import { KARAOKE_HREF } from "../../config/public-routes";
+import { InkBand } from "../../presentation/components/ink-band";
 import type { Loadable } from "../../presentation/components/list-state";
 import { NotFoundView } from "../../presentation/components/not-found-view";
 import { PageState } from "../../presentation/components/page-state";
@@ -56,14 +57,18 @@ export function KaraokeDayPage({ date }: { date: BusinessDateJst }) {
   return (
     <div className="flex flex-col gap-12">
       <PageHero title={day.heading} />
-      {model.kind === "loading" ? <PageState state="loading" /> : null}
-      {model.kind === "unavailable" ? (
-        <PageState
-          state="unavailable"
-          message={day.unavailable}
-          retryLabel={day.reload}
-          onRetry={reload}
-        />
+      {model.kind === "loading" || model.kind === "unavailable" ? (
+        <InkBand>
+          {model.kind === "loading" ? <PageState state="loading" /> : null}
+          {model.kind === "unavailable" ? (
+            <PageState
+              state="unavailable"
+              message={day.unavailable}
+              retryLabel={day.reload}
+              onRetry={reload}
+            />
+          ) : null}
+        </InkBand>
       ) : null}
       {model.kind === "ready" ? (
         <>

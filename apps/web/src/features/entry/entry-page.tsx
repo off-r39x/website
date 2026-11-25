@@ -147,24 +147,26 @@ export function EntryPage() {
   return (
     <div className="flex flex-col">
       <PageHero title={copy.entry.heading} />
-      {list.kind !== "loading" ? (
-        <div className="surface-ink bleed relative mt-6 mb-16 py-12">
-          <Sticker
-            kind="chip"
-            color="teal"
-            tilt={4}
-            size={48}
-            className="absolute right-6 -bottom-6 md:right-24"
-          />
+      {/* The black band is there in every state; the Cart link is not offered while the list loads. */}
+      <div className="surface-ink bleed relative mt-6 mb-16 py-12">
+        <Sticker
+          kind="chip"
+          color="teal"
+          tilt={4}
+          size={48}
+          className="absolute right-6 -bottom-6 md:right-24"
+        />
+        {list.kind === "loading" ? (
+          <PageState state="loading" />
+        ) : (
           <p>
             <Link href={CART_HREF} prefetch={false} className={linkClass}>
               {copy.sales.viewCart}
             </Link>
           </p>
-        </div>
-      ) : null}
+        )}
+      </div>
       <div className="flex flex-col gap-8">
-        {list.kind === "loading" ? <PageState state="loading" /> : null}
         {list.kind === "empty" ? <PageState state="empty" /> : null}
         {list.kind === "unavailable" ? (
           <PageState

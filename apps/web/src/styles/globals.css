@@ -1386,6 +1386,16 @@
     align-items: flex-start;
     gap: var(--sp-4);
   }
+
+  /* ---- State bands (DESIGN 7.1) ---- */
+  /* An alert on a black band is a black 札 with a white edge (DESIGN 8.5), so its text, links and outline button
+     take their black-surface look instead of white text on a white block. The coral dot and offset stay. */
+  .surface-ink .alert {
+    border-color: var(--paper);
+    background: var(--ink);
+    color: var(--paper);
+  }
+  /* ---- End of state bands ---- */
 }
 
 /* ---- Keyframes (DESIGN 9) ----------------------------------------------------------------------------------- */

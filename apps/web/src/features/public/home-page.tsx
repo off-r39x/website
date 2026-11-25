@@ -6,6 +6,7 @@ import { settleRead } from "../../api-client/settle-read";
 import type { AnnouncementSummary, EventInfo, FaqItem } from "../../api-client/types";
 import { assets } from "../../config/assets";
 import { DateTime } from "../../presentation/components/date-time";
+import { InkBand } from "../../presentation/components/ink-band";
 import type { Loadable } from "../../presentation/components/list-state";
 import { PageState } from "../../presentation/components/page-state";
 import { PlainText } from "../../presentation/components/plain-text";
@@ -97,20 +98,26 @@ export function HomePage() {
 
   if (model.kind === "loading") {
     return (
-      <PageHero title={copy.home.fallbackHeading}>
-        <PageState state="loading" />
-      </PageHero>
+      <div className="flex flex-col gap-12">
+        <PageHero title={copy.home.fallbackHeading} />
+        <InkBand>
+          <PageState state="loading" />
+        </InkBand>
+      </div>
     );
   }
   if (model.kind === "error") {
     return (
-      <PageHero title={copy.home.fallbackHeading}>
-        <PageState
-          state="unavailable"
-          message={copy.pageState.unavailable(copy.home.subject)}
-          onRetry={reloadAll}
-        />
-      </PageHero>
+      <div className="flex flex-col gap-12">
+        <PageHero title={copy.home.fallbackHeading} />
+        <InkBand>
+          <PageState
+            state="unavailable"
+            message={copy.pageState.unavailable(copy.home.subject)}
+            onRetry={reloadAll}
+          />
+        </InkBand>
+      </div>
     );
   }
 
