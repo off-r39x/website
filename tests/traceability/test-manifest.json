@@ -14463,6 +14463,156 @@
       "critical": false
     },
     {
+      "test_case_id": "TC-PG-PUB-001-321",
+      "level": "E2E",
+      "suite": "e2e-ui-mock",
+      "upstream_rule_ids": [
+        "PG-PUB-001",
+        "SPEC-050-24.3",
+        "SPEC-050-25",
+        "TST-E2E-003",
+        "TST-E2E-004",
+        "DEV-WEB-010"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "apps/web built with VITE_UI_MOCK=1 and served from apps/web/dist by scripts/serve-web-dist.mts on 127.0.0.1:3100 (dist/_headers applied); desktop-chromium and mobile-chromium; timezone UTC; synthetic data only; docs/DESIGN.md (owner of the visual expression, SPEC-050 24.3)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Home has exactly one running band: a focusable role=marquee named by the logo words, its moving copies aria-hidden, only the logo words and stars, tilted -2deg, a 40s loop paused on focus and stopped under reduced motion; lower pages have none"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-PG-PUB-001-322",
+      "level": "E2E",
+      "suite": "e2e-ui-mock",
+      "upstream_rule_ids": [
+        "PG-PUB-001",
+        "SPEC-050-24.3",
+        "SPEC-050-25",
+        "TST-E2E-003",
+        "TST-E2E-004",
+        "DEV-WEB-010"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "apps/web built with VITE_UI_MOCK=1 and served from apps/web/dist by scripts/serve-web-dist.mts on 127.0.0.1:3100 (dist/_headers applied); desktop-chromium and mobile-chromium; timezone UTC; synthetic data only; docs/DESIGN.md (owner of the visual expression, SPEC-050 24.3)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "a navigation Link starts document.startViewTransition, the Header carries view-transition-name site-header, the new root opens with a 600ms animation and the old root has none, reduced motion turns every view-transition animation off, and no path is left in sessionStorage after a reload"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-PG-PUB-001-323",
+      "level": "E2E",
+      "suite": "e2e-ui-mock",
+      "upstream_rule_ids": [
+        "PG-PUB-001",
+        "SPEC-050-24.3",
+        "SPEC-050-25",
+        "TST-E2E-003",
+        "TST-E2E-004",
+        "DEV-WEB-010"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "apps/web built with VITE_UI_MOCK=1 and served from apps/web/dist by scripts/serve-web-dist.mts on 127.0.0.1:3100 (dist/_headers applied); desktop-chromium and mobile-chromium; timezone UTC; synthetic data only; docs/DESIGN.md (owner of the visual expression, SPEC-050 24.3)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "a page title that wraps to three lines or more at 375px drops the candy layers and shows a plain ink heading with the same text and no horizontal scroll; a short title keeps the candy layers"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-PG-PUB-001-324",
+      "level": "E2E",
+      "suite": "e2e-ui-mock",
+      "upstream_rule_ids": [
+        "PG-PUB-001",
+        "SPEC-050-24.3",
+        "SPEC-050-25",
+        "TST-E2E-003",
+        "TST-E2E-004",
+        "DEV-WEB-010"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "apps/web built with VITE_UI_MOCK=1 and served from apps/web/dist by scripts/serve-web-dist.mts on 127.0.0.1:3100 (dist/_headers applied); desktop-chromium and mobile-chromium; timezone UTC; synthetic data only; docs/DESIGN.md (owner of the visual expression, SPEC-050 24.3)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Not Found, the route error view and the loading / unavailable states of Goods, Announcements, Entry and Karaoke each show a black surface inside main"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-PG-PUB-001-325",
+      "level": "E2E",
+      "suite": "e2e-ui-mock",
+      "upstream_rule_ids": [
+        "PG-PUB-001",
+        "SPEC-050-24.3",
+        "SPEC-050-25",
+        "TST-E2E-003",
+        "TST-E2E-004",
+        "DEV-WEB-010"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "apps/web built with VITE_UI_MOCK=1 and served from apps/web/dist by scripts/serve-web-dist.mts on 127.0.0.1:3100 (dist/_headers applied); desktop-chromium and mobile-chromium; timezone UTC; synthetic data only; docs/DESIGN.md (owner of the visual expression, SPEC-050 24.3)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "the Entry Ticket page has exactly one primary button (the add button of the first addable offering) and the Purchase Status page has exactly one primary action in PREPARED, AWAITING_PAYMENT, CONFIRMED and PAYMENT_FAILED"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
       "test_case_id": "TC-SPEC-050-25-001",
       "level": "E2E",
       "suite": "e2e-ui-mock",
