@@ -109,7 +109,7 @@
  * Tailwind theme mapped onto the DESIGN palette. The semantic names stay so every view keeps one source of colour;
  * no hue outside DESIGN 3.1 is introduced (tints are color-mix of a palette colour, DESIGN 3.1).
  */
-@theme inline {
+@theme {
   --color-*: initial;
   --color-ink: var(--ink);
   --color-paper: var(--paper);
@@ -138,6 +138,9 @@
   --color-tone-neutral-fg: var(--ink);
   --color-tone-review-bg: var(--teal);
   --color-tone-review-fg: var(--ink);
+
+  /* The one gradient DESIGN 3.1 allows, under the token name the S3 contract (section 9) fixes. */
+  --hero-gradient: linear-gradient(180deg, #f4ff70 0%, #d0ff7b 25%, #9eff8a 50%, #62fe9d 75%, #2fe5bb 100%);
 
   --radius-base: var(--r-field);
   --radius-field: var(--r-field);
@@ -172,7 +175,7 @@
     line-height: 1.9;
     letter-spacing: 0.05em;
     color: var(--ink);
-    background: var(--paper);
+    /* No body background: the paper comes from <html> (the canvas), so decoration at z-index -1 stays visible. */
     /* Decoration may bleed past the viewport; clip (not hidden) keeps position: sticky working (DESIGN 11). */
     overflow-x: clip;
   }
@@ -706,6 +709,8 @@
   /* ---- Diamond frame (DESIGN 5.3, 9.5) ----------------------------------------------------------------- */
   .diamond {
     display: block;
+    width: 100%;
+    height: auto;
     overflow: visible;
     color: var(--ink);
     pointer-events: none;
@@ -912,6 +917,12 @@
     padding-inline: calc(var(--page-x) + 120px + var(--sp-4)) var(--page-x);
   }
 
+  @media (max-width: 767px) {
+    .site-header__inner {
+      padding-inline-start: calc(var(--page-x) + 120px + var(--sp-2));
+    }
+  }
+
   .site-header__home {
     position: absolute;
     top: var(--sp-1);
@@ -1073,8 +1084,10 @@
   }
 
   /* ---- Home hero (DESIGN 6.3, 9.4) ---------------------------------------------------------------------- */
+  /* The big diamond is cut at the hero's lower edge (DESIGN 6.3); sideways it is cut by main. */
   .home-hero {
     position: relative;
+    overflow-y: clip;
     display: grid;
     gap: var(--sp-6);
     align-items: center;
