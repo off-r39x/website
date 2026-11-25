@@ -3,6 +3,7 @@ import {
   type OrderId,
   type PaymentBindingId,
   REVIEW_REASON_CODES,
+  type ReviewCaseDetails,
   type ReviewCaseOpenInput,
   reviewCaseOpenInputSchema,
 } from "@off-r39x/application/review-case";
@@ -16,7 +17,9 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 // Scope decision D-4 (approved 2026-11-18): the dedupe_key derivation and its parts are NOT part
 // of this PR (SPEC-150 REL-REC-007 leaves primary_entity_type and cause_discriminator undefined).
 // The open input is { reasonCode, targets, details }; a dedupe key must not be accepted from
-// callers here.
+// callers here. PR-L1-1c (plan U-2, UCR-100-004) adds the AUTH_PROFILE_RELATION_INCONSISTENT shape
+// { reasonCode, authSubject, epoch }: REL-REC-016 fixes its dedupe key from those two values, so the
+// caller still supplies no key.
 //
 // All values are synthetic. Email-looking strings use the reserved example.com domain and appear
 // only as inputs that must be rejected (TST-EML-001).
@@ -105,6 +108,15 @@ function openInput(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// UCR-100-004 (SPEC-100 §43, SPEC-150 REL-AUTH-009 / REL-REC-016): the Case of a broken Business Profile
+// relation names the Auth Subject, which has no Business Profile row to refer to.
+const AUTH_REASON = "AUTH_PROFILE_RELATION_INCONSISTENT";
+const FK_REASON_CODES = SPEC_150_REASON_CODES.filter((code) => code !== AUTH_REASON);
+
+function authInput(overrides: Record<string, unknown> = {}) {
+  return { reasonCode: AUTH_REASON, authSubject: SYNTHETIC_UUID, epoch: 1, ...overrides };
+}
+
 function accepts(input: unknown): boolean {
   return reviewCaseOpenInputSchema.safeParse(input).success;
 }
@@ -129,11 +141,17 @@ describe("TC-REVIEW-PORT-001 reason codes equal the SPEC-150 §43 canonical set 
     expect([...REVIEW_REASON_CODES].sort()).toEqual([...SPEC_110_REASON_CATEGORIES].sort());
   });
 
-  for (const code of SPEC_150_REASON_CODES) {
+  // UCR-100-004 / SPEC-100 §43: AUTH_PROFILE_RELATION_INCONSISTENT takes auth_subject, not a target FK
+  // (TC-REVIEW-PORT-005), so it is the one canonical code that has no { targets } shape.
+  for (const code of FK_REASON_CODES) {
     it(`accepts ${code} with a valid target`, () => {
       expect(accepts(openInput({ reasonCode: code, targets: { orderId: 1n } }))).toBe(true);
     });
   }
+
+  it(`accepts ${AUTH_REASON} in its auth subject shape`, () => {
+    expect(accepts(authInput())).toBe(true);
+  });
 
   for (const code of [
     "EMAIL_PROVIDER_RESULT_UNRESOLVED",
@@ -256,7 +274,9 @@ describe("TC-REVIEW-PORT-002 targets follow SPEC-100 §43 and SPEC-120 §43.1", 
   describe("an explicitly undefined target is dropped from the parsed output", () => {
     const keysOf = (reasonCode: string, targets: unknown) => {
       const parsed = reviewCaseOpenInputSchema.safeParse(openInput({ reasonCode, targets }));
-      return parsed.success ? Object.keys(parsed.data.targets).sort() : null;
+      return parsed.success && "targets" in parsed.data
+        ? Object.keys(parsed.data.targets).sort()
+        : null;
     };
     for (const code of ["EML_RENDER_CONTEXT_INVALID", "PAY_BINDING_INCONSISTENT"]) {
       it(`${code} keeps only the real targets`, () => {
@@ -289,7 +309,7 @@ describe("TC-REVIEW-PORT-002 targets follow SPEC-100 §43 and SPEC-120 §43.1", 
     });
   }
 
-  for (const code of NON_EML_REASON_CODES) {
+  for (const code of NON_EML_REASON_CODES.filter((c) => c !== AUTH_REASON)) {
     it(`${code} is not restricted to Order / Reservation targets`, () => {
       expect(acceptsTargets(code, { orderId: 1n })).toBe(true);
       expect(acceptsTargets(code, { paymentBindingId: 3n })).toBe(true);
@@ -444,8 +464,7 @@ describe("TC-REVIEW-PORT-003 details and top-level items follow the REL-REC-008 
 // ReviewCaseOpenInput has already satisfied them at compile time. These assertions are checked by
 // `pnpm typecheck`; vitest does not evaluate them.
 describe("TC-REVIEW-PORT-004 ReviewCaseOpenInput expresses the target constraints in its type [REL-REC-006]", () => {
-  type Details = ReviewCaseOpenInput["details"];
-  const details: Details = {};
+  const details: ReviewCaseDetails = {};
 
   it("accepts an input with at least one target", () => {
     const input: ReviewCaseOpenInput = {
@@ -478,12 +497,15 @@ describe("TC-REVIEW-PORT-004 ReviewCaseOpenInput expresses the target constraint
       targets: { orderId: 1n as OrderId, karaokeReservationId: 2n as KaraokeReservationId },
       details,
     };
-    // @ts-expect-error SPEC-120 §43.1: an email reason cannot target a payment binding
-    const bad: ReviewCaseOpenInput = {
+    // A variable, so that the error is the assignment itself on one line (the AUTH shape of
+    // UCR-100-004 makes the union three-way, and TypeScript would report a literal inside it).
+    const emailPayment = {
       reasonCode: "EML_RENDER_CONTEXT_INVALID",
       targets: { paymentBindingId: 3n as PaymentBindingId },
       details,
-    };
+    } as const;
+    // @ts-expect-error SPEC-120 §43.1: an email reason cannot target a payment binding
+    const bad: ReviewCaseOpenInput = emailPayment;
     expect([ok, bad]).toHaveLength(2);
   });
 
@@ -491,17 +513,165 @@ describe("TC-REVIEW-PORT-004 ReviewCaseOpenInput expresses the target constraint
     // A variable, not a literal: excess property checks do not apply, so the type itself must
     // forbid the other target keys.
     const mixed = { orderId: 1n as OrderId, paymentBindingId: 3n as PaymentBindingId };
-    // @ts-expect-error SPEC-120 §43.1: a forbidden target next to an allowed one is still refused
-    const input: ReviewCaseOpenInput = {
+    const emailMixed = {
       reasonCode: "EML_RENDER_CONTEXT_INVALID",
       targets: mixed,
       details,
-    };
+    } as const;
+    // @ts-expect-error SPEC-120 §43.1: a forbidden target next to an allowed one is still refused
+    const input: ReviewCaseOpenInput = emailMixed;
     expect(input.reasonCode).toBe("EML_RENDER_CONTEXT_INVALID");
   });
 
   it("keeps the schema output assignable to the public type", () => {
     const parsed = reviewCaseOpenInputSchema.parse(openInput());
     expectTypeOf(parsed).toEqualTypeOf<ReviewCaseOpenInput>();
+  });
+});
+
+// PR-L1-1c (plan U-2): UCR-100-004 added auth_subject to the Case table after PR-S0-5. A Case of
+// AUTH_PROFILE_RELATION_INCONSISTENT names the Auth Subject only (SPEC-100 §43 CHECK: auth_subject is set exactly
+// for this reason), its details are {} (REL-AUTH-009) and its dedupe key is fixed by REL-REC-016 from the Auth
+// Subject and the epoch <n>, which the caller counts in the same statement as the 0-row reselect.
+describe("TC-REVIEW-PORT-005 the AUTH_PROFILE_RELATION_INCONSISTENT input names the Auth Subject and the epoch only [REL-REC-016, DB-XFN-004]", () => {
+  it("accepts { reasonCode, authSubject, epoch } with a canonical lowercase UUID of any version", () => {
+    expect(accepts(authInput())).toBe(true);
+    // The Auth Subject comes from Neon Auth: any canonical lowercase UUID, not only the versions a Public
+    // Reference uses.
+    for (const authSubject of [
+      "00000000-0000-0000-0000-000000000000",
+      "0190a5f2-7c3e-7000-8000-000000000001",
+      "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    ])
+      expect(accepts(authInput({ authSubject })), authSubject).toBe(true);
+  });
+
+  it("parses to the same three items", () => {
+    expect(reviewCaseOpenInputSchema.parse(authInput({ epoch: 3 }))).toEqual({
+      reasonCode: AUTH_REASON,
+      authSubject: SYNTHETIC_UUID,
+      epoch: 3,
+    });
+  });
+
+  for (const [label, authSubject] of [
+    ["an upper-case UUID", UPPER_UUID],
+    ["a braced UUID", `{${SYNTHETIC_UUID}}`],
+    ["a UUID without hyphens", SYNTHETIC_UUID.replaceAll("-", "")],
+    ["an email address", "user@example.com"],
+    ["an empty string", ""],
+    ["a number", 1],
+    ["null", null],
+  ] as const) {
+    it(`rejects ${label} as the Auth Subject`, () => {
+      expect(accepts(authInput({ authSubject }))).toBe(false);
+    });
+  }
+
+  it("requires the Auth Subject and the epoch", () => {
+    const { authSubject: _subject, ...withoutSubject } = authInput();
+    const { epoch: _epoch, ...withoutEpoch } = authInput();
+    expect(accepts(withoutSubject)).toBe(false);
+    expect(accepts(withoutEpoch)).toBe(false);
+  });
+
+  // REL-REC-016: <n> is the resolved Case count + 1, in decimal without leading zeros.
+  for (const epoch of [0, -1, 1.5, "1", "01", 1n, null, Number.NaN, Number.POSITIVE_INFINITY]) {
+    it(`rejects the epoch ${String(epoch)} (${typeof epoch})`, () => {
+      expect(accepts(authInput({ epoch }))).toBe(false);
+    });
+  }
+
+  it("accepts the epoch up to Number.MAX_SAFE_INTEGER only", () => {
+    expect(accepts(authInput({ epoch: Number.MAX_SAFE_INTEGER }))).toBe(true);
+    expect(accepts(authInput({ epoch: Number.MAX_SAFE_INTEGER + 1 }))).toBe(false);
+  });
+
+  // The Case names no target FK (SPEC-150 REL-AUTH-009: the target is auth_subject), and details stay {}.
+  for (const [key, value] of [
+    ["targets", { orderId: 1n }],
+    ["targets", {}],
+    ["details", {}],
+    ["details", { order_ref: { kind: "public_ref", value: SYNTHETIC_UUID } }],
+    ["dedupeKey", `r150:${AUTH_REASON}:auth_subject:${SYNTHETIC_UUID}:epoch-1`],
+    ["auth_subject", SYNTHETIC_UUID],
+  ] as const) {
+    it(`rejects the extra item ${key}=${JSON.stringify(value, (_k, v) => (typeof v === "bigint" ? `${v}n` : v))}`, () => {
+      expect(accepts(authInput({ [key]: value }))).toBe(false);
+    });
+  }
+
+  it("rejects the reason in the target shape, and the Auth Subject with any other reason", () => {
+    expect(accepts(openInput({ reasonCode: AUTH_REASON, targets: { orderId: 1n } }))).toBe(false);
+    for (const code of FK_REASON_CODES)
+      expect(accepts(authInput({ reasonCode: code })), code).toBe(false);
+    expect(accepts(openInput({ authSubject: SYNTHETIC_UUID }))).toBe(false);
+  });
+
+  it("types the AUTH shape apart from the target shape at compile time", () => {
+    const details: ReviewCaseDetails = {};
+    const ok: ReviewCaseOpenInput = {
+      reasonCode: "AUTH_PROFILE_RELATION_INCONSISTENT",
+      authSubject: SYNTHETIC_UUID,
+      epoch: 1,
+    };
+    // Variables, not literals, so that the error is the assignment itself on one line.
+    const authWithTarget = {
+      reasonCode: "AUTH_PROFILE_RELATION_INCONSISTENT",
+      targets: { orderId: 1n as OrderId },
+      details,
+    } as const;
+    const payWithSubject = {
+      reasonCode: "PAY_BINDING_INCONSISTENT",
+      authSubject: SYNTHETIC_UUID,
+      epoch: 1,
+    } as const;
+    // @ts-expect-error UCR-100-004: the AUTH reason has no target FK shape
+    const withTarget: ReviewCaseOpenInput = authWithTarget;
+    // @ts-expect-error SPEC-100 §43 CHECK: only the AUTH reason carries the Auth Subject
+    const otherReason: ReviewCaseOpenInput = payWithSubject;
+    expect([ok, withTarget, otherReason]).toHaveLength(3);
+  });
+
+  // PR #100 review: a variable that holds every required item of one shape plus an item of the other is
+  // structurally assignable unless each shape forbids the other's items; the runtime strictObject refuses it, so the
+  // type must refuse it too.
+  it("refuses at compile time a complete input of one shape that also carries the other shape's items", () => {
+    const details: ReviewCaseDetails = {};
+    const authWithTargets = {
+      reasonCode: "AUTH_PROFILE_RELATION_INCONSISTENT",
+      authSubject: SYNTHETIC_UUID,
+      epoch: 1,
+      targets: { orderId: 1n as OrderId },
+    } as const;
+    const authWithDetails = {
+      reasonCode: "AUTH_PROFILE_RELATION_INCONSISTENT",
+      authSubject: SYNTHETIC_UUID,
+      epoch: 1,
+      details,
+    } as const;
+    const payWithSubject = {
+      reasonCode: "PAY_BINDING_INCONSISTENT",
+      targets: { paymentBindingId: 3n as PaymentBindingId },
+      details,
+      authSubject: SYNTHETIC_UUID,
+    } as const;
+    const emailWithEpoch = {
+      reasonCode: "EML_RENDER_CONTEXT_INVALID",
+      targets: { orderId: 1n as OrderId },
+      details,
+      epoch: 1,
+    } as const;
+    // @ts-expect-error UCR-100-004: the AUTH shape has no targets
+    const a: ReviewCaseOpenInput = authWithTargets;
+    // @ts-expect-error REL-AUTH-009: the AUTH shape has no details (the column default {} is written)
+    const b: ReviewCaseOpenInput = authWithDetails;
+    // @ts-expect-error SPEC-100 §43 CHECK: only the AUTH reason carries the Auth Subject
+    const c: ReviewCaseOpenInput = payWithSubject;
+    // @ts-expect-error REL-REC-016: only the AUTH reason carries the epoch
+    const d: ReviewCaseOpenInput = emailWithEpoch;
+    for (const input of [authWithTargets, authWithDetails, payWithSubject, emailWithEpoch])
+      expect(accepts(input)).toBe(false);
+    expect([a, b, c, d]).toHaveLength(4);
   });
 });

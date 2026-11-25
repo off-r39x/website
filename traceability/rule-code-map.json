@@ -2958,7 +2958,8 @@
         "packages/db/migrations/0006_orders_payments.sql",
         "packages/db/migrations/0007_karaoke_reservations.sql",
         "packages/db/migrations/0008_goods_fulfillment.sql",
-        "packages/db/migrations/0009_entry_ticket_qr_checkin.sql"
+        "packages/db/migrations/0009_entry_ticket_qr_checkin.sql",
+        "packages/db/migrations/0010_cross_functional.sql"
       ],
       "test_case_ids": [
         "TC-DB-FOUNDATION-001",
@@ -2977,7 +2978,9 @@
         "TC-DB-ARC-007-011",
         "TC-DB-ARC-007-012",
         "TC-DB-ARC-007-013",
-        "TC-DB-ARC-007-014"
+        "TC-DB-ARC-007-014",
+        "TC-DB-ARC-007-015",
+        "TC-DB-ARC-007-016"
       ],
       "notes": "Explicit named constraints and lossless bigint schema"
     },
@@ -3011,7 +3014,9 @@
         "packages/db/migrations/0008_goods_fulfillment.sql",
         "packages/db/src/schema/goods.ts",
         "packages/db/migrations/0009_entry_ticket_qr_checkin.sql",
-        "packages/db/src/schema/entry-tickets.ts"
+        "packages/db/src/schema/entry-tickets.ts",
+        "packages/db/migrations/0010_cross_functional.sql",
+        "packages/db/src/schema/cross-functional.ts"
       ],
       "test_case_ids": [
         "TC-DB-STA-002-001",
@@ -3020,7 +3025,8 @@
         "TC-DB-STA-002-003",
         "TC-DB-STA-002-004",
         "TC-DB-STA-002-005",
-        "TC-DB-STA-002-006"
+        "TC-DB-STA-002-006",
+        "TC-DB-STA-002-007"
       ],
       "notes": "implementation mapping only: CHECK constraints allow the Publication State (DRAFT, PUBLISHED, ARCHIVED) and Sale Control State (ENABLED, SUSPENDED) values only; Karaoke Slot State allows AVAILABLE, HELD, SOLD and SALES_STOPPED only; Order State and Purpose, Allocation State, Checkout creation result, Webhook processing state and Refund State allow the SPEC-030 / SPEC-070 values only (0006); Karaoke Hold, Reservation and Ticket State allow the SPEC-030 / SPEC-090 values only (0007); Goods Order Item State and Purpose, Goods Allocation State and Goods Handoff State allow the SPEC-030 values only (0008); Entry Ticket State and Order Purpose, QR Token purpose, lifecycle state and format version allow the SPEC-030 / SPEC-100 section 25 values only (0009)"
     },
@@ -3100,7 +3106,9 @@
         "packages/db/src/schema/payments.ts",
         "packages/db/migrations/0007_karaoke_reservations.sql",
         "packages/db/migrations/0008_goods_fulfillment.sql",
-        "packages/db/migrations/0009_entry_ticket_qr_checkin.sql"
+        "packages/db/migrations/0009_entry_ticket_qr_checkin.sql",
+        "packages/db/migrations/0010_cross_functional.sql",
+        "packages/db/src/schema/cross-functional.ts"
       ],
       "test_case_ids": [
         "TC-DB-FK-002-001",
@@ -3108,7 +3116,8 @@
         "TC-DB-FK-002-003",
         "TC-DB-FK-002-004",
         "TC-DB-FK-002-005",
-        "TC-DB-FK-002-006"
+        "TC-DB-FK-002-006",
+        "TC-DB-FK-002-007"
       ],
       "notes": "implementation mapping only: Event and Goods foreign keys (0003) and the Karaoke foreign keys fk_karaoke_exclusive_scopes_event, fk_karaoke_slots_exclusive_scope and fk_karaoke_slots_sales_configuration (0004) are ON DELETE RESTRICT, never cascade; the twelve Order / payment foreign keys of 0006 are ON DELETE RESTRICT; the seven Karaoke reservation foreign keys of 0007 are ON DELETE RESTRICT; the eight Goods fulfillment foreign keys of 0008 are ON DELETE RESTRICT; the eight Entry Ticket / QR / Check-in foreign keys of 0009 are ON DELETE RESTRICT"
     },
@@ -3158,7 +3167,8 @@
         "packages/db/migrations/0006_orders_payments.sql",
         "packages/db/migrations/0007_karaoke_reservations.sql",
         "packages/db/migrations/0008_goods_fulfillment.sql",
-        "packages/db/migrations/0009_entry_ticket_qr_checkin.sql"
+        "packages/db/migrations/0009_entry_ticket_qr_checkin.sql",
+        "packages/db/migrations/0010_cross_functional.sql"
       ],
       "test_case_ids": [
         "TC-SEC-DB-001-001",
@@ -3167,7 +3177,8 @@
         "TC-SEC-DB-001-003",
         "TC-SEC-DB-001-004",
         "TC-SEC-DB-001-005",
-        "TC-SEC-DB-001-006"
+        "TC-SEC-DB-001-006",
+        "TC-SEC-DB-001-007"
       ],
       "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role); 0006 revokes every runtime privilege on the seven Order / payment tables and grants none (plan U-4); 0007 revokes every runtime privilege on the four Karaoke reservation tables and grants none (plan U-4); 0008 revokes every runtime privilege on the three Goods fulfillment tables and grants none (plan U-5); 0009 revokes every runtime privilege on the three Entry Ticket / QR / Check-in tables and grants none (plan U-5)"
     },
@@ -3391,7 +3402,8 @@
         "TC-INF-HLT-006-012",
         "TC-INF-HLT-006-013",
         "TC-INF-HLT-006-014",
-        "TC-INF-HLT-006-015"
+        "TC-INF-HLT-006-015",
+        "TC-INF-HLT-006-016"
       ],
       "notes": "Backward-compatible readiness: journal, catalog, journal read outside a transaction within the SPEC-150 55P03 budget; bundled migration set (byte order) is a prefix of the journal; required catalog contained in the live catalog only when the journal is ahead, exact otherwise; a required constraint validated after NOT VALID is accepted (UCR-180-003); catalog-reading connections fix IntervalStyle=postgres (the notation of the required catalog) with a startup option that overrides database and role defaults"
     },
@@ -4047,9 +4059,16 @@
       "rule_id": "EML-GEN-003",
       "code_paths": [
         "packages/application/src/notification.ts",
-        "packages/application/src/uuid-v5.ts"
+        "packages/application/src/uuid-v5.ts",
+        "packages/db/src/notification-requests.ts"
       ],
-      "test_case_ids": ["TC-NTF-PORT-005", "TC-NTF-PORT-006", "TC-NTF-PORT-007"],
+      "test_case_ids": [
+        "TC-NTF-PORT-005",
+        "TC-NTF-PORT-006",
+        "TC-NTF-PORT-007",
+        "TC-DB-XFN-001-002",
+        "TC-DB-XFN-001-004"
+      ],
       "notes": "Port input and UUIDv5 business_cause_key derivation only; persistence is PR-L1-1c"
     },
     {
@@ -5778,9 +5797,18 @@
     },
     {
       "rule_id": "DEV-DB-004",
-      "code_paths": ["packages/db/src/transactions/profile.ts"],
-      "test_case_ids": ["TC-API-007-010", "TC-DB-AUTH-001-010"],
-      "notes": "implementation mapping only: the self Profile SELECT, UPDATE ... RETURNING and the provisioning INSERT ... ON CONFLICT DO NOTHING RETURNING and reselect are built from the Drizzle table declaration; transaction_timestamp() stays an SQL expression in the same UPDATE"
+      "code_paths": [
+        "packages/db/src/transactions/profile.ts",
+        "packages/db/src/notification-requests.ts",
+        "packages/db/src/consistency-review-cases.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-007-010",
+        "TC-DB-AUTH-001-010",
+        "TC-DB-XFN-001-005",
+        "TC-DB-XFN-002-004"
+      ],
+      "notes": "implementation mapping only: the self Profile SELECT, UPDATE ... RETURNING and the provisioning INSERT ... ON CONFLICT DO NOTHING RETURNING and reselect are built from the Drizzle table declaration; transaction_timestamp() stays an SQL expression in the same UPDATE; the Notification Request enqueue and the Consistency Review Case open (INSERT ... ON CONFLICT DO NOTHING RETURNING and reselect) are built from the cross-functional table declarations, with only the reselect comparison as an SQL fragment"
     },
     {
       "rule_id": "DEV-API-010",
@@ -6774,6 +6802,102 @@
       ],
       "test_case_ids": ["TC-DB-TQR-001-001"],
       "notes": "implementation mapping only (no repository code yet): uq_entry_tickets_order_item_id_issuance_ordinal (0009) keeps one Entry Ticket per Order Item and issuance ordinal; the issuance transaction is not implemented"
+    },
+    {
+      "rule_id": "DB-XFN-001",
+      "code_paths": [
+        "packages/db/migrations/0010_cross_functional.sql",
+        "packages/db/src/schema/cross-functional.ts",
+        "packages/db/src/notification-requests.ts"
+      ],
+      "test_case_ids": [
+        "TC-DB-XFN-001-001",
+        "TC-DB-XFN-001-002",
+        "TC-DB-XFN-001-003",
+        "TC-DB-XFN-001-004",
+        "TC-EML-GEN-004-001",
+        "TC-DB-XFN-001-005"
+      ],
+      "notes": "implementation mapping only: one Notification Request per Business Cause (UNIQUE) and the enqueue that converges on it"
+    },
+    {
+      "rule_id": "DB-XFN-002",
+      "code_paths": [
+        "packages/db/migrations/0010_cross_functional.sql",
+        "packages/db/src/schema/cross-functional.ts",
+        "packages/db/src/consistency-review-cases.ts"
+      ],
+      "test_case_ids": [
+        "TC-DB-XFN-002-001",
+        "TC-DB-XFN-002-002",
+        "TC-DB-XFN-002-003",
+        "TC-REL-REC-016-001",
+        "TC-DB-XFN-002-004"
+      ],
+      "notes": "implementation mapping only: one Case per dedupe key (UNIQUE); only the REL-REC-016 key is built until UCR-150-004"
+    },
+    {
+      "rule_id": "DB-XFN-003",
+      "code_paths": [
+        "packages/db/migrations/0010_cross_functional.sql",
+        "packages/db/src/schema/cross-functional.ts"
+      ],
+      "test_case_ids": ["TC-DB-FK-002-007"],
+      "notes": "implementation mapping only: the Case target foreign keys are ON DELETE RESTRICT, resolved or not"
+    },
+    {
+      "rule_id": "DB-XFN-004",
+      "code_paths": [
+        "packages/db/migrations/0010_cross_functional.sql",
+        "packages/db/src/schema/cross-functional.ts",
+        "packages/db/src/consistency-review-cases.ts",
+        "packages/application/src/review-case.ts"
+      ],
+      "test_case_ids": [
+        "TC-DB-ARC-007-016",
+        "TC-DB-XFN-002-001",
+        "TC-DB-XFN-004-001",
+        "TC-REVIEW-PORT-005"
+      ],
+      "notes": "implementation mapping only: auth_subject has no FK and no index and never leaves the repository"
+    },
+    {
+      "rule_id": "EML-GEN-004",
+      "code_paths": ["packages/db/src/notification-requests.ts"],
+      "test_case_ids": ["TC-EML-GEN-004-001", "TC-DB-XFN-001-001", "TC-DB-XFN-001-003"],
+      "notes": "implementation mapping only: a conflicting cause is reported, never written as a second row"
+    },
+    {
+      "rule_id": "EML-DB-001",
+      "code_paths": [
+        "packages/db/migrations/0010_cross_functional.sql",
+        "packages/db/src/schema/cross-functional.ts"
+      ],
+      "test_case_ids": ["TC-DB-STA-002-007"],
+      "notes": "implementation mapping only: the Notification state CHECK has the four SPEC-030 states"
+    },
+    {
+      "rule_id": "REL-REC-009",
+      "code_paths": [
+        "packages/db/migrations/0010_cross_functional.sql",
+        "packages/db/src/schema/cross-functional.ts"
+      ],
+      "test_case_ids": ["TC-DB-XFN-002-001"],
+      "notes": "implementation mapping only: the unresolved partial index"
+    },
+    {
+      "rule_id": "REL-REC-016",
+      "code_paths": [
+        "packages/application/src/review-case.ts",
+        "packages/db/src/consistency-review-cases.ts"
+      ],
+      "test_case_ids": [
+        "TC-REL-REC-016-001",
+        "TC-DB-XFN-002-002",
+        "TC-DB-XFN-002-003",
+        "TC-REVIEW-PORT-005"
+      ],
+      "notes": "implementation mapping only: the AUTH dedupe key and its input"
     }
   ]
 }

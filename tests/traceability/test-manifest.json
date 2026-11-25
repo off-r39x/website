@@ -21108,7 +21108,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "targets accepts one or more of the ten SPEC-100 section 43 target ids and rejects none, unknown keys and non-bigint ids; the five EML reasons accept only order or reservation targets."
+        "targets accepts one or more of the ten SPEC-100 section 43 target ids and rejects none, unknown keys and non-bigint ids; the five EML reasons accept only order or reservation targets; AUTH_PROFILE_RELATION_INCONSISTENT has no target shape (UCR-100-004, TC-REVIEW-PORT-005)."
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -34214,6 +34214,627 @@
       ],
       "sensitivity_class": "synthetic",
       "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-015",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-002",
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-TIM-001",
+        "DEV-DB-001",
+        "DEV-DB-006",
+        "SPEC-100-42",
+        "SPEC-100-43",
+        "SPEC-100-55",
+        "SPEC-100-57"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Static Drizzle declaration check of the two cross-functional tables against the reviewed schema-contract.json and the hand-written goldens of tests/harness/db/cross-functional-golden.ts; not a database execution test; DB enforcement is TC-DB-ARC-007-016 and the other DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The contract rows of notification_requests and consistency_review_cases equal the golden columns, constraints and indexes; the golden Notification Request states equal @off-r39x/domain NOTIFICATION_STATES",
+        "For each table the Drizzle name, schema app, column order, SQL type, NOT NULL, identity only on id, no generated column, defaults (none on state; '{}'::jsonb on render_context and details) and lossless PgBigInt64 for every bigint equal the golden",
+        "Constraint names, kinds, the primary key and UNIQUE column lists equal the golden and the contract; CHECK text equals the golden exactly and matches the contract by column and literal; the thirteen foreign keys reference the golden parent columns (goods_order_items by order_item_id) with ON DELETE RESTRICT; the two partial indexes carry the golden column and predicate; both exports are in the schema barrel"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-016",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-002",
+        "DB-MIG-003",
+        "DB-TIM-001",
+        "DB-TIM-002",
+        "DB-ID-003",
+        "DB-XFN-004",
+        "DEV-DB-013",
+        "SPEC-170-22",
+        "SPEC-100-42",
+        "SPEC-100-43",
+        "SPEC-100-45.6",
+        "SPEC-100-59"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Applied migrations are immutable: 0009 equals its committed hash, and 0010 statically creates only the two tables and the two separately named partial indexes, with one REVOKE ALL and no ALTER, GRANT, DROP, TRUNCATE, DELETE, INSERT, UPDATE, generated column, trigger, function, extension, role, view, OWNER TO or row level security; the eleven existing tables appear only as REFERENCES targets"
+      ],
+      "expected_db_postconditions": [
+        "The journal lists every migration once with the bundled source hashes, 0010_cross_functional after 0009, and a second runMigrations leaves it unchanged",
+        "The two tables have 11 + 19 columns in attnum order equal to the golden; every constraint and index name fits 63 bytes; exactly 22 named constraints and 7 valid indexes equal the golden definitions, all validated and not deferrable; no index covers auth_subject; owner app_migrator, row level security off, two bigint identity sequences, 5 time columns all timestamptz; the live catalog equals requiredCatalog",
+        "A duplicate id given with OVERRIDING SYSTEM VALUE is 23505 pk_<table>, and an explicit id is 428C9; the Case public_ref is a database generated v4 UUID refused as a duplicate by uq_consistency_review_cases_public_ref; render_context and details default to {}; created_at, updated_at and opened_at default to the transaction's transaction_timestamp()"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-STA-002-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-STA-001",
+        "DB-STA-002",
+        "EML-DB-001",
+        "SPEC-100-10",
+        "SPEC-100-42",
+        "SPEC-120-7"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_notification_requests_state"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "PENDING, SENT, FAILED_RETRYABLE and CANCELED are accepted; near misses and the Email Job processing states (READY, CLAIMED, UNKNOWN_RESULT, BLOCKED, CLOSED) are 23514 ck_notification_requests_state; an omitted state is 23502 (no default)",
+        "Plan U-3: an unlisted notification_type and an unlisted reason_code are accepted (no allowlist CHECK); both are NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-001",
+        "EML-GEN-004",
+        "SPEC-100-42",
+        "SPEC-120-8.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_notification_requests_business_cause_key",
+        "ck_notification_requests_source",
+        "fk_notification_requests_recipient_profile",
+        "fk_notification_requests_source_order",
+        "fk_notification_requests_source_reservation"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second row of the same business_cause_key is 23505 uq_notification_requests_business_cause_key in every state",
+        "A source Order, a source Reservation or both are accepted; neither is 23514 ck_notification_requests_source",
+        "An absent recipient, source Order or source Reservation is 23503 by name; the key and the recipient are NOT NULL and a NULL render_context is 23502"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-001",
+        "EML-GEN-001",
+        "EML-GEN-003",
+        "EML-GEN-005",
+        "SPEC-120-8.1",
+        "SPEC-120-8.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "enqueueNotificationRequest on the caller's transaction creates one PENDING row with the SPEC-120 section 8.2 UUIDv5 key, the recipient, the source Order / Reservation and the render context; the same input again is existing and leaves the row, its times and the source Order unchanged"
+      ],
+      "expected_db_postconditions": [
+        "A SENT, FAILED_RETRYABLE or CANCELED row of the same cause is existing and keeps its state (no resend)",
+        "A KARAOKE_RESERVATION_CANCELED cause without an Order is created with source_order_id NULL",
+        "An absent recipient is 23503 fk_notification_requests_recipient_profile in the caller's transaction, and no row remains"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-001",
+        "EML-GEN-004",
+        "TST-CON-001",
+        "TST-DB-004",
+        "SPEC-170-24",
+        "SPEC-120-8.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_notification_requests_business_cause_key"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied; parents committed by the administrator and deleted again in finally; two additional connections X and Y checked to run in UTC and READ COMMITTED and always closed in finally, a barrier on pg_stat_activity instead of sleep that fails at once if Y finishes without waiting, statement_timeout 10s on Y; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "X enqueues a cause uncommitted (created); Y's enqueue of the same input waits on X's lock; after X COMMIT, Y is existing; after X ROLLBACK, Y is created; exactly one row of the key remains; nothing remains after the case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-004",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-XFN-001",
+        "EML-GEN-002",
+        "EML-GEN-003",
+        "SPEC-120-8.1"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers each query in order; synthetic values only; not a database execution test (TST-DB-001); the UNIQUE convergence, the constraints and the races are the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A new cause is one INSERT ... ON CONFLICT (business_cause_key) DO NOTHING with the derived key, PENDING and the context as JSON, and no transaction statement; the result is created",
+        "An existing cause is reselected by a separate SELECT that writes nothing: the same content is existing and a different one is conflict; a reselect without a row is an error, never a second INSERT; a PostgreSQL error is rethrown unchanged"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-EML-GEN-004-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "EML-GEN-004",
+        "DB-XFN-001",
+        "SPEC-120-8.3",
+        "REL-DB-002"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Plan U-4: the same Business Cause with a different recipient, source Order, source Reservation, render context or type is conflict; the existing row is unchanged and no second row is written"
+      ],
+      "expected_db_postconditions": [
+        "The render context is compared as a JSON value, so the same context with its keys in another order is existing"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-002-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-002",
+        "DB-XFN-004",
+        "REL-REC-009",
+        "SPEC-100-43",
+        "SPEC-100-45.6"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_consistency_review_cases_dedupe_key",
+        "ck_consistency_review_cases_target",
+        "ck_consistency_review_cases_auth_subject"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Case of the same dedupe_key is 23505 uq_consistency_review_cases_dedupe_key, also after the first is resolved; dedupe_key and reason_code are NOT NULL",
+        "Each of the ten targets alone and all together are accepted; none is 23514 ck_consistency_review_cases_target",
+        "UCR-100-004: AUTH_PROFILE_RELATION_INCONSISTENT with only auth_subject is accepted; the reason without auth_subject, and another reason with auth_subject, are 23514 ck_consistency_review_cases_auth_subject; auth_subject has no foreign key",
+        "ix_consistency_review_cases_unresolved has the predicate resolved_at IS NULL and ix_notification_requests_pending the predicate state IN (PENDING, FAILED_RETRYABLE)"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-002-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-002",
+        "REL-REC-013",
+        "REL-REC-016",
+        "REL-AUTH-009",
+        "SPEC-100-43"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "openConsistencyReviewCase opens an AUTH_PROFILE_RELATION_INCONSISTENT Case with the REL-REC-016 dedupe key, the Auth Subject, details {} and no target; the same incident is existing on the same Case",
+        "A resolved Case of the same epoch is existing with resolved true; the next epoch opens a new Case (REL-REC-013); another Auth Subject is another incident"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-002-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-002",
+        "REL-REC-016",
+        "TST-CON-001",
+        "TST-DB-004",
+        "SPEC-170-24"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_consistency_review_cases_dedupe_key"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied; parents committed by the administrator and deleted again in finally; two additional connections X and Y checked to run in UTC and READ COMMITTED and always closed in finally, a barrier on pg_stat_activity instead of sleep that fails at once if Y finishes without waiting, statement_timeout 10s on Y; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "X opens the Case of an Auth Subject uncommitted; Y's open of the same input waits on X's lock; after X COMMIT, Y is existing on X's Case; after X ROLLBACK, Y opens it; exactly one Case of the dedupe key remains; nothing remains after the case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-004-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-XFN-004",
+        "DEV-TS-005",
+        "SEC-PII-002",
+        "REL-REC-008"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers each query in order; synthetic values only; not a database execution test (TST-DB-001); the UNIQUE convergence, the constraints and the races are the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Enqueue results carry the status and the Business Cause key only; open results carry the status, the Case Public Reference and resolved only, never the Auth Subject, the dedupe key or an Internal ID",
+        "An invalid input (an Email in the render context, a non-bigint id, an unknown type, a missing source, an upper-case Auth Subject, a zero epoch, a supplied dedupe key, the AUTH reason with a target) is refused before any query, and the message names no value"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-REL-REC-016-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "REL-REC-007",
+        "REL-REC-016",
+        "REL-AUTH-009",
+        "DB-XFN-002"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers each query in order; synthetic values only; not a database execution test (TST-DB-001); the UNIQUE convergence, the constraints and the races are the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The AUTH Case is one INSERT ... ON CONFLICT (dedupe_key) DO NOTHING of the dedupe key r150:AUTH_PROFILE_RELATION_INCONSISTENT:auth_subject:<subject>:epoch-<n> (decimal, no leading zero), the reason and the Auth Subject, with no target and no details; an existing Case is reselected by the dedupe key in a separate statement; a PostgreSQL error is rethrown unchanged",
+        "Plan U-1: every other reason is refused before any query until UCR-150-004 defines its dedupe key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-FK-002-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-FK-002",
+        "DB-FK-004",
+        "DB-XFN-003",
+        "SPEC-100-11",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "All thirteen foreign keys of the two tables are ON DELETE RESTRICT and ON UPDATE NO ACTION",
+        "Deleting the recipient, source Order or source Reservation of a Notification Request, or any of the ten targets of a resolved Case, is 23503 (by the Case's key where only the Case holds the row), and no row is lost"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-SEC-DB-001-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "SEC-DB-001",
+        "SEC-DB-003",
+        "DB-FK-004",
+        "SPEC-100-53",
+        "SPEC-180-22.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; the app_api_runtime, app_email_runtime and app_reconciliation_runtime pools connect over verified TLS with the test CA",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the two tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the two identity sequences",
+        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE from the three runtime pools are 42501 on both tables"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-016",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "DB-MIG-003"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0010_cross_functional applied (the build released before L1-1c); synthetic history committed under 0009 before 0010 runs (the 0008 history of TC-INF-HLT-006-015 plus an issued Entry Ticket with a REVOKED and an ACTIVE Entry QR Token and its Check-in, and an ACTIVE Karaoke QR Token); readiness evaluated from a temporary directory holding those migrations, with the fixed 0009 required catalog fixture (asserted equal to the old live catalog); then 0010, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0010",
+      "fixture_ids": [
+        "tests/fixtures/db/required-catalog-0009.json"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "SPEC-170 section 22 item 8: every table that existed before 0010 keeps exactly its rows, ids and values; the only new tables are the two of 0010 and they are empty",
+        "Before 0010 the old build is Ready with an exact catalog; after 0010 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-REVIEW-PORT-005",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "REL-REC-016",
+        "REL-AUTH-009",
+        "DB-XFN-004",
+        "SPEC-100-43"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Synthetic values only; runtime schema checks and compile-time type assertions checked by typecheck; does not prove persistence",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "UCR-100-004 (plan U-2): AUTH_PROFILE_RELATION_INCONSISTENT takes exactly { reasonCode, authSubject, epoch }: a canonical lowercase UUID of any version and a positive safe integer; targets, details, a dedupe key and other shapes are rejected, the reason is refused in the target shape, the Auth Subject is refused with any other reason, and the types keep the two shapes apart"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-005",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DEV-DB-004",
+        "DB-XFN-001",
+        "SPEC-120-8.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers as node-postgres does for drizzle-orm (query config in array row mode, rows as arrays); synthetic values only; not a database execution test (TST-DB-001); what PostgreSQL does with the statements is the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Both statements of enqueueNotificationRequest are built from the Drizzle declaration of app.notification_requests and sent in array row mode: the INSERT lists every column with default for the unset ones, binds the seven written values and is ON CONFLICT (business_cause_key) DO NOTHING RETURNING business_cause_key; the reselect is one comparison of the type, the recipient, the two sources (IS NOT DISTINCT FROM, bigint) and the render context (jsonb) with bound values, by the Business Cause key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-XFN-002-004",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DEV-DB-004",
+        "DB-XFN-002",
+        "REL-REC-016"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers as node-postgres does for drizzle-orm (query config in array row mode, rows as arrays); synthetic values only; not a database execution test (TST-DB-001); what PostgreSQL does with the statements is the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Both statements of openConsistencyReviewCase are built from the Drizzle declaration of app.consistency_review_cases and sent in array row mode: the INSERT lists every column with default for all but the dedupe key, the reason and the Auth Subject, and is ON CONFLICT (dedupe_key) DO NOTHING RETURNING public_ref; the reselect projects public_ref and resolved_at IS NOT NULL by the dedupe key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
     }
   ]
 }

@@ -339,6 +339,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@off-r39x/application':
+        specifier: workspace:*
+        version: link:../application
       '@off-r39x/observability':
         specifier: workspace:*
         version: link:../observability
