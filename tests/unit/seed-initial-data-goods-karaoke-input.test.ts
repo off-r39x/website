@@ -1,3 +1,4 @@
+import { performance } from "node:perf_hooks";
 import { describe, expect, it } from "vitest";
 import { parseInitialDataInput } from "../../packages/db/src/initial-data/input.ts";
 import { MAX_SLOTS_PER_RUN, slotCandidates } from "../../packages/db/src/initial-data/slots.ts";
@@ -465,5 +466,46 @@ describe("TC-TST-SEED-001-007 Slot candidates follow the standard algorithm (SPE
       "2030-05-12T09:00:00.000Z",
       "2030-05-12T09:20:00.000Z",
     ]);
+  });
+});
+
+describe("TC-TST-SEED-003-028 the Slot bound is decided before any candidate is expanded (DB-SEED-003 (4), SPEC-150 section 9)", () => {
+  // A window of four millennia is a valid pair of timestamps but would make about a hundred million
+  // candidates. The bound must be decided from the window lengths, not by building the candidates: a
+  // synchronous expansion would block the event loop (and the transaction deadline timer) and could
+  // exhaust memory.
+  const centuries = (scopeCount: number) =>
+    buildInitialDataInput({
+      karaoke: buildKaraokeInput({
+        scopeCount,
+        windows: [windowAt("2030-01-01T00:00:00+09:00", "6030-01-01T00:00:00+09:00")],
+      }),
+    });
+
+  for (const scopeCount of [1, 3]) {
+    it(`TC-TST-SEED-003-028 a four-millennium window with ${scopeCount} Scope(s) is rejected at once`, () => {
+      const input = JSON.stringify(centuries(scopeCount));
+      const startedAt = performance.now();
+      const result = parseInitialDataInput(input);
+      const elapsedMs = performance.now() - startedAt;
+      expect(result).toEqual(INVALID);
+      expect(elapsedMs).toBeLessThan(100);
+    });
+  }
+
+  it("TC-TST-SEED-003-028 many short windows past the bound are rejected without reading them all", () => {
+    const start = Date.parse("2030-05-10T00:00:00Z");
+    const windows = Array.from({ length: 200_000 }, (_, index) =>
+      windowAt(
+        new Date(start + index * 20 * MINUTE).toISOString(),
+        new Date(start + (index + 1) * 20 * MINUTE).toISOString(),
+      ),
+    );
+    const startedAt = performance.now();
+    const result = parseInitialDataInput(
+      JSON.stringify(buildInitialDataInput({ karaoke: buildKaraokeInput({ windows }) })),
+    );
+    expect(result).toEqual(INVALID);
+    expect(performance.now() - startedAt).toBeLessThan(2000);
   });
 });

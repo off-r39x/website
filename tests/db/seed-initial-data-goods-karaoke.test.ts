@@ -780,3 +780,49 @@ describe("TC-TST-SEED-006-024 COMMIT result unknown for a run that creates only 
     );
   });
 });
+
+describe("TC-TST-SEED-006-025 the re-check of a Goods run needs the Goods and their Inventory (DB-SEED-002, DB-GDS-001)", () => {
+  it("TC-TST-SEED-006-025 Goods without Inventory found by the re-check are not proof of success: uncommitted, then retried", async () => {
+    // Every other target exists, so the run creates only the Goods.
+    const eventId = await insertManualEvent();
+    await insertManualOffering(eventId);
+    const configId = await insertManualConfig(eventId);
+    await insertManualSlot(await insertManualScope(eventId), configId);
+    const logs: RecordedLog[] = [];
+    let connects = 0;
+    const proxy = await startCommitAcknowledgementDropProxy(new URL(url as string), {
+      mode: "drop_request",
+    });
+    let run: Awaited<ReturnType<typeof runSeed>>;
+    try {
+      run = await runSeed({
+        input: buildInitialDataInput({ goods: buildGoodsInput(), karaoke: buildKaraokeInput() }),
+        openMain: () => connectAs("app_migrator", proxy.url),
+        logs,
+        connect: async (wrap) => {
+          connects += 1;
+          // Before the re-check reads, a Goods row appears without its Inventory (by other means).
+          if (connects === 1)
+            await admin.query(
+              `INSERT INTO app.goods (event_id, name, unit_amount, currency, sales_starts_at, sales_ends_at,
+                 sale_control_state, purchase_limit)
+               VALUES ($1, '合成データ 在庫のないグッズ', 300, 'JPY', '2030-01-01T00:00:00Z',
+                 '2030-02-01T00:00:00Z', 'SUSPENDED', 1)`,
+              [eventId],
+            );
+          return wrap(await connectAs("app_migrator"));
+        },
+      });
+    } finally {
+      await proxy.close();
+    }
+    expect(proxy.fired()).toBe(1);
+    const resolved = logs.filter((log) => log.event_name === "reliability.unknown_result.resolved");
+    // Not complete: the planned rows are the Goods and their Inventory (DB-SEED-002 (3)).
+    expect(resolved[0]).toMatchObject({ result: "FAILED", failure_class: "TEMPORARY_FAILURE" });
+    expect(logs.some((log) => log.event_name === "reliability.retry.attempted")).toBe(true);
+    // The retry finds the Goods present (DB-SEED-001: never topped up) and ends NOOP.
+    expect(shape(run.outcome).outcome).toBe("NOOP");
+    expect(await counts()).toMatchObject({ goods: 1, inventory: 0, audits: 0 });
+  });
+});
