@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-090
 title: Karaoke Reservation Specification
-version: 1.0.0
+version: 1.1.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -269,6 +269,8 @@ Business timezoneは **`Asia/Tokyo`** とする。
 
 **KRK-GEN-001:** Slot生成はAdministratorの `karaoke_slots.manage` に接続するServer-side operationであり、Clientが生成済みSlotの正当性を自己申告して成立させてはならない。
 
+唯一の例外として、初期データの投入コマンド（`SPEC-180 §45.3`、`SPEC-100 §13.5`。`UCR-180-007`）は、同じ実行で作るExclusive Scopeに対してだけ、§8.2の標準algorithmと§8.3の初期状態でSlotを作る。入力は全Scopeに共通のwindowの配列とし、各windowを本節の `window_start` / `window_end` として扱う。適用するKaraoke販売Configurationは当該Eventの唯一の行とする。Business Causeは、Administratorのbatch requestに代えて投入コマンドの実行（`operation_execution_id`）とし、候補番号はScopeごとに候補を `usage_start` の昇順に並べた番号とする（§8.5）。既存のScopeにはSlotを作らず、既存のSlotを再利用・変更しない。この例外は新しいAPI Operation・Capability・Stateを追加せず、Clientの自己申告による生成も認めない。Administratorによる一括生成（`karaoke_slots.manage`）の規則は変えない。
+
 ### 8.2 Standard generation algorithm
 
 各Scopeについて、`n = 0, 1, 2, ...` とし、候補を以下で生成する。
@@ -320,7 +322,7 @@ Slot生成の1候補の論理同一性は、少なくとも次の組で判定可
 
 ### 8.5 Generation Business Cause
 
-**KRK-GEN-009:** Slot生成retryのBusiness Causeは、同一Administrator operationとして相関可能なbatch requestと、その中のdeterministic candidateで構成する。API idempotency keyやDB constraintの物理表現は `SPEC-100` / `SPEC-110` が定義する。
+**KRK-GEN-009:** Slot生成retryのBusiness Causeは、同一Administrator operationとして相関可能なbatch requestと、その中のdeterministic candidateで構成する（初期データの投入コマンドの例外は `KRK-GEN-001` に従う）。API idempotency keyやDB constraintの物理表現は `SPEC-100` / `SPEC-110` が定義する。
 
 Trace: `FR-KRK-005〜006`, `FR-KRK-028`, `FR-ADM-009〜010`, `FR-XFN-014`, `FR-XFN-024`, `BR-KRK-001〜002`, `DI-030-005`, `DI-030-012`, `INV-010-04`, `INV-010-10`.
 
@@ -1556,6 +1558,8 @@ AI実装エージェントは本書を実装するとき、少なくとも次を
 
 ## 53. 上流仕様変更要求
 
-なし。
+本書が起票する要求はない。
+
+`UCR-180-007`（`SPEC-180 §81`。初期データの対象へGoods・Karaoke Sales Configuration・Exclusive Scope・Slotを追加）により、本改訂（v1.1.0）で §8.1 `KRK-GEN-001` に初期データの投入コマンドの例外を、§8.5 `KRK-GEN-009` にその参照を追加した。State Machine、標準algorithm、初期状態、Administratorによる一括生成の規則は変えていない。新しいState・API Operation・Capabilityは追加していない。
 
 本仕様で採用した「Reservation cancellation後はSlot resaleを行わず `SOLD` を維持する」方針は、`SPEC-030` の既存State Machineと整合し、新しいState / transitionを要求しない。
