@@ -194,23 +194,29 @@ type EmailReasonCode = Extract<ReviewReasonCode, `EML_${string}`>;
 type NonEmailReasonCode = Exclude<ReviewReasonCode, EmailReasonCode | AuthProfileReasonCode>;
 
 /** UCR-100-004: the Case of AUTH_PROFILE_RELATION_INCONSISTENT (SPEC-150 REL-AUTH-009, REL-REC-016). */
+// The two shapes forbid each other's items as optional never, as EmailTargets does for its keys: a variable that
+// holds a complete input of one shape plus an item of the other is otherwise structurally assignable, while the
+// runtime strictObject refuses it.
 export type AuthProfileReviewCaseInput = {
   readonly reasonCode: AuthProfileReasonCode;
   readonly authSubject: string;
   readonly epoch: number;
+  readonly targets?: never;
+  readonly details?: never;
 };
+type NoAuthSubject = { readonly authSubject?: never; readonly epoch?: never };
 
 export type ReviewCaseOpenInput =
-  | {
+  | ({
       readonly reasonCode: EmailReasonCode;
       readonly targets: EmailTargets;
       readonly details: ReviewCaseDetails;
-    }
-  | {
+    } & NoAuthSubject)
+  | ({
       readonly reasonCode: NonEmailReasonCode;
       readonly targets: AtLeastOne<ReviewCaseTargets>;
       readonly details: ReviewCaseDetails;
-    }
+    } & NoAuthSubject)
   | AuthProfileReviewCaseInput;
 
 const reviewCaseOpenInputUnion = z.union([authProfileCaseInput, reviewCaseOpenInputBase]);
