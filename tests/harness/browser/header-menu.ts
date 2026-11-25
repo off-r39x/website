@@ -51,8 +51,18 @@ export async function openPrimaryMenu(page: Page): Promise<Locator> {
  */
 export async function headerDestinations(page: Page): Promise<Locator> {
   if (hasHeaderBar(page)) return header(page);
-  if ((await primaryMenuPanel(page).count()) > 0) return primaryMenuPanel(page);
+  if (await isMenuOpen(page)) return primaryMenuPanel(page);
   return openPrimaryMenu(page);
+}
+
+/**
+ * Whether the menu dialog is open (not merely still in the DOM). A dialog closed by a chosen link stays mounted
+ * until its opening animations end, so a closing one is waited out instead of being read as open.
+ */
+async function isMenuOpen(page: Page): Promise<boolean> {
+  if ((await menuTrigger(page).getAttribute("aria-expanded")) === "true") return true;
+  await expect(primaryMenuPanel(page)).toHaveCount(0);
+  return false;
 }
 
 /** A Header link by exact name (or pattern), wherever this viewport puts it. */
@@ -90,6 +100,7 @@ export async function openAccountMenu(page: Page): Promise<Locator> {
 export async function logoutViaHeader(page: Page): Promise<void> {
   const nav = await openAccountMenu(page);
   await nav.getByRole("button", { name: copy.layout.account.logout, exact: true }).click();
+  if (!hasHeaderBar(page)) await expect(primaryMenuPanel(page)).toHaveCount(0);
 }
 
 /**
@@ -125,7 +136,7 @@ export async function checkHeader(
     await check(header(page));
     return;
   }
-  const alreadyOpen = (await primaryMenuPanel(page).count()) > 0;
+  const alreadyOpen = await isMenuOpen(page);
   const region = alreadyOpen ? primaryMenuPanel(page) : await openPrimaryMenu(page);
   await check(region);
   if (!alreadyOpen) {
@@ -180,6 +191,8 @@ export const expectAccountControls = (page: Page, shown = true): Promise<void> =
 /** Clicks a Header link wherever this layout puts it. */
 export async function clickHeaderLink(page: Page, name: string): Promise<void> {
   await (await headerLink(page, name)).click();
+  // A chosen link closes the menu dialog; let it go before the test reads the page again.
+  if (!hasHeaderBar(page)) await expect(primaryMenuPanel(page)).toHaveCount(0);
 }
 
 /** Clicks the Header Cart link with this count (null: no count), opening the menu dialog on narrow layouts. */
