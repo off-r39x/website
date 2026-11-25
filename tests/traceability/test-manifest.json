@@ -3296,6 +3296,29 @@
       "critical": false
     },
     {
+      "test_case_id": "TC-DEV-WEB-001-204",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["DEV-WEB-001", "SPEC-050-24.3", "SEC-WEB-004", "TST-UNT-004"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Static source inspection of apps/web and its installed Fontsource packages (no browser)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "src/main.tsx imports exactly the contracted Fontsource files (Fredoka standard wdth + wght, japanese and latin subsets of Mochiy Pop One 400 and Zen Maru Gothic 400/500/700/900); their CSS loads only package-relative woff2 / woff with font-display swap; the DESIGN stacks start with the Fontsource family names; each OFL license is copied to third-party-notices/"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
       "test_case_id": "TC-PG-XFN-002-201",
       "level": "Unit",
       "suite": "unit",
@@ -3853,6 +3876,29 @@
       "expected_http": null,
       "expected_domain_postconditions": [
         "page loads request only the app origin (no external font or CDN)"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-SEC-WEB-004-102",
+      "level": "E2E",
+      "suite": "e2e-ui-mock",
+      "upstream_rule_ids": ["SEC-WEB-004", "SPEC-050-24.3", "TST-E2E-003", "TST-E2E-004", "DEV-WEB-010"],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "apps/web built with VITE_UI_MOCK=1 and served from apps/web/dist by scripts/serve-web-dist.mts on 127.0.0.1:3100 (dist/_headers applied); desktop-chromium and mobile-chromium; timezone UTC",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Home loads Fredoka Variable, Mochiy Pop One and Zen Maru Gothic; every font response is a content-hashed /assets/*.woff2 of the app origin with status 200 and the immutable long cache"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],

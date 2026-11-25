@@ -154,6 +154,44 @@ test.describe("TC-SEC-WEB-004-101 no external font or third-party origin is requ
   }
 });
 
+test.describe("TC-SEC-WEB-004-102 the web fonts load from the app origin's long-cached assets (SEC-WEB-004, DESIGN 4.1)", () => {
+  test("Home renders with the self-hosted Fredoka, Mochiy Pop One and Zen Maru Gothic", async ({
+    page,
+  }) => {
+    const fonts: { url: URL; status: number; cacheControl: string | undefined }[] = [];
+    page.on("response", (response) => {
+      const url = new URL(response.url());
+      if (/\.woff2?$/.test(url.pathname)) {
+        fonts.push({
+          url,
+          status: response.status(),
+          cacheControl: response.headers()["cache-control"],
+        });
+      }
+    });
+    await loaded(page, ROUTES.home);
+    await page.evaluate(() => document.fonts.ready);
+
+    const families = await page.evaluate(() => {
+      const loadedFamilies: string[] = [];
+      document.fonts.forEach((face) => {
+        if (face.status === "loaded") loadedFamilies.push(face.family);
+      });
+      return loadedFamilies;
+    });
+    for (const family of ["Fredoka Variable", "Mochiy Pop One", "Zen Maru Gothic"]) {
+      expect(families.map((name) => name.replaceAll('"', ""))).toContain(family);
+    }
+    expect(fonts.length).toBeGreaterThan(0);
+    for (const font of fonts) {
+      expect(font.url.host).toBe(ORIGIN_HOST);
+      expect(font.url.pathname).toMatch(/^\/assets\/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{8,}\.woff2$/);
+      expect(font.status).toBe(200);
+      expect(font.cacheControl).toBe("public, max-age=31536000, immutable");
+    }
+  });
+});
+
 test.describe("TC-PG-PUB-001-504 pages load without runtime or hydration errors", () => {
   for (const route of [ROUTES.home, ROUTES.dev, ROUTES.notFound]) {
     test(`${route} has no pageerror or console.error`, async ({ page }) => {

@@ -160,6 +160,7 @@
       "rule_id": "SEC-WEB-004",
       "code_paths": [
         "apps/web/src/styles/globals.css",
+        "apps/web/src/main.tsx",
         "apps/web/src/routes/root-layout.tsx",
         "apps/web/src/features/mypage/mypage-nav.tsx",
         "apps/web/src/routes/self/mypage-layout.tsx",
@@ -167,14 +168,16 @@
       ],
       "test_case_ids": [
         "TC-DEV-WEB-001-203",
+        "TC-DEV-WEB-001-204",
         "TC-SEC-WEB-004-101",
+        "TC-SEC-WEB-004-102",
         "TC-PG-CRT-001-533",
         "TC-PG-MYP-001-731",
         "TC-STACK-008-201",
         "TC-STACK-008-203",
         "TC-STACK-008-204"
       ],
-      "notes": "implementation mapping only: system font stack, no external fonts; S8 Mypage (UI mock): implementation mapping only; not API / DB / provider coverage"
+      "notes": "implementation mapping only: self-hosted Fontsource web fonts (src/main.tsx), no external fonts; S8 Mypage (UI mock): implementation mapping only; not API / DB / provider coverage"
     },
     {
       "rule_id": "PG-XFN-001",
@@ -2417,6 +2420,7 @@
         "TC-DEV-WEB-001-201",
         "TC-DEV-WEB-001-202",
         "TC-DEV-WEB-001-203",
+        "TC-DEV-WEB-001-204",
         "TC-PG-XFN-002-202",
         "TC-PG-PUB-001-612",
         "TC-PG-PUB-001-613",

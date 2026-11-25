@@ -261,6 +261,78 @@ describe("TC-DEV-WEB-001-203 design tokens and no external font (SPEC-050 24.3, 
   });
 });
 
+describe("TC-DEV-WEB-001-204 web fonts are the self-hosted Fontsource set (DESIGN 4.1, SPEC-050 24.3, SEC-WEB-004)", () => {
+  // Order matters: within a family the latin file comes after the japanese one (see src/main.tsx).
+  const FONT_CSS = [
+    "@fontsource-variable/fredoka/standard.css",
+    "@fontsource/mochiy-pop-one/japanese-400.css",
+    "@fontsource/mochiy-pop-one/latin-400.css",
+    ...["japanese", "latin"].flatMap((subset) =>
+      [400, 500, 700, 900].map((weight) => `@fontsource/zen-maru-gothic/${subset}-${weight}.css`),
+    ),
+  ];
+  const fontCss = (specifier: string): string => read(`node_modules/${specifier}`);
+  const families = (css: string): Set<string> =>
+    new Set([...css.matchAll(/font-family:\s*'([^']+)'/g)].map((m) => m[1] ?? ""));
+  const stackHead = (token: string): string[] => {
+    const value = new RegExp(`${token}\\s*:\\s*([^;]+);`).exec(read("src/styles/globals.css"))?.[1];
+    return (value ?? "").split(",").map((name) => name.trim().replaceAll('"', ""));
+  };
+
+  it("imports exactly the contracted Fontsource files, from src/main.tsx only", () => {
+    const imports = [...read("src/main.tsx").matchAll(/^import "(@fontsource[^"]+)";$/gm)].map(
+      (m) => m[1],
+    );
+    expect(imports).toEqual(FONT_CSS);
+    for (const file of sources.filter((f) => rel(f) !== "src/main.tsx")) {
+      expect(readFileSync(file, "utf8"), rel(file)).not.toMatch(/@fontsource/);
+    }
+  });
+
+  it("loads only package-relative woff2 / woff files with font-display: swap", () => {
+    for (const specifier of FONT_CSS) {
+      const css = fontCss(specifier);
+      const faces = css.match(/@font-face\s*\{[^}]*\}/g) ?? [];
+      expect(faces.length, specifier).toBeGreaterThan(0);
+      for (const face of faces) expect(face, specifier).toMatch(/font-display:\s*swap;/);
+      const urls = [...css.matchAll(/url\(([^)]*)\)/g)].map((m) => m[1]);
+      expect(urls.length, specifier).toBeGreaterThan(0);
+      for (const url of urls) expect(url, specifier).toMatch(/^\.\/files\/[a-z0-9-]+\.woff2?$/);
+    }
+  });
+
+  it("uses the Fredoka variant with both the wdth 75-125 and wght 300-700 axes (DESIGN 4.4)", () => {
+    const css = fontCss(FONT_CSS[0] ?? "");
+    expect(css).toMatch(/font-stretch:\s*75% 125%;/);
+    expect(css).toMatch(/font-weight:\s*300 700;/);
+  });
+
+  it("starts the DESIGN font stacks with the Fontsource family names", () => {
+    const [fredoka, mochiy, zen] = [FONT_CSS[0], FONT_CSS[1], FONT_CSS[3]].map((s) => [
+      ...families(fontCss(s ?? "")),
+    ]);
+    expect([fredoka, mochiy, zen]).toEqual([
+      ["Fredoka Variable"],
+      ["Mochiy Pop One"],
+      ["Zen Maru Gothic"],
+    ]);
+    expect(stackHead("--font-display").slice(0, 2)).toEqual(["Fredoka Variable", "Mochiy Pop One"]);
+    expect(stackHead("--font-body")[0]).toBe("Zen Maru Gothic");
+  });
+
+  it("keeps each font's OFL license text in third-party-notices/", () => {
+    for (const [name, pkg] of [
+      ["fredoka", "@fontsource-variable/fredoka"],
+      ["mochiy-pop-one", "@fontsource/mochiy-pop-one"],
+      ["zen-maru-gothic", "@fontsource/zen-maru-gothic"],
+    ] as const) {
+      const notice = read(`third-party-notices/${name}-OFL.txt`);
+      expect(notice, name).toMatch(/SIL Open Font License, Version 1\.1/);
+      expect(notice, name).toBe(read(`node_modules/${pkg}/LICENSE`));
+    }
+  });
+});
+
 describe("TC-PG-PUB-001-231 sponsor placeholder assets are text-only SVG (SPEC-050 24.3, DEV-WEB-013)", () => {
   for (const key of ["alpha", "bravo", "charlie"]) {
     it(`has a safe public/mock/sponsors/${key}.svg`, () => {
