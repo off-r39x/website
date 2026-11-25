@@ -2,8 +2,8 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "../harness/browser/hydration.ts";
 
 // UI mock suite (TST-E2E-004: auxiliary, not G8). Contract: tests/contracts/s10-header-float-reveal.md section 6.
-// SPEC-050 25: Section headings (h2 / h3) may fade in when they enter the view; they are visible from the
-// start without JavaScript and under prefers-reduced-motion, and the DOM / accessibility tree never changes.
+// SPEC-050 25: Section headings (h2 / h3) may fade in; docs/DESIGN.md 9.1 / 13 choose not to, so every heading is
+// visible from the start (with or without motion, without JavaScript) and the DOM / accessibility tree never changes.
 
 const SECTION_HEADINGS = "main h2, main h3";
 
@@ -63,12 +63,14 @@ test.describe("TC-SPEC-050-25-001 with prefers-reduced-motion headings are visib
   });
 });
 
-test.describe("TC-SPEC-050-25-002 headings below the fold wait invisibly and fade in when they enter the view (SPEC-050 25)", () => {
+test.describe("TC-SPEC-050-25-002 headings never fade in: below the fold they are already opaque and stay static (SPEC-050 25, docs/DESIGN.md 9.1 / 13)", () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
   });
 
-  test("a heading below the fold is pending (opacity 0, still in the DOM and the accessibility tree), then revealed (opacity 1)", async ({
+  // SPEC-050 25 allows a heading fade-in; docs/DESIGN.md 9.1 / 13 (the latest design requirement) forbids text that
+  // fades or floats in, so only logo-derived decorations move. With motion allowed, a heading is never hidden.
+  test("a heading below the fold is static and opaque, with no opacity transition, before and after entering the view", async ({
     page,
   }) => {
     await gotoHydrated(page, "/");
@@ -82,65 +84,30 @@ test.describe("TC-SPEC-050-25-002 headings below the fold wait invisibly and fad
     const innerHeight = await page.evaluate(() => window.innerHeight);
     expect(top, "precondition: the heading starts below the viewport").toBeGreaterThan(innerHeight);
 
-    await expect(heading).toHaveAttribute("data-reveal", "pending");
-    expect(await opacityOf(heading)).toBe("0");
-    expect(
-      await heading.evaluate((el) => {
-        const style = getComputedStyle(el);
-        return [
-          style.display !== "none",
-          style.visibility === "visible",
-          el.closest("[aria-hidden]") === null,
-        ];
-      }),
-    ).toEqual([true, true, true]);
+    await expect(heading).toHaveAttribute("data-reveal", "static");
+    expect(await opacityOf(heading)).toBe("1");
+    const transition = await heading.evaluate((el) => getComputedStyle(el).transitionProperty);
+    expect(transition).not.toMatch(/\bopacity\b|\ball\b/);
     await expect(page.getByRole("heading", { level: 2, name: text, exact: true })).toHaveCount(1);
 
-    // The fade is an opacity transition of a non-zero, short duration.
-    const transition = await heading.evaluate((el) => {
-      const style = getComputedStyle(el);
-      return { property: style.transitionProperty, duration: style.transitionDuration };
-    });
-    expect(transition.property).toMatch(/\bopacity\b|\ball\b/);
-    const seconds = transition.duration.split(",").map((part) => Number.parseFloat(part));
-    expect(Math.max(...seconds)).toBeGreaterThan(0);
-    expect(Math.max(...seconds)).toBeLessThanOrEqual(1);
-
     await heading.evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
-    await expect(heading).toHaveAttribute("data-reveal", "revealed");
-    await expect.poll(() => opacityOf(heading), { timeout: 5000 }).toBe("1");
-
-    // One-shot: leaving the view and coming back does not hide it again.
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-    await expect(heading).toHaveAttribute("data-reveal", "revealed");
+    await expect(heading).toHaveAttribute("data-reveal", "static");
     expect(await opacityOf(heading)).toBe("1");
   });
 
-  test("headings that are already in the first screen end up visible, and a full scroll leaves none pending", async ({
+  test("a full scroll leaves every section heading static and opaque, and none is ever pending", async ({
     page,
   }) => {
     await gotoHydrated(page, "/");
     await waitForHeadings(page, 5);
     const headings = page.locator(SECTION_HEADINGS);
     const count = await headings.count();
-    const inFirstScreen = await headings.evaluateAll((els) =>
-      els.map((el) => el.getBoundingClientRect().top < window.innerHeight),
-    );
-    for (let i = 0; i < count; i += 1) {
-      if (!inFirstScreen[i]) continue;
-      await expect
-        .poll(() => opacityOf(headings.nth(i)), { message: `first-screen heading ${i}` })
-        .toBe("1");
-      expect(await revealOf(headings.nth(i))).not.toBe("pending");
-    }
-
+    await expect(page.locator("[data-reveal='pending']")).toHaveCount(0);
     await SCROLL_TO_END_IN_STEPS(page);
+    await expect(page.locator("[data-reveal='pending']")).toHaveCount(0);
     for (let i = 0; i < count; i += 1) {
-      await expect
-        .poll(() => revealOf(headings.nth(i)), { message: `heading ${i} after a full scroll` })
-        .toMatch(/^(static|revealed)$/);
-      await expect.poll(() => opacityOf(headings.nth(i))).toBe("1");
+      expect(await revealOf(headings.nth(i)), `heading ${i}`).toBe("static");
+      expect(await opacityOf(headings.nth(i)), `heading ${i}`).toBe("1");
     }
   });
 });

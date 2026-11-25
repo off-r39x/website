@@ -2832,7 +2832,7 @@
       "concurrency_seed": null,
       "fault_points": [],
       "expected_http": null,
-      "expected_domain_postconditions": ["logo and keyVisual asset slots default to null"],
+      "expected_domain_postconditions": ["logo slot is a byte-identical copy of the supplied 1920x1920 logo with the site name as alt; keyVisual slot stays null"],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
       "expected_observability": [],
@@ -14213,7 +14213,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "Header menu replaces the drawer (disclosure, no dialog), the floating button is fixed with safe-area inset and wired in layout with viewport-fit=cover, the badge is bottom-left, reveal CSS has a reduced-motion override, the site name link guards its scroll with isPlainPrimaryClick"
+        "Header menu replaces the drawer (disclosure, no dialog), the floating button is fixed with safe-area inset and wired in layout with viewport-fit=cover, the badge is bottom-left, section headings stay data-reveal=static with no hiding reveal CSS, the site name link guards its scroll with isPlainPrimaryClick"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -14509,7 +14509,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "A heading below the fold is pending (opacity 0, in DOM and the accessibility tree) with a short opacity transition, becomes revealed (opacity 1) on entering the view and stays revealed; first-screen headings end visible"
+        "No heading fades in (docs/DESIGN.md 9.1, 13): a heading below the fold is static and opaque before and after it enters the view, with no opacity transition; nothing is ever pending"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],

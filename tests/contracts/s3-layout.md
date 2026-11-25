@@ -142,11 +142,11 @@ export const ACCOUNT_MENU_ITEMS: readonly AccountMenuItem[];
 ### 2.2 `config/assets.ts`
 
 ```ts
-export type AssetSlot = { readonly src: string; readonly alt: string };
+export type AssetSlot = { readonly src: string; readonly alt: string; readonly width: number; readonly height: number };
 export const assets: { readonly logo: AssetSlot | null; readonly keyVisual: AssetSlot | null };
 ```
 
-既定は両方 `null`（外部素材を使わない。SPEC-050 §24.3）。`logo` が `null` のとき Header はサイト名テキストだけを表示する。
+`logo` は支給ロゴ（`assets/images/logo.png` とバイト同一の `apps/web/src/assets/logo.png`、1920×1920。同一 origin の bundle 資産で、外部素材ではない）を指し、`alt` は `SITE_NAME`（ロゴに書かれた語。docs/DESIGN.md §10）。`keyVisual` は `null`（SPEC-050 §24.3）。`logo` が `null` のとき Header はサイト名テキストだけを表示する。Header のサイト名 Link の accessible name はどちらの場合も `SITE_NAME`（Home の hero 表示中はロゴ画像を隠し、同じ名前をテキストで表示する）。
 
 ### 2.3 `config/ui-mock.ts` — `isUiMockAppEnv`、`isDevAreaEnabled`
 
@@ -470,7 +470,7 @@ seed の `imageUrl`（`/mock/sponsors/<key>.svg`）が指す文字だけの plac
 - `--color-tone-{success,pending,failure,neutral,review}-{bg,fg}`（10 個）
 - `--radius-base`
 - `--font-sans`（system font stack。Web font を使わない。SEC-WEB-004）
-- **`--hero-gradient`**（`linear-gradient(...)` で始まる値。画像 URL を使わない）
+- **`--hero-gradient`**（`linear-gradient(...)` で始まる値。画像 URL を使わない。docs/DESIGN.md の唯一のグラデーションであるキャンディ・グラデーションと同値）
 
 CSS・source のどこにも外部 origin（`http://`、`https://`、`//host`）の `url(...)` / `@import` / `@font-face` を置かない。`fonts.googleapis.com`、`fonts.gstatic.com` を使わない（`index.html` も同様）。
 

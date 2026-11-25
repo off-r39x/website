@@ -26,7 +26,7 @@ Tailwind の `md` breakpoint（768px）未満を mobile とする（既存 `isDe
 | `apps/web/src/mock/dev-ui/mock-mode-badge.tsx` | view | 左下へ移動（§5） |
 | `apps/web/src/routes/root-layout.tsx` | route | Floating button を Footer の後・MockModeBadge の前に描画（§4.2） |
 | `apps/web/index.html` | 静的 shell | `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`（§4.2） |
-| `apps/web/src/styles/globals.css` | token | `[data-reveal]` の規則と `prefers-reduced-motion` の上書き（§6） |
+| `apps/web/src/styles/globals.css` | token | 見出しを隠す `[data-reveal]` の規則を置かない（§6 改訂）。`prefers-reduced-motion` の上書き |
 | `apps/web/src/presentation/copy/ja.ts` | copy | §1 |
 | 既存のサイト名 Link（`global-header.tsx` 内） | view / client | `/` 表示中は先頭へ scroll（§3）。`onClick` が要るため client 部品へ切り出してよい |
 
@@ -104,6 +104,8 @@ segment 境界で比較する: `/entry` と `/entry/` と `/entry/x` は false�
 
 ## 6. 見出しのフェードイン（SPEC-050 §25）
 
+**改訂（docs/DESIGN.md §9.1 / §13）:** SPEC-050 §25 はフェードインを「してよい」と許すだけで、DESIGN.md は本文・見出しがふわっと現れる演出を禁じ、動くのはロゴ由来の装飾だけとする。そこで見出しは常に `static`（`opacity: 1`、opacity の transition なし）で、`pending` / `revealed` は使わない。下の 6.1 のうち `pending` / `revealed` と IntersectionObserver の記述は廃止し、`static` の契約（DOM・a11y を変えない、JS なし・動き軽減でも見える）だけを維持する。`TC-SPEC-050-25-002` は「画面外の見出しも最初から static・不透明で、スクロール後も変わらない」を検証する。
+
 対象は `SectionHeading`（h2 / h3）だけ。h1、Hero、他の見出しは対象外。
 
 ### 6.1 属性
@@ -160,7 +162,7 @@ segment 境界で比較する: `/entry` と `/entry/` と `/entry/x` は false�
 | `TC-PG-PUB-001-313` | E2E 同上 | Page 末尾で Footer・操作要素を覆わない、Badge と重ならない |
 | `TC-PG-PUB-001-314` | E2E 同上 | viewport meta |
 | `TC-SPEC-050-25-001` | E2E `reveal-headings.spec.ts` | 動き軽減では常に表示 |
-| `TC-SPEC-050-25-002` | E2E 同上 | 通常: 画面外は `pending`（opacity 0）、scroll で `revealed`（opacity 1）、transition |
+| `TC-SPEC-050-25-002` | E2E 同上 | 通常（動き許可）でも画面外の見出しは `static`・opacity 1・opacity の transition なし。scroll 後も同じ（§6 改訂） |
 | `TC-SPEC-050-25-003` | E2E 同上 | JavaScript 無効では見出しを表示 |
 | `TC-SPEC-050-25-004` | E2E 同上 | 対象は h2 / h3 のみ、DOM と a11y が不変 |
 

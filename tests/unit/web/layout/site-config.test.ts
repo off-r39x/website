@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { assets } from "../../../../apps/web/src/config/assets.ts";
 import {
@@ -87,9 +91,21 @@ describe("TC-PG-PUB-001-202 site config never links the Administrator / Staff ar
   });
 });
 
-describe("TC-PG-PUB-001-203 asset slots default to null so text and gradient stand in (SPEC-050 24.3)", () => {
-  it("has no logo and no key visual by default", () => {
-    expect(assets.logo).toBeNull();
+describe("TC-PG-PUB-001-203 the logo slot is the supplied logo, unmodified; the key visual stays empty (SPEC-050 24.3, docs/DESIGN.md 10)", () => {
+  it("points the logo slot at the bundled logo file with the 1920 x 1920 size and the site name as alt", () => {
+    expect(assets.logo).not.toBeNull();
+    expect(assets.logo?.src).toMatch(/\/assets\/logo\.png$/);
+    expect(assets.logo?.src).not.toMatch(/^https?:/);
+    expect(assets.logo?.alt).toBe(SITE_NAME);
+    expect(assets.logo?.width).toBe(1920);
+    expect(assets.logo?.height).toBe(1920);
     expect(assets.keyVisual).toBeNull();
+  });
+
+  it("serves a byte-identical copy of the supplied logo (no resize, recompression or edit)", () => {
+    const root = fileURLToPath(new URL("../../../../", import.meta.url));
+    const digest = (path: string): string =>
+      createHash("sha256").update(readFileSync(join(root, path))).digest("hex");
+    expect(digest("apps/web/src/assets/logo.png")).toBe(digest("assets/images/logo.png"));
   });
 });

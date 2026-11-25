@@ -75,10 +75,14 @@ describe("TC-PG-PUB-001-243 S10 structure: Header menu, Floating Ticket Button, 
     expect(badge).toMatch(/\bfixed\b/);
   });
 
-  it("defines the reveal states in CSS with a reduced-motion override and marks headings in the presentation layer", () => {
+  it("marks section headings as static in the presentation layer and never hides them in CSS (docs/DESIGN.md 9.1, 13)", () => {
     const css = read("src/styles/globals.css");
-    expect(css).toMatch(/data-reveal/);
+    // No fade-in: no CSS rule may hide or move a heading by its reveal state.
+    expect(css).not.toMatch(/data-reveal/);
     expect(css).toMatch(/prefers-reduced-motion/);
+    const heading = read("src/presentation/components/section-heading.tsx");
+    expect(heading).toMatch(/data-reveal="static"/);
+    expect(heading).not.toMatch(/pending|IntersectionObserver/);
     const presentation = walk(abs("src/presentation")).filter((f) => /\.tsx?$/.test(f));
     const marked = presentation.filter((f) => /data-reveal/.test(readFileSync(f, "utf8")));
     expect(marked.length).toBeGreaterThan(0);
