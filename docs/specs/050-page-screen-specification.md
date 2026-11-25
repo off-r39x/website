@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-050
 title: Page and Screen Specification
-version: 2.3.0
+version: 2.4.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -1563,6 +1563,7 @@ Receipt linkがまだ利用可能でない場合、Receiptの存在を捏造し�
 視覚表現（色、書体、余白、装飾、モーション、Headerの配置を含む）は `docs/DESIGN.md` を正とし、本書の記述と衝突する場合は `docs/DESIGN.md` を優先して本書を改訂する（2026-11-25 ユーザー決定）。ただし、本書が定めるPage構成、Canonical Stateの表示意味、Action、到達性、Accessibility要件（§25）は、本書を改訂しない限り変更しない。
 
 - 色、書体、余白、角丸、装飾、Hero背景やKey Visualなどのデザイン素材を変更しても、Page構成、Section順序、Canonical Stateに対応する表示の意味、Action、Accessibility要件（§25）は変わらない。
+- 書体のWeb fontは、Web artifactと同一originから自前配信する（同梱したfont fileを `font-src 'self'` で読み込む）。外部origin（Google Fonts等のfont CDN）から読み込まない（`SPEC-140` §21、SEC-WEB-004）。Web fontが未取得・取得失敗の間もfallback書体で表示し、情報Sectionと購入Flowを表示・完遂できる。
 - デザイン素材（装飾画像、ロゴ、背景等）はBusiness Domain Dataではない。素材が未設定または取得できない場合も、情報Sectionと購入Flowを表示・完遂できる。
 - Canonical Stateの表示意味（例: Order State、Ticket State）は、色や形状だけに依存せずText labelを併用する（§25）。
 
@@ -1845,6 +1846,13 @@ SPEC-050では以下だけをCanonicalに定義する。
 他仕様書への新規Upstream Change Requestはない。上流の `FR-CRT-012` への要求は `UCR-020-001` として `SPEC-020` §22 に記録し、`SPEC-020 v2.1.0` で本文へ取り込んだ。
 
 本書内の記述の不整合と不足を解消する次の要求を本文へ取り込んだ（`UCR-050-001` / `UCR-050-002` は v2.1.1、`UCR-050-003` は v2.2.0）。現在の契約は本文を正とし、以下の記録を別の契約として実装しない。
+
+### v2.4.0 — 2026-11-25 ユーザー決定による改訂（UCRではない）
+
+- 理由: 2026-11-25 ユーザー決定「フォントはGoogle Fontsを使わず、Fontsourceで自前配信する」（`SPEC-000` §8 の最新の明示的なユーザー要求）。`docs/DESIGN.md` §4.1 の書体を、`SPEC-140` §21 の `font-src 'self'` とSEC-WEB-004を変えずに適用するため。
+- 変更: §24.3（Web fontは同一originから自前配信し、外部originから読み込まない。未取得の間はfallback書体で表示する）。
+- 変更しない: `SPEC-140` のCSP（`font-src 'self'`）とSEC-WEB-004、Page構成、Canonical Stateの表示意味、Action、§25。
+- SemVer: 書体の配信元に関する規則の追加であり、Domain / APIの再解釈を要しないためMINORとした。
 
 ### v2.3.0 — 2026-11-25 ユーザー決定による改訂（UCRではない）
 

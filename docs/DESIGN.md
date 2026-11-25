@@ -142,12 +142,12 @@ off-r39x（おふりみっくす）ホームページ全ページ共通のフロ
 | 本文・UI | **Zen Maru Gothic**（400 / 500 / 700 / 900） | 丸ゴシック。本文、ナビ、ボタン、フォーム |
 
 ```css
---font-display: "Fredoka", "Mochiy Pop One", sans-serif;
+--font-display: "Fredoka Variable", "Mochiy Pop One", sans-serif;
 --font-body: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
 ```
 
 欧文と和文が混ざった見出しは `--font-display` 1本で書けば、欧文は Fredoka、和文は Mochiy Pop One に自動で振り分けられる。
-Google Fonts から `display=swap` で読み込む。等幅フォントは使わない（MUST）。
+Fontsource のパッケージ（`@fontsource-variable/fredoka`、`@fontsource/mochiy-pop-one`、`@fontsource/zen-maru-gothic`）で同じオリジンから自前配信し、`font-display: swap` で読み込む。Google Fonts など外部オリジンからは読み込まない（MUST。SPEC-050 §24.3、SPEC-140 SEC-WEB-004）。Fredoka は幅と太さの両軸を持つ可変版で、family 名は `Fredoka Variable`。等幅フォントは使わない（MUST）。
 
 ### 4.2 タイプスケール
 
@@ -1157,7 +1157,7 @@ if (document.documentElement.classList.contains('motion-ok')) {
   --grad-candy: linear-gradient(180deg, #F4FF70 0%, #D0FF7B 25%, #9EFF8A 50%, #62FE9D 75%, #2FE5BB 100%);
 
   /* Type */
-  --font-display: "Fredoka", "Mochiy Pop One", sans-serif;
+  --font-display: "Fredoka Variable", "Mochiy Pop One", sans-serif;
   --font-body: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
 
   --fs-hero: clamp(64px, 14vw, 192px);

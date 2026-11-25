@@ -456,10 +456,18 @@ seed の `imageUrl`（`/mock/sponsors/<key>.svg`）が指す文字だけの plac
 - `--color-brand`、`--color-brand-foreground`
 - `--color-tone-{success,pending,failure,neutral,review}-{bg,fg}`（10 個）
 - `--radius-base`
-- `--font-sans`（system font stack。Web font を使わない。SEC-WEB-004）
+- `--font-sans`（docs/DESIGN.md §4.1 の本文スタック。Web font は同一オリジンから自前配信する。SPEC-050 §24.3、SEC-WEB-004）
 - **`--hero-gradient`**（`linear-gradient(...)` で始まる値。画像 URL を使わない。docs/DESIGN.md の唯一のグラデーションであるキャンディ・グラデーションと同値）
 
 CSS・source のどこにも外部 origin（`http://`、`https://`、`//host`）の `url(...)` / `@import` / `@font-face` を置かない。`fonts.googleapis.com`、`fonts.gstatic.com` を使わない（`index.html` も同様）。
+
+Web font は Fontsource のパッケージを `src/main.tsx` から import して自前配信する（docs/DESIGN.md §4.1）。`@font-face` は Fontsource の CSS だけが持ち、`src/` には書かない。
+
+- `@fontsource-variable/fredoka/standard.css`（幅 `wdth` 75–125 と太さ `wght` 300–700 の両軸。family 名 `Fredoka Variable`）
+- `@fontsource/mochiy-pop-one` の `japanese-400.css` と `latin-400.css`（family 名 `Mochiy Pop One`）
+- `@fontsource/zen-maru-gothic` の `japanese-{400,500,700,900}.css` と `latin-{400,500,700,900}.css`（family 名 `Zen Maru Gothic`）
+
+これ以外の subset（cyrillic、greek、latin-ext 等）やウェイトは import しない。Fontsource の weight 別 CSS（`400.css` 等）は font file を数百に分け、content-hash 付き asset ごとの `_headers` 規則（§13 / s9）が Cloudflare Pages の上限 100 を超えるので使わない。`--font-display` / `--font-body` の先頭の family 名は、これらの family 名と一致させる。build 後の `dist/assets/` には woff2 が含まれ、`dist` のどこにも外部 font の URL が無い。
 
 ## 10. E2E の共通条件
 
