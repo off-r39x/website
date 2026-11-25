@@ -1237,6 +1237,54 @@
     color: var(--mint);
   }
 
+  /* ---- Running band (DESIGN 8.7, 9.6) ------------------------------------------------------------------- */
+  .ticker {
+    position: relative;
+    z-index: var(--z-sticker);
+    margin-inline: calc(50% - 50vw);
+    overflow-x: clip;
+  }
+
+  /* Wider than the screen by 32px a side, so the -2deg tilt leaves no gap at the edges. */
+  .ticker__band {
+    display: flex;
+    align-items: center;
+    height: 64px;
+    margin-inline: calc(var(--sp-6) * -1);
+    overflow: hidden;
+    border-block: var(--line-ui) solid var(--ink);
+    background: var(--coral);
+    color: var(--ink);
+    font-family: "Mochiy Pop One", var(--font-display);
+    font-size: 32px;
+    line-height: 1;
+    white-space: nowrap;
+    rotate: -2deg;
+  }
+
+  .ticker__track {
+    display: flex;
+    width: max-content;
+    animation: ticker calc(var(--beat) * 80) linear infinite;
+  }
+
+  .ticker__band:hover .ticker__track,
+  .ticker__band:focus .ticker__track {
+    animation-play-state: paused;
+  }
+
+  .ticker__group {
+    display: flex;
+    gap: var(--sp-5);
+    padding-inline-end: var(--sp-5);
+  }
+
+  /* Home: the band's centre sits on the boundary from the white news section into the black shortcut section. */
+  .home-ticker {
+    margin-top: var(--sp-8);
+    margin-bottom: calc((var(--sp-9) + 32px) * -1);
+  }
+
   /* ---- Footer (DESIGN 8.4) ------------------------------------------------------------------------------ */
   /* The wordmark clips itself, so a sticker may still cross the footer's top edge. */
   .site-footer {
@@ -1417,6 +1465,12 @@
       var(--mx) calc(var(--my) + 100vw + 100vh),
       calc(var(--mx) - 100vw - 100vh) var(--my)
     );
+  }
+}
+
+@keyframes ticker {
+  to {
+    translate: -50% 0;
   }
 }
 
@@ -1625,6 +1679,10 @@
 /* ---- Reduced motion (DESIGN 9.8) --------------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
+  .ticker__track {
+    animation: none;
+  }
+
   .btn,
   .card--link,
   .site-header__home,

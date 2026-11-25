@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useApi } from "../../api-client/provider";
 import { settleRead } from "../../api-client/settle-read";
 import type { AnnouncementSummary, EventInfo, FaqItem } from "../../api-client/types";
@@ -19,6 +19,7 @@ import { PageHero } from "../../presentation/decor/page-hero";
 import { SpeedLines } from "../../presentation/decor/speed-lines";
 import { Sticker } from "../../presentation/decor/sticker";
 import { StretchText } from "../../presentation/decor/stretch-text";
+import { Ticker } from "../../presentation/decor/ticker";
 import { useHeroInView } from "../../presentation/decor/use-hero-in-view";
 import { Link } from "../../routing/link";
 import { buildHomeModel, HOME_NEWS_LIMIT, type HomeSection } from "./home-model";
@@ -122,7 +123,13 @@ export function HomePage() {
           case "news":
             return <News key={section.key} section={section} onRetry={reloadNews} />;
           case "salesShortcut":
-            return <SalesShortcut key={section.key} section={section} />;
+            // The running band crosses the boundary from the white news into this black section (DESIGN 6.5, 8.7).
+            return (
+              <Fragment key={section.key}>
+                <Ticker className="home-ticker" />
+                <SalesShortcut section={section} />
+              </Fragment>
+            );
           case "overview":
             return <Overview key={section.key} section={section} />;
           case "schedule":
