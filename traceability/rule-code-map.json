@@ -5797,9 +5797,18 @@
     },
     {
       "rule_id": "DEV-DB-004",
-      "code_paths": ["packages/db/src/transactions/profile.ts"],
-      "test_case_ids": ["TC-API-007-010", "TC-DB-AUTH-001-010"],
-      "notes": "implementation mapping only: the self Profile SELECT, UPDATE ... RETURNING and the provisioning INSERT ... ON CONFLICT DO NOTHING RETURNING and reselect are built from the Drizzle table declaration; transaction_timestamp() stays an SQL expression in the same UPDATE"
+      "code_paths": [
+        "packages/db/src/transactions/profile.ts",
+        "packages/db/src/notification-requests.ts",
+        "packages/db/src/consistency-review-cases.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-007-010",
+        "TC-DB-AUTH-001-010",
+        "TC-DB-XFN-001-005",
+        "TC-DB-XFN-002-004"
+      ],
+      "notes": "implementation mapping only: the self Profile SELECT, UPDATE ... RETURNING and the provisioning INSERT ... ON CONFLICT DO NOTHING RETURNING and reselect are built from the Drizzle table declaration; transaction_timestamp() stays an SQL expression in the same UPDATE; the Notification Request enqueue and the Consistency Review Case open (INSERT ... ON CONFLICT DO NOTHING RETURNING and reselect) are built from the cross-functional table declarations, with only the reselect comparison as an SQL fragment"
     },
     {
       "rule_id": "DEV-API-010",
@@ -6806,7 +6815,8 @@
         "TC-DB-XFN-001-002",
         "TC-DB-XFN-001-003",
         "TC-DB-XFN-001-004",
-        "TC-EML-GEN-004-001"
+        "TC-EML-GEN-004-001",
+        "TC-DB-XFN-001-005"
       ],
       "notes": "implementation mapping only: one Notification Request per Business Cause (UNIQUE) and the enqueue that converges on it"
     },
@@ -6821,7 +6831,8 @@
         "TC-DB-XFN-002-001",
         "TC-DB-XFN-002-002",
         "TC-DB-XFN-002-003",
-        "TC-REL-REC-016-001"
+        "TC-REL-REC-016-001",
+        "TC-DB-XFN-002-004"
       ],
       "notes": "implementation mapping only: one Case per dedupe key (UNIQUE); only the REL-REC-016 key is built until UCR-150-004"
     },

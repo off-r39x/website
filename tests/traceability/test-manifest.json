@@ -34781,6 +34781,60 @@
       "expected_observability": [],
       "sensitivity_class": "synthetic",
       "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-005",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DEV-DB-004",
+        "DB-XFN-001",
+        "SPEC-120-8.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers as node-postgres does for drizzle-orm (query config in array row mode, rows as arrays); synthetic values only; not a database execution test (TST-DB-001); what PostgreSQL does with the statements is the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Both statements of enqueueNotificationRequest are built from the Drizzle declaration of app.notification_requests and sent in array row mode: the INSERT lists every column with default for the unset ones, binds the seven written values and is ON CONFLICT (business_cause_key) DO NOTHING RETURNING business_cause_key; the reselect is one comparison of the type, the recipient, the two sources (IS NOT DISTINCT FROM, bigint) and the render context (jsonb) with bound values, by the Business Cause key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-XFN-002-004",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DEV-DB-004",
+        "DB-XFN-002",
+        "REL-REC-016"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers as node-postgres does for drizzle-orm (query config in array row mode, rows as arrays); synthetic values only; not a database execution test (TST-DB-001); what PostgreSQL does with the statements is the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Both statements of openConsistencyReviewCase are built from the Drizzle declaration of app.consistency_review_cases and sent in array row mode: the INSERT lists every column with default for all but the dedupe key, the reason and the Auth Subject, and is ON CONFLICT (dedupe_key) DO NOTHING RETURNING public_ref; the reselect projects public_ref and resolved_at IS NOT NULL by the dedupe key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
     }
   ]
 }
