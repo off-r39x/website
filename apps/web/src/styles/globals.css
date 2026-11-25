@@ -615,6 +615,8 @@
     letter-spacing: 0.01em;
     font-feature-settings: "palt";
     word-break: auto-phrase;
+    /* Inherited by the heading and every layer alike, so they all break at the same places (DESIGN 4.3). */
+    text-wrap: balance;
     /* Room for the outer edge so the die-cut is not clipped by a neighbour. A margin, never a padding: the
        stacked layers must share the heading's exact box or they wrap differently from it. */
     margin: calc(var(--edge-w) / 2);
@@ -635,8 +637,11 @@
     pointer-events: none;
   }
 
+  /* The face is split per character, and its spans can add up to a fraction of a pixel more than the heading's
+     own text; without slack its last character drops to a line of its own. One pixel keeps it on the heading's lines. */
   .candy > .candy__face {
     z-index: 1;
+    right: -1px;
   }
 
   .candy__edge {
@@ -665,6 +670,19 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  /* Three lines or more: no candy (DESIGN 5.1). The heading shows itself, same font and size. */
+  .candy--plain > [aria-hidden] {
+    display: none;
+  }
+
+  .candy--plain .candy__text {
+    color: var(--ink);
+  }
+
+  .surface-ink .candy--plain .candy__text {
+    color: var(--paper);
   }
 
   .candy :is(.candy__off, .candy__line--off) {
