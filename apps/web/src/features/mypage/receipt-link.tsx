@@ -8,7 +8,7 @@ export function ReceiptLink({ href }: { href: string | null }) {
   if (href === null) return null;
   return (
     <p>
-      <ExternalLink href={href} className="text-brand underline underline-offset-4">
+      <ExternalLink href={href} className="link inline-flex min-h-11 items-center">
         {copy.purchase.receipt.link}
       </ExternalLink>
     </p>

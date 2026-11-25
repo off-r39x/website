@@ -8,23 +8,27 @@ import type { OrderListRow } from "./order-list-model";
 
 export function OrderRowView({ row, showSummary }: { row: OrderListRow; showSummary: boolean }) {
   return (
-    <li className="flex flex-col gap-1 rounded-base border border-border p-3">
+    <li className="card items-start">
       <div>
         <StatusBadge tone={row.tone} label={row.stateLabel} />
       </div>
-      <p className="font-bold">{row.purposeLabel}</p>
-      {showSummary ? (
-        <p>
-          <span className="font-medium">{copy.mypage.orders.itemsLabel}</span> {row.summary}
+      <p className="card__value">{row.purposeLabel}</p>
+      <div className="flex flex-wrap gap-x-8 gap-y-2">
+        {showSummary ? (
+          <p className="flex flex-col">
+            <span className="card__label">{copy.mypage.orders.itemsLabel}</span> {row.summary}
+          </p>
+        ) : null}
+        <p className="flex flex-col">
+          <span className="card__label">{copy.purchase.createdAtLabel}</span>{" "}
+          <span className="num">{row.createdAtText}</span>
         </p>
-      ) : null}
-      <p>
-        <span className="font-medium">{copy.purchase.createdAtLabel}</span> {row.createdAtText}
-      </p>
-      <p>
-        <span className="font-medium">{copy.purchase.totalLabel}</span> {row.totalText}
-      </p>
-      <Link href={row.href} prefetch={false} className="text-brand underline underline-offset-4">
+        <p className="flex flex-col">
+          <span className="card__label">{copy.purchase.totalLabel}</span>{" "}
+          <span className="num">{row.totalText}</span>
+        </p>
+      </div>
+      <Link href={row.href} prefetch={false} className="link inline-flex min-h-11 items-center">
         {row.linkLabel}
       </Link>
     </li>

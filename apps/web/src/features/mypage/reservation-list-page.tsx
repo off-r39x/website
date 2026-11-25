@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import type { ApiPort } from "../../api-client/port";
 import { PageState } from "../../presentation/components/page-state";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
 import { buildReservationListModel } from "./reservation-model";
 import { ReservationRowView } from "./reservation-row";
 import { useRead } from "./use-read";
@@ -16,8 +17,8 @@ export function ReservationListPage() {
   const model = buildReservationListModel(read);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.mypage.reservations.heading}</h1>
+    <div className="flex flex-col gap-12 pb-16">
+      <PageHero title={copy.mypage.reservations.heading} />
       {model.kind === "loading" ? <PageState state="loading" /> : null}
       {model.kind === "unavailable" ? (
         <PageState
@@ -30,7 +31,7 @@ export function ReservationListPage() {
         <PageState state="empty" message={copy.mypage.reservations.empty} />
       ) : null}
       {model.kind === "items" ? (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid gap-6 md:grid-cols-2">
           {model.items.map((row) => (
             <ReservationRowView key={row.reservationRef} row={row} />
           ))}

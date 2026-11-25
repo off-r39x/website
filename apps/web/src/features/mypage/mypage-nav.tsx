@@ -24,7 +24,7 @@ export function MypageNav() {
   }, [pathname]);
 
   return (
-    <div className="mb-4 flex flex-col gap-2">
+    <div className="flex flex-col gap-4">
       <Button
         type="button"
         variant="outline"
@@ -39,7 +39,7 @@ export function MypageNav() {
         id={navId}
         aria-label={copy.mypage.nav.label}
         className={cn(
-          "flex-col gap-1 md:flex md:flex-row md:flex-wrap md:gap-4",
+          "flex-col items-start gap-2 md:flex md:flex-row md:flex-wrap md:gap-3",
           open ? "flex" : "hidden",
         )}
       >
@@ -49,11 +49,14 @@ export function MypageNav() {
             href={MYPAGE_PATHS[key]}
             prefetch={false}
             aria-current={current === key ? "page" : undefined}
-            className={cn(
-              "rounded-base px-2 py-1 text-brand underline-offset-4 hover:underline",
-              current === key ? "font-bold underline" : "",
-            )}
+            className={cn("chip min-h-11 px-4", current === key ? "bg-mint" : "hover:bg-lemon")}
           >
+            {/* The selected chip carries the small diamond in front (DESIGN 8.8). */}
+            {current === key ? (
+              <svg className="diamond-mark" aria-hidden="true" focusable="false">
+                <use href="#chip" />
+              </svg>
+            ) : null}
             {copy.mypage.nav.items[key]}
           </Link>
         ))}

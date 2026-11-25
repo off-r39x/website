@@ -7,6 +7,7 @@ import type { ProfileUpdate } from "../../api-client/types";
 import { PageState } from "../../presentation/components/page-state";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
 import { Link } from "../../routing/link";
 import {
   buildProfileModel,
@@ -20,7 +21,7 @@ import { useRead } from "./use-read";
 // The server decides what a valid name is (DEV-WEB-009): the value goes to the port as typed. The
 // 80 code points / Cc pre-check only spares a round trip (SPEC-030 9.2); a blank name clears it.
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-flex min-h-11 items-center";
 
 type Phase = "idle" | "saving";
 
@@ -104,22 +105,23 @@ function ProfileForm({ email, initialName }: { email: string; initialName: strin
   const saving = phase === "saving";
 
   return (
-    <div className="flex flex-col gap-4">
-      <p>
-        <span className="font-medium">{copy.mypage.profile.emailLabel}</span> {email}
-      </p>
-      <p className="text-sm">{copy.mypage.profile.emailNote}</p>
+    <div className="measure flex flex-col gap-8">
+      <div className="card">
+        <p className="flex flex-col break-words">
+          <span className="card__label">{copy.mypage.profile.emailLabel}</span>{" "}
+          <span className="card__value">{email}</span>
+        </p>
+        <p className="card__note">{copy.mypage.profile.emailNote}</p>
+      </div>
       {invalid === null ? null : (
-        <div
-          ref={summaryRef}
-          role="alert"
-          tabIndex={-1}
-          className="flex flex-col gap-1 rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg outline-none"
-        >
-          <p>{invalid}</p>
+        <div ref={summaryRef} role="alert" tabIndex={-1} className="alert">
+          <p className="font-bold">
+            <span className="error-dot" aria-hidden="true" />
+            {invalid}
+          </p>
           <a
             href={`#${fieldId}`}
-            className="underline underline-offset-4"
+            className="link"
             onClick={(event) => {
               event.preventDefault();
               document.getElementById(fieldId)?.focus();
@@ -130,16 +132,14 @@ function ProfileForm({ email, initialName }: { email: string; initialName: strin
         </div>
       )}
       {failed === null ? null : (
-        <p
-          role="alert"
-          className="rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg"
-        >
+        <p role="alert" className="alert block">
+          <span className="error-dot" aria-hidden="true" />
           {failed}
         </p>
       )}
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor={fieldId} className="text-sm font-medium">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <label htmlFor={fieldId} className="field-label">
             {copy.mypage.profile.displayNameLabel}
           </label>
           <input
@@ -151,13 +151,14 @@ function ProfileForm({ email, initialName }: { email: string; initialName: strin
             aria-invalid={invalid === null ? undefined : true}
             placeholder={copy.mypage.profile.unset}
             aria-describedby={invalid === null ? hintId : `${hintId} ${errorId}`}
-            className="min-h-9 w-full rounded-base border border-border bg-background px-2 py-1 text-foreground aria-[invalid=true]:border-tone-failure-fg"
+            className="field w-full"
           />
-          <p id={hintId} className="text-sm">
+          <p id={hintId} className="text-small">
             {copy.mypage.profile.displayNameHint}
           </p>
           {invalid === null ? null : (
-            <p id={errorId} className="text-sm text-tone-failure-fg">
+            <p id={errorId} className="text-small font-bold">
+              <span className="error-dot" aria-hidden="true" />
               {invalid}
             </p>
           )}
@@ -167,16 +168,18 @@ function ProfileForm({ email, initialName }: { email: string; initialName: strin
             {copy.mypage.profile.save}
           </Button>
         </div>
-        <div role="status" className="text-sm">
+        <div role="status" className="text-small font-bold">
           {status}
         </div>
       </form>
-      <p className="text-sm">{copy.mypage.profile.passwordNote}</p>
-      <p>
-        <Link href="/account/password-reset" prefetch={false} className={linkClass}>
-          {copy.mypage.profile.passwordReset}
-        </Link>
-      </p>
+      <div className="flex flex-col gap-2">
+        <p className="text-small">{copy.mypage.profile.passwordNote}</p>
+        <p>
+          <Link href="/account/password-reset" prefetch={false} className={linkClass}>
+            {copy.mypage.profile.passwordReset}
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
@@ -187,8 +190,8 @@ export function ProfilePage() {
   const model = buildProfileModel(read);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.mypage.profile.heading}</h1>
+    <div className="flex flex-col gap-12 pb-16">
+      <PageHero title={copy.mypage.profile.heading} />
       {model.kind === "loading" ? <PageState state="loading" /> : null}
       {model.kind === "unavailable" ? (
         <PageState

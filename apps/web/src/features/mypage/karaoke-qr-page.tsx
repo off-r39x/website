@@ -8,6 +8,7 @@ import { AccessDeniedView } from "../../presentation/components/access-denied-vi
 import { PageState } from "../../presentation/components/page-state";
 import { QrPlaceholder } from "../../presentation/components/qr-placeholder";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
 import { Link } from "../../routing/link";
 import { buildKaraokeQrModel } from "./qr-model";
 import { useRead } from "./use-read";
@@ -18,7 +19,7 @@ import { useRead } from "./use-read";
 // shown only after the ownership decision; denied uses AccessDeniedView and cannot tell another
 // user's ref from a missing one (SEC-QR-012, SPEC-110 section 22).
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-flex min-h-11 items-center";
 
 export function KaraokeQrPage({ reservationRef }: { reservationRef: Ref<"reservation"> }) {
   const loadReservation = useCallback(
@@ -44,8 +45,8 @@ export function KaraokeQrPage({ reservationRef }: { reservationRef: Ref<"reserva
 
   if (model.kind !== "ready") {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold">{copy.qr.KARAOKE}</h1>
+      <div className="flex flex-col gap-12 pb-16">
+        <PageHero title={copy.qr.KARAOKE} />
         {model.kind === "loading" ? (
           <PageState state="loading" />
         ) : (
@@ -63,26 +64,32 @@ export function KaraokeQrPage({ reservationRef }: { reservationRef: Ref<"reserva
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{model.title}</h1>
-      <figure className="mx-auto flex w-full max-w-md flex-col items-center gap-3 rounded-base border border-border p-4">
-        <figcaption className="text-lg font-bold">{model.title}</figcaption>
-        {model.lines.map((line) => (
-          <p key={line.label}>
-            <span className="font-medium">{line.label}</span> {line.value}
-          </p>
-        ))}
+    <div className="flex flex-col gap-12 pb-16">
+      {/* The hero's decoration stays above the figure: nothing is drawn next to or over the QR (SPEC-050 24.2). */}
+      <PageHero title={model.title} />
+      <figure className="card w-full max-w-md items-start gap-6">
+        <figcaption className="text-h3">{model.title}</figcaption>
+        <div className="flex flex-col gap-3">
+          {model.lines.map((line) => (
+            <p key={line.label} className="flex flex-col">
+              <span className="card__label">{line.label}</span>{" "}
+              <span className="font-bold">{line.value}</span>
+            </p>
+          ))}
+        </div>
         {model.presentable && model.matrixSeed !== null ? (
           <>
             <QrPlaceholder matrixSeed={model.matrixSeed} label={model.imageLabel} />
             {model.mockNotice === null ? null : (
-              <p className="text-sm">{copy.mypage.qr.mockNotice}</p>
+              <p className="card__note measure">{copy.mypage.qr.mockNotice}</p>
             )}
           </>
         ) : (
           <>
-            <p className="text-xl font-bold">{model.primaryLabel}</p>
-            {model.disabledReason === null ? null : <p>{model.disabledReason}</p>}
+            <p className="card__value">{model.primaryLabel}</p>
+            {model.disabledReason === null ? null : (
+              <p className="measure">{model.disabledReason}</p>
+            )}
           </>
         )}
       </figure>

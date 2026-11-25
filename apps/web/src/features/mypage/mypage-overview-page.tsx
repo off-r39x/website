@@ -6,6 +6,7 @@ import { MYPAGE_PATHS } from "../../config/mypage-routes";
 import { PageState } from "../../presentation/components/page-state";
 import { SectionHeading } from "../../presentation/components/section-heading";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
 import { Link } from "../../routing/link";
 import { OrderRowView } from "./order-row";
 import { buildMypageOverviewModel } from "./overview-model";
@@ -15,7 +16,7 @@ import { useRead } from "./use-read";
 // PG-MYP-001 container (SPEC-050 18.1, 9, 21). The five reads are independent: a failed read makes only
 // its own areas unavailable (with its own retry) and never turns another area into Empty or unavailable.
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-flex min-h-11 items-center";
 
 type AreaState = "loading" | "unavailable" | "other";
 
@@ -34,7 +35,7 @@ function Area({
 }) {
   const headingId = useId();
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3">
+    <section aria-labelledby={headingId} className="flex flex-col items-start gap-4">
       <SectionHeading id={headingId}>{heading}</SectionHeading>
       {state === "loading" ? <PageState state="loading" /> : null}
       {state === "unavailable" ? (
@@ -74,8 +75,8 @@ export function MypageOverviewPage() {
   const text = copy.mypage.overview;
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">{copy.mypage.heading}</h1>
+    <div className="flex flex-col gap-12 pb-16">
+      <PageHero title={copy.mypage.heading} />
 
       <Area
         heading={copy.mypage.overview.profileHeading}
@@ -85,13 +86,16 @@ export function MypageOverviewPage() {
       >
         {model.profile.kind === "ready" ? (
           <>
-            <p>
-              <span className="font-medium">{text.emailLabel}</span> {model.profile.email}
-            </p>
-            <p>
-              <span className="font-medium">{text.displayNameLabel}</span>{" "}
-              {model.profile.displayName}
-            </p>
+            <div className="card measure w-full">
+              <p className="flex flex-col break-words">
+                <span className="card__label">{text.emailLabel}</span>{" "}
+                <span className="card__value">{model.profile.email}</span>
+              </p>
+              <p className="flex flex-col break-words">
+                <span className="card__label">{text.displayNameLabel}</span>{" "}
+                <span className="card__value">{model.profile.displayName}</span>
+              </p>
+            </div>
             <p>
               <Link href={model.profile.href} prefetch={false} className={linkClass}>
                 {text.profileLink}
@@ -111,7 +115,7 @@ export function MypageOverviewPage() {
           <PageState state="empty" message={text.pendingEmpty} />
         ) : null}
         {model.pending.kind === "items" ? (
-          <ul className="flex flex-col gap-3">
+          <ul className="grid w-full gap-6 md:grid-cols-2">
             {model.pending.items.map((row) => (
               <OrderRowView key={row.orderRef} row={row} showSummary={false} />
             ))}
@@ -134,7 +138,7 @@ export function MypageOverviewPage() {
           <PageState state="empty" message={text.latestEmpty} />
         ) : null}
         {model.latest.kind === "ready" ? (
-          <ul className="flex flex-col gap-3">
+          <ul className="grid w-full gap-6 md:grid-cols-2">
             <OrderRowView row={model.latest.row} showSummary={false} />
           </ul>
         ) : null}
@@ -149,7 +153,9 @@ export function MypageOverviewPage() {
         {model.tickets.kind === "empty" ? (
           <PageState state="empty" message={text.ticketsEmpty} />
         ) : null}
-        {model.tickets.kind === "ready" ? <p>{model.tickets.summary}</p> : null}
+        {model.tickets.kind === "ready" ? (
+          <p className="card card__value num">{model.tickets.summary}</p>
+        ) : null}
         <p>
           <Link href={MYPAGE_PATHS.entryTickets} prefetch={false} className={linkClass}>
             {text.ticketsLink}
@@ -167,7 +173,7 @@ export function MypageOverviewPage() {
           <PageState state="empty" message={text.karaokeEmpty} />
         ) : null}
         {model.reservations.kind === "items" ? (
-          <ul className="flex flex-col gap-3">
+          <ul className="grid w-full gap-6 md:grid-cols-2">
             {model.reservations.items.map((row) => (
               <ReservationRowView key={row.reservationRef} row={row} />
             ))}
@@ -189,7 +195,9 @@ export function MypageOverviewPage() {
         {model.goods.kind === "empty" ? (
           <PageState state="empty" message={text.goodsEmpty} />
         ) : null}
-        {model.goods.kind === "ready" ? <p>{model.goods.summary}</p> : null}
+        {model.goods.kind === "ready" ? (
+          <p className="card card__value num">{model.goods.summary}</p>
+        ) : null}
         <p>
           <Link href={MYPAGE_PATHS.goodsItems} prefetch={false} className={linkClass}>
             {text.goodsLink}

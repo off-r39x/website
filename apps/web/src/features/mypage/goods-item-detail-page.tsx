@@ -9,6 +9,7 @@ import { PageState } from "../../presentation/components/page-state";
 import { SectionHeading } from "../../presentation/components/section-heading";
 import { StatusBadge } from "../../presentation/components/status-badge";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
 import { Link } from "../../routing/link";
 import { buildGoodsItemDetailModel } from "./goods-item-model";
 import { ReceiptLink } from "./receipt-link";
@@ -17,7 +18,7 @@ import { useRead } from "./use-read";
 // PG-MYP-012 container (SPEC-050 18.12, 20.4). Read-only: a customer can never move a handed-over item
 // back to pending, so this page has no control at all. The price is the purchase-time Snapshot.
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-flex min-h-11 items-center";
 
 export function GoodsItemDetailPage({ goodsItemRef }: { goodsItemRef: Ref<"goodsItem"> }) {
   const load = useCallback((api: ApiPort) => api.self.getGoodsItem(goodsItemRef), [goodsItemRef]);
@@ -37,8 +38,8 @@ export function GoodsItemDetailPage({ goodsItemRef }: { goodsItemRef: Ref<"goods
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{labels.detail.heading}</h1>
+    <div className="flex flex-col gap-12 pb-16">
+      <PageHero title={labels.detail.heading} />
       {model.kind === "loading" ? <PageState state="loading" /> : null}
       {model.kind === "unavailable" ? (
         <PageState
@@ -49,33 +50,41 @@ export function GoodsItemDetailPage({ goodsItemRef }: { goodsItemRef: Ref<"goods
       ) : null}
       {model.kind === "ready" ? (
         <>
-          <section aria-labelledby={infoId} className="flex flex-col gap-3">
+          <section aria-labelledby={infoId} className="flex flex-col gap-6">
             <SectionHeading id={infoId}>{labels.detail.infoHeading}</SectionHeading>
-            <div>
-              <StatusBadge tone={model.tone} label={model.primaryLabel} />
+            <div className="card measure items-start gap-4">
+              <div>
+                <StatusBadge tone={model.tone} label={model.primaryLabel} />
+              </div>
+              <p>{model.description}</p>
+              <p className="flex flex-col">
+                <span className="card__label">{labels.detail.nameLabel}</span>{" "}
+                <span className="card__value">{model.name}</span>
+              </p>
+              <p className="num">{model.quantityText}</p>
+              <div className="flex flex-wrap gap-x-8 gap-y-4">
+                <p className="flex flex-col">
+                  <span className="card__label">{copy.cart.unitPriceLabel}</span>{" "}
+                  <span className="num">{model.unitPriceText}</span>
+                </p>
+                <p className="flex flex-col">
+                  <span className="card__label">{copy.cart.subtotalLabel}</span>{" "}
+                  <span className="card__value num">{model.subtotalText}</span>
+                </p>
+              </div>
+              <p className="flex flex-col">
+                <span className="card__label">{labels.itemStateLabel}</span> {model.itemLabel}
+              </p>
+              <p className="flex flex-col">
+                <span className="card__label">{labels.handoffStateLabel}</span> {model.handoffLabel}
+              </p>
+              {model.pickupNotice === null ? null : <p>{model.pickupNotice}</p>}
+              {model.noSecondHandoff === null ? null : <p>{model.noSecondHandoff}</p>}
+              <p className="flex flex-col">
+                <span className="card__label">{labels.orderStateLabel}</span>{" "}
+                {model.orderStateLabel}
+              </p>
             </div>
-            <p>{model.description}</p>
-            <p>
-              <span className="font-medium">{labels.detail.nameLabel}</span> {model.name}
-            </p>
-            <p>{model.quantityText}</p>
-            <p>
-              <span className="font-medium">{copy.cart.unitPriceLabel}</span> {model.unitPriceText}
-            </p>
-            <p>
-              <span className="font-medium">{copy.cart.subtotalLabel}</span> {model.subtotalText}
-            </p>
-            <p>
-              <span className="font-medium">{labels.itemStateLabel}</span> {model.itemLabel}
-            </p>
-            <p>
-              <span className="font-medium">{labels.handoffStateLabel}</span> {model.handoffLabel}
-            </p>
-            {model.pickupNotice === null ? null : <p>{model.pickupNotice}</p>}
-            {model.noSecondHandoff === null ? null : <p>{model.noSecondHandoff}</p>}
-            <p>
-              <span className="font-medium">{labels.orderStateLabel}</span> {model.orderStateLabel}
-            </p>
             <p>
               <Link href={model.orderHref} prefetch={false} className={linkClass}>
                 {labels.orderLink}

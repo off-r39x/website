@@ -7,22 +7,28 @@ import type { ReservationRow } from "./reservation-model";
 
 export function ReservationRowView({ row }: { row: ReservationRow }) {
   return (
-    <li className="flex flex-col gap-1 rounded-base border border-border p-3">
-      <p>
-        <span className="font-medium">{copy.mypage.reservations.dateLabel}</span> {row.dateText}
-      </p>
-      <p>
-        <span className="font-medium">{copy.mypage.reservations.timeLabel}</span> {row.timeText}
-      </p>
-      <p>
-        <span className="font-medium">{copy.mypage.reservations.reservationStateLabel}</span>{" "}
-        {row.reservationLabel}
-      </p>
-      <p>
-        <span className="font-medium">{copy.mypage.reservations.ticketStateLabel}</span>{" "}
-        {row.ticketLabel}
-      </p>
-      <Link href={row.href} prefetch={false} className="text-brand underline underline-offset-4">
+    <li className="card items-start">
+      <div className="flex flex-wrap gap-x-8 gap-y-2">
+        <p className="flex flex-col">
+          <span className="card__label">{copy.mypage.reservations.dateLabel}</span>{" "}
+          <span className="card__value num">{row.dateText}</span>
+        </p>
+        <p className="flex flex-col">
+          <span className="card__label">{copy.mypage.reservations.timeLabel}</span>{" "}
+          <span className="card__value num">{row.timeText}</span>
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-x-8 gap-y-2">
+        <p className="flex flex-col">
+          <span className="card__label">{copy.mypage.reservations.reservationStateLabel}</span>{" "}
+          {row.reservationLabel}
+        </p>
+        <p className="flex flex-col">
+          <span className="card__label">{copy.mypage.reservations.ticketStateLabel}</span>{" "}
+          {row.ticketLabel}
+        </p>
+      </div>
+      <Link href={row.href} prefetch={false} className="link inline-flex min-h-11 items-center">
         {row.linkLabel}
       </Link>
     </li>

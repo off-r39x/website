@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import type { ApiPort } from "../../api-client/port";
 import { PageState } from "../../presentation/components/page-state";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
 import { buildOrderListModel } from "./order-list-model";
 import { OrderRowView } from "./order-row";
 import { useRead } from "./use-read";
@@ -16,8 +17,8 @@ export function MypageOrderListPage() {
   const model = buildOrderListModel(read);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.mypage.orders.heading}</h1>
+    <div className="flex flex-col gap-12 pb-16">
+      <PageHero title={copy.mypage.orders.heading} />
       {model.kind === "loading" ? <PageState state="loading" /> : null}
       {model.kind === "unavailable" ? (
         <PageState
@@ -30,7 +31,7 @@ export function MypageOrderListPage() {
         <PageState state="empty" message={copy.mypage.orders.empty} />
       ) : null}
       {model.kind === "items" ? (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid gap-6 md:grid-cols-2">
           {model.items.map((row) => (
             <OrderRowView key={row.orderRef} row={row} showSummary />
           ))}
