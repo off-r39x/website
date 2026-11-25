@@ -6,6 +6,7 @@ import { SectionHeading } from "../../presentation/components/section-heading";
 import { StatusBadge } from "../../presentation/components/status-badge";
 import { Button } from "../../presentation/components/ui/button";
 import { copy } from "../../presentation/copy/ja";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import type { PurchaseAction, PurchaseStatusModel } from "./purchase-status-model";
 
@@ -22,7 +23,7 @@ export type OutcomeButtonAction = Extract<
 
 export type OrderOutcomePending = "recheck_status" | "retry_checkout" | null;
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-block py-2";
 
 export function OrderOutcome({
   model,
@@ -48,32 +49,33 @@ export function OrderOutcome({
   const entitlements = model.entitlements;
 
   return (
-    <div className="flex flex-col gap-6">
-      <section aria-labelledby={outcomeId} className="flex flex-col gap-3">
+    <div className="flex flex-col gap-12">
+      <section aria-labelledby={outcomeId} className="flex max-w-3xl flex-col gap-4">
         <SectionHeading id={outcomeId}>{copy.purchase.outcomeHeading}</SectionHeading>
         <div>
           <StatusBadge tone={model.tone} label={model.stateLabel} />
         </div>
-        <p>{model.description}</p>
-        <p>
-          <span className="font-medium">{copy.purchase.purposeLabel}</span> {model.purposeLabel}
-        </p>
-        <p>
-          <span className="font-medium">{copy.purchase.createdAtLabel}</span> {model.createdAtText}
-        </p>
+        <p className="measure">{model.description}</p>
+        <div className="card measure">
+          <p>
+            <span className="font-bold">{copy.purchase.purposeLabel}</span> {model.purposeLabel}
+          </p>
+          <p>
+            <span className="font-bold">{copy.purchase.createdAtLabel}</span>{" "}
+            <span className="num">{model.createdAtText}</span>
+          </p>
+        </div>
         {model.notice === null ? null : (
-          <p className="rounded-base border border-border bg-muted p-3 text-sm">
-            <span className="font-medium">{model.notice.label}</span> {model.notice.message}
+          <p className="card measure text-small">
+            <span className="card__label">{model.notice.label}</span> {model.notice.message}
           </p>
         )}
-        <div role="status" className="text-sm">
+        <div role="status" className="text-small font-bold">
           {liveMessage}
         </div>
         {alertMessage === null ? null : (
-          <p
-            role="alert"
-            className="rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg"
-          >
+          <p role="alert" className="alert block measure">
+            <span className="error-dot" aria-hidden="true" />
             {alertMessage}
           </p>
         )}
@@ -108,34 +110,43 @@ export function OrderOutcome({
         </div>
       </section>
 
-      <section aria-labelledby={itemsId} className="flex flex-col gap-3">
+      <section
+        aria-labelledby={itemsId}
+        className="surface-ink bleed section-y relative mt-4 flex flex-col gap-6"
+      >
+        <Sticker
+          kind="chip"
+          color="coral"
+          tilt={11}
+          size={48}
+          className="absolute -top-6 right-6 md:right-24"
+        />
         <SectionHeading id={itemsId}>{copy.purchase.itemsHeading}</SectionHeading>
-        <ul className="flex flex-col gap-3">
+        <ul className="grid max-w-5xl gap-6 md:grid-cols-2">
           {model.items.map((item) => (
-            <li
-              key={item.key}
-              className="flex flex-col gap-1 rounded-base border border-border p-3"
-            >
-              <p className="font-bold">{item.name}</p>
-              <p className="text-sm">{item.kindLabel}</p>
+            <li key={item.key} className="card">
+              <p className="card__value">{item.name}</p>
+              <p className="card__label">{item.kindLabel}</p>
               {item.quantityText === null ? null : <p>{item.quantityText}</p>}
               {item.usageText === null ? null : <p>{item.usageText}</p>}
               <p>
-                <span className="font-medium">{copy.cart.unitPriceLabel}</span> {item.unitPriceText}
+                <span className="font-bold">{copy.cart.unitPriceLabel}</span>{" "}
+                <span className="num">{item.unitPriceText}</span>
               </p>
               <p>
-                <span className="font-medium">{copy.cart.subtotalLabel}</span> {item.subtotalText}
+                <span className="font-bold">{copy.cart.subtotalLabel}</span>{" "}
+                <span className="num">{item.subtotalText}</span>
               </p>
             </li>
           ))}
         </ul>
-        <p>
-          <span className="font-medium">{copy.purchase.totalLabel}</span> {model.totalText}
+        <p className="text-lead">
+          <span>{copy.purchase.totalLabel}</span> <span className="num">{model.totalText}</span>
         </p>
       </section>
 
       {entitlements === null ? null : (
-        <section aria-labelledby={rightsId} className="flex flex-col gap-3">
+        <section aria-labelledby={rightsId} className="flex max-w-3xl flex-col gap-6">
           <SectionHeading id={rightsId}>{copy.purchase.entitlements.heading}</SectionHeading>
           {entitlements.entryTickets.length === 0 ? null : (
             <div className="flex flex-col gap-2">
@@ -176,13 +187,13 @@ export function OrderOutcome({
                     <Link href={goods.href} prefetch={false} className={linkClass}>
                       {goods.label}
                     </Link>
-                    <span className="text-sm">
+                    <span className="text-small">
                       {goods.itemLabel} / {goods.handoffLabel}
                     </span>
                   </li>
                 ))}
               </ul>
-              <p className="text-sm">{copy.goods.detail.pickupNotice}</p>
+              <p className="text-small">{copy.goods.detail.pickupNotice}</p>
             </div>
           )}
         </section>

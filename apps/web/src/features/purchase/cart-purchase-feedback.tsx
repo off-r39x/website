@@ -4,8 +4,7 @@ import { Fragment, useEffect, useRef } from "react";
 import { copy } from "../../presentation/copy/ja";
 import type { CartPurchasePhase } from "./use-cart-purchase";
 
-const alertClass =
-  "flex flex-col gap-2 rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg";
+const alertClass = "alert measure";
 
 // Progress is announced through a role=status region that exists only while a purchase start is in
 // progress (the S5 Cart tests require no status region otherwise); a rejection is an error summary
@@ -31,17 +30,20 @@ export function CartPurchaseFeedback({ phase }: { phase: CartPurchasePhase }) {
   return (
     <div className="flex flex-col gap-2">
       {progress === "" ? null : (
-        <div role="status" className="text-sm">
+        <div role="status" className="text-small font-bold">
           {progress}
         </div>
       )}
       {phase.kind === "rejected" ? (
         <div ref={summaryRef} role="alert" tabIndex={-1} className={alertClass}>
-          <p className="font-bold">{copy.cart.purchase.rejectedTitle}</p>
+          <p className="font-bold">
+            <span className="error-dot" aria-hidden="true" />
+            {copy.cart.purchase.rejectedTitle}
+          </p>
           <p>{copy.cart.purchase.rejectedBody}</p>
           {phase.rejections.map((line) => (
             <p key={line.lineKey}>
-              <span className="font-medium">{line.name}</span>
+              <span className="font-bold">{line.name}</span>
               {line.reasons.map((reason) => (
                 // The reasons of one Item are distinct, and so are their labels.
                 <Fragment key={reason.label}>
@@ -55,7 +57,10 @@ export function CartPurchaseFeedback({ phase }: { phase: CartPurchasePhase }) {
       ) : null}
       {phase.kind === "unavailable" ? (
         <div role="alert" className={alertClass}>
-          <p>{copy.cart.purchase.unavailable}</p>
+          <p>
+            <span className="error-dot" aria-hidden="true" />
+            {copy.cart.purchase.unavailable}
+          </p>
         </div>
       ) : null}
     </div>

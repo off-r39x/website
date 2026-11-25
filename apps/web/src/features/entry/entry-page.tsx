@@ -12,6 +12,8 @@ import { PageState } from "../../presentation/components/page-state";
 import { PlainText } from "../../presentation/components/plain-text";
 import { StatusBadge } from "../../presentation/components/status-badge";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { type AddResult, AddResultNotice, AddToCartForm } from "../cart/add-to-cart-form";
 import {
@@ -23,7 +25,7 @@ import {
 import { readEligibilityOf } from "../purchase/read-eligibility";
 import { buildEntryModel, type EntryOfferingItem } from "./entry-model";
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link inline-block py-2";
 
 function OfferingView({
   item,
@@ -34,24 +36,26 @@ function OfferingView({
 }) {
   const reasonId = `${useId()}-reason`;
   return (
-    <li className="flex flex-col gap-2 rounded-base border border-border p-3">
-      <h2 className="text-xl font-bold">{item.name}</h2>
-      <PlainText>{item.description}</PlainText>
+    <li className="card gap-4">
+      <h2 className="card__value">{item.name}</h2>
+      <PlainText className="measure">{item.description}</PlainText>
       <p>
-        <span className="font-medium">{copy.sales.priceLabel}</span> {item.priceText}
+        <span className="font-bold">{copy.sales.priceLabel}</span>{" "}
+        <span className="num text-lead">{item.priceText}</span>
       </p>
       <p>
-        <span className="font-medium">{copy.sales.periodLabel}</span> {item.salesPeriodText}
+        <span className="font-bold">{copy.sales.periodLabel}</span>{" "}
+        <span className="num">{item.salesPeriodText}</span>
       </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{copy.sales.statusLabel}</span>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-bold">{copy.sales.statusLabel}</span>
         <StatusBadge tone={item.status.tone} label={item.status.label} />
-        <span id={reasonId} className="text-sm">
+        <span id={reasonId} className="text-small">
           {item.status.description}
         </span>
       </div>
       {item.perAccountLimit !== null ? (
-        <p className="text-sm">{copy.entry.perAccountLimit(item.perAccountLimit)}</p>
+        <p className="text-small">{copy.entry.perAccountLimit(item.perAccountLimit)}</p>
       ) : null}
       <AddToCartForm
         buildLine={(quantity) => ({
@@ -62,6 +66,7 @@ function OfferingView({
         unitPrice={item.unitPrice}
         maxSelectableQuantity={item.maxSelectableQuantity}
         addable={item.addable}
+        buttonVariant="outline"
         reasonId={reasonId}
         onResult={onResult}
       />
@@ -140,41 +145,52 @@ export function EntryPage() {
   const list = buildEntryModel(state.offerings, eligibility);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.entry.heading}</h1>
+    <div className="flex flex-col">
+      <PageHero title={copy.entry.heading} />
       {list.kind !== "loading" ? (
-        <p>
-          <Link href={CART_HREF} prefetch={false} className={linkClass}>
-            {copy.sales.viewCart}
-          </Link>
-        </p>
+        <div className="surface-ink bleed relative mt-6 mb-16 py-12">
+          <Sticker
+            kind="chip"
+            color="teal"
+            tilt={4}
+            size={48}
+            className="absolute right-6 -bottom-6 md:right-24"
+          />
+          <p>
+            <Link href={CART_HREF} prefetch={false} className={linkClass}>
+              {copy.sales.viewCart}
+            </Link>
+          </p>
+        </div>
       ) : null}
-      {list.kind === "loading" ? <PageState state="loading" /> : null}
-      {list.kind === "empty" ? <PageState state="empty" /> : null}
-      {list.kind === "unavailable" ? (
-        <PageState
-          state="unavailable"
-          message={copy.pageState.unavailable(copy.entry.subject)}
-          onRetry={reload}
-        />
-      ) : null}
-      {list.kind === "items" ? (
-        <>
-          {eligibility.kind === "unavailable" ? (
-            <PageState
-              state="unavailable"
-              message={copy.pageState.unavailable(copy.entry.eligibilitySubject)}
-              onRetry={reload}
-            />
-          ) : null}
-          <AddResultNotice result={result} />
-          <ul className="flex flex-col gap-4">
-            {list.items.map((item) => (
-              <OfferingView key={item.offeringRef} item={item} onResult={setResult} />
-            ))}
-          </ul>
-        </>
-      ) : null}
+      <div className="flex flex-col gap-8">
+        {list.kind === "loading" ? <PageState state="loading" /> : null}
+        {list.kind === "empty" ? <PageState state="empty" /> : null}
+        {list.kind === "unavailable" ? (
+          <PageState
+            state="unavailable"
+            message={copy.pageState.unavailable(copy.entry.subject)}
+            onRetry={reload}
+          />
+        ) : null}
+        {list.kind === "items" ? (
+          <>
+            {eligibility.kind === "unavailable" ? (
+              <PageState
+                state="unavailable"
+                message={copy.pageState.unavailable(copy.entry.eligibilitySubject)}
+                onRetry={reload}
+              />
+            ) : null}
+            <AddResultNotice result={result} />
+            <ul className="grid gap-8 lg:grid-cols-2">
+              {list.items.map((item) => (
+                <OfferingView key={item.offeringRef} item={item} onResult={setResult} />
+              ))}
+            </ul>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

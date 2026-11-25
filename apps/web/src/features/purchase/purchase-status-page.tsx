@@ -10,6 +10,7 @@ import { AccessDeniedView } from "../../presentation/components/access-denied-vi
 import type { Loadable } from "../../presentation/components/list-state";
 import { PageState } from "../../presentation/components/page-state";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
 import { Link } from "../../routing/link";
 import { useRouter } from "../../routing/navigation";
 import { CartRecovery } from "../cart/cart-recovery";
@@ -206,8 +207,8 @@ export function PurchaseStatusPage({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{variant.heading}</h1>
+    <div className="flex flex-col gap-6">
+      <PageHero title={variant.heading} />
       {model.kind === "loading" ? <PageState state="loading" /> : null}
       {model.kind === "unavailable" ? (
         <PageState
@@ -233,11 +234,7 @@ export function PurchaseStatusPage({
       ) : null}
       {model.kind === "ready" && variant.backLink !== null ? (
         <p>
-          <Link
-            href={variant.backLink.href}
-            prefetch={false}
-            className="text-brand underline underline-offset-4"
-          >
+          <Link href={variant.backLink.href} prefetch={false} className="link inline-block py-2">
             {variant.backLink.label}
           </Link>
         </p>

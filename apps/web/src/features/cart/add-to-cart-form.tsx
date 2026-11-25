@@ -26,7 +26,7 @@ function invalidMessage(parse: QuantityParse, max: number | null): string | null
 export function AddResultNotice({ result }: { result: AddResult }) {
   return (
     <div className="flex flex-col gap-2">
-      <p role="status" className="text-sm font-medium text-tone-success-fg">
+      <p role="status" className="font-bold">
         {result.kind === "ok"
           ? copy.sales.addSucceeded
           : result.kind === "busy"
@@ -34,37 +34,34 @@ export function AddResultNotice({ result }: { result: AddResult }) {
             : ""}
       </p>
       {result.kind === "blocked" ? (
-        <p role="alert" className="text-sm text-tone-failure-fg">
+        <p role="alert" className="alert block measure">
+          <span className="error-dot" aria-hidden="true" />
           {copy.cart.lifecycleBlocked.description}{" "}
-          <Link href={CART_HREF} prefetch={false} className="underline underline-offset-4">
+          <Link href={CART_HREF} prefetch={false} className="link">
             {copy.cart.corrupted.goToCart}
           </Link>
         </p>
       ) : null}
       {result.kind === "corrupted" ? (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-1 rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg"
-        >
-          <p>{copy.cart.corrupted.title}</p>
-          <Link href={CART_HREF} prefetch={false} className="underline underline-offset-4">
+        <div role="alert" className="alert measure">
+          <p>
+            <span className="error-dot" aria-hidden="true" />
+            {copy.cart.corrupted.title}
+          </p>
+          <Link href={CART_HREF} prefetch={false} className="link">
             {copy.cart.corrupted.goToCart}
           </Link>
         </div>
       ) : null}
       {result.kind === "quantity_overflow" ? (
-        <p
-          role="alert"
-          className="rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg"
-        >
+        <p role="alert" className="alert block measure">
+          <span className="error-dot" aria-hidden="true" />
           {copy.sales.addQuantityOverflow}
         </p>
       ) : null}
       {result.kind === "storage_unavailable" ? (
-        <p
-          role="alert"
-          className="rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg"
-        >
+        <p role="alert" className="alert block measure">
+          <span className="error-dot" aria-hidden="true" />
           {copy.sales.addFailed}
         </p>
       ) : null}
@@ -82,6 +79,8 @@ export type AddToCartFormProps = {
   /** Element that holds the reason text of a disabled add; tied to the button by aria-describedby. */
   reasonId: string;
   onResult: (result: AddResult) => void;
+  /** Look of the add button: "outline" where several forms share one screen (DESIGN 8.1: one primary per screen). */
+  buttonVariant?: "default" | "outline";
 };
 
 export function AddToCartForm({
@@ -91,6 +90,7 @@ export function AddToCartForm({
   addable,
   reasonId,
   onResult,
+  buttonVariant = "default",
 }: AddToCartFormProps) {
   const cart = useCart();
   const [raw, setRaw] = useState("1");
@@ -138,10 +138,10 @@ export function AddToCartForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor={inputId} className="text-sm font-medium">
-          {copy.quantity.label}
-        </label>
+      <label htmlFor={inputId} className="field-label">
+        {copy.quantity.label}
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
         <Input
           id={inputId}
           type="number"
@@ -154,6 +154,7 @@ export function AddToCartForm({
         />
         <Button
           type="submit"
+          variant={buttonVariant}
           disabled={!addable || invalid || cartActionDisabled}
           aria-describedby={buttonDescribedBy.length > 0 ? buttonDescribedBy.join(" ") : undefined}
         >
@@ -161,32 +162,34 @@ export function AddToCartForm({
         </Button>
       </div>
       {cartStatus !== null ? (
-        <p id={cartStatusId} className="text-sm text-tone-failure-fg">
+        <p id={cartStatusId} className="text-small font-bold">
+          <span className="error-dot" aria-hidden="true" />
           {cartStatus}{" "}
           {cartBlocked || cartStorageUnavailable ? (
-            <Link href={CART_HREF} prefetch={false} className="underline underline-offset-4">
+            <Link href={CART_HREF} prefetch={false} className="link">
               {copy.cart.corrupted.goToCart}
             </Link>
           ) : null}
         </p>
       ) : null}
       {maxSelectableQuantity !== null ? (
-        <p id={hintId} className="text-sm text-foreground/80">
+        <p id={hintId} className="text-small">
           {copy.quantity.guidance(maxSelectableQuantity)}
         </p>
       ) : null}
       {error !== null ? (
-        <p id={errorId} className="text-sm text-tone-failure-fg">
+        <p id={errorId} className="text-small font-bold">
+          <span className="error-dot" aria-hidden="true" />
           {error}
         </p>
       ) : null}
-      <p className="text-sm">
-        <span className="font-medium">{copy.sales.displayTotalLabel}</span>{" "}
+      <p className="pt-2">
+        <span className="font-bold">{copy.sales.displayTotalLabel}</span>{" "}
         {parse.kind === "valid" ? (
-          <span>{formatDisplayTotal(unitPrice, parse.quantity)}</span>
+          <span className="num">{formatDisplayTotal(unitPrice, parse.quantity)}</span>
         ) : null}
       </p>
-      <p className="text-xs text-foreground/70">{copy.sales.displayTotalNote}</p>
+      <p className="text-small">{copy.sales.displayTotalNote}</p>
     </form>
   );
 }

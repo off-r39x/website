@@ -36,11 +36,9 @@ export function CartRecovery({
   };
 
   return (
-    <div
-      role="alert"
-      className="flex flex-col items-start gap-2 rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg"
-    >
+    <div role="alert" className="alert measure">
       <p className="font-bold">
+        <span className="error-dot" aria-hidden="true" />
         {storageUnavailable
           ? copy.cart.lifecycleBlocked.storageTitle
           : copy.cart.lifecycleBlocked.title}

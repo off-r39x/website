@@ -14,6 +14,8 @@ import { StatusBadge } from "../../presentation/components/status-badge";
 import { Button } from "../../presentation/components/ui/button";
 import { Input } from "../../presentation/components/ui/input";
 import { copy } from "../../presentation/copy/ja";
+import { PageHero } from "../../presentation/decor/page-hero";
+import { Sticker } from "../../presentation/decor/sticker";
 import { Link } from "../../routing/link";
 import { CartPurchaseFeedback } from "../purchase/cart-purchase-feedback";
 import {
@@ -31,7 +33,7 @@ import { buildCartPageModel, type CartRow } from "./cart-view-model";
 import { parseQuantityInput } from "./quantity";
 import { useCart } from "./use-cart";
 
-const linkClass = "text-brand underline underline-offset-4";
+const linkClass = "link";
 
 type Resolution = {
   /** The Cart lines these resolutions were read for (null before the first read). */
@@ -96,44 +98,51 @@ function CartRowView({
   };
 
   return (
-    <li className="flex flex-col gap-2 rounded-base border border-border p-3">
-      <h2 className="text-xl font-bold">{row.name ?? copy.cart.unknownItemName}</h2>
-      <p className="text-sm">{row.kindLabel}</p>
+    <li className="card gap-4">
+      <div className="flex flex-col gap-2">
+        <h2 className="card__value">{row.name ?? copy.cart.unknownItemName}</h2>
+        <p className="card__note">{row.kindLabel}</p>
+      </div>
       {row.unitPriceText !== null ? (
         <p>
-          <span className="font-medium">{copy.cart.unitPriceLabel}</span> {row.unitPriceText}
+          <span className="font-bold">{copy.cart.unitPriceLabel}</span>{" "}
+          <span className="num">{row.unitPriceText}</span>
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor={inputId} className="text-sm font-medium">
+      <div className="flex flex-col gap-2">
+        <label htmlFor={inputId} className="field-label">
           {copy.quantity.label}
         </label>
-        <Input
-          id={inputId}
-          type="number"
-          inputMode="numeric"
-          value={text}
-          onChange={handleChange}
-          aria-invalid={hasError ? true : undefined}
-          aria-describedby={hasError ? errorId : undefined}
-        />
-        <Button type="button" variant="outline" onClick={() => onRemove(row.lineKey)}>
-          {copy.cart.remove}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            id={inputId}
+            type="number"
+            inputMode="numeric"
+            value={text}
+            onChange={handleChange}
+            aria-invalid={hasError ? true : undefined}
+            aria-describedby={hasError ? errorId : undefined}
+          />
+          <Button type="button" variant="outline" onClick={() => onRemove(row.lineKey)}>
+            {copy.cart.remove}
+          </Button>
+        </div>
       </div>
       {hasError ? (
-        <p id={errorId} role="alert" className="text-sm text-tone-failure-fg">
+        <p id={errorId} role="alert" className="text-small font-bold">
+          <span className="error-dot" aria-hidden="true" />
           {invalid ? copy.quantity.invalid : copy.sales.addFailed}
         </p>
       ) : null}
       {row.subtotalText !== null ? (
         <p>
-          <span className="font-medium">{copy.cart.subtotalLabel}</span> {row.subtotalText}
+          <span className="font-bold">{copy.cart.subtotalLabel}</span>{" "}
+          <span className="num">{row.subtotalText}</span>
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         <StatusBadge tone={row.status.tone} label={row.status.label} />
-        <span className="text-sm">{row.status.description}</span>
+        <span className="text-small">{row.status.description}</span>
       </div>
     </li>
   );
@@ -229,8 +238,8 @@ export function CartPage() {
 
   if (cart.state.kind === "blocked" || cart.state.kind === "storage_unavailable") {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold">{copy.cart.heading}</h1>
+      <div className="flex flex-col">
+        <PageHero title={copy.cart.heading} />
         <CartRecovery />
       </div>
     );
@@ -238,9 +247,11 @@ export function CartPage() {
 
   if (cart.state.kind === "busy") {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold">{copy.cart.heading}</h1>
-        <p role="status">{copy.cart.lifecycleBusy.description}</p>
+      <div className="flex flex-col">
+        <PageHero title={copy.cart.heading} />
+        <p role="status" className="card measure font-bold">
+          {copy.cart.lifecycleBusy.description}
+        </p>
       </div>
     );
   }
@@ -253,107 +264,118 @@ export function CartPage() {
   // The Order exists and the lines have left the Cart: show progress only, never "empty".
   if (purchase.phase.kind === "preparing") {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold">{copy.cart.heading}</h1>
+      <div className="flex flex-col">
+        <PageHero title={copy.cart.heading} />
         <CartPurchaseFeedback phase={purchase.phase} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{copy.cart.heading}</h1>
+    <div className="flex flex-col">
+      <PageHero title={copy.cart.heading} />
 
-      {model.kind === "loading" ? <PageState state="loading" /> : null}
+      <div className="flex w-full max-w-3xl flex-col gap-8">
+        {model.kind === "loading" ? <PageState state="loading" /> : null}
 
-      {model.kind === "corrupted" ? (
-        <div
-          role="alert"
-          className="flex flex-col items-start gap-2 rounded-base border border-tone-failure-fg/30 bg-tone-failure-bg p-3 text-tone-failure-fg"
-        >
-          <p className="font-bold">{copy.cart.corrupted.title}</p>
-          <p>{copy.cart.corrupted.description}</p>
-          <Button type="button" variant="outline" onClick={() => cart.reset()}>
-            {copy.cart.corrupted.reset}
-          </Button>
-        </div>
-      ) : null}
-
-      {model.kind === "empty" ? <PageState state="empty" message={copy.cart.empty} /> : null}
-
-      {model.kind === "unavailable" ? (
-        <PageState
-          state="unavailable"
-          message={copy.pageState.unavailable(copy.cart.subject)}
-          onRetry={retry}
-        />
-      ) : null}
-
-      {showRows ? (
-        <ul className="flex flex-col gap-4">
-          {model.rows.map((row) => (
-            <CartRowView
-              key={row.lineKey}
-              row={row}
-              onSetQuantity={setQuantity}
-              onRemove={(lineKey) => cart.remove(lineKey)}
-            />
-          ))}
-        </ul>
-      ) : null}
-
-      {showRows || model.kind === "empty" ? (
-        <p className="flex flex-wrap gap-4">
-          <Link href={ENTRY_HREF} prefetch={false} className={linkClass}>
-            {copy.cart.backToEntry}
-          </Link>
-          <Link href={GOODS_HREF} prefetch={false} className={linkClass}>
-            {copy.cart.backToGoods}
-          </Link>
-        </p>
-      ) : null}
-
-      {showRows ? (
-        <section aria-labelledby={summaryId} className="flex flex-col gap-2">
-          <SectionHeading id={summaryId}>{copy.cart.summary.heading}</SectionHeading>
-          <p>
-            {model.kind === "ready" && model.totalText !== null ? (
-              <>
-                <span className="font-medium">{copy.cart.summary.totalLabel}</span>{" "}
-                {model.totalText}
-              </>
-            ) : (
-              copy.cart.summary.totalUnknown
-            )}
-          </p>
-          <p className="text-sm">{copy.cart.summary.recalcNote}</p>
-          <p className="text-sm">{copy.cart.summary.onePayment}</p>
-          {model.proceed.canProceed ? null : (
-            <p id={reasonId} className="text-sm">
-              {model.proceed.reasons.some((reason) => reason.kind === "line")
-                ? copy.cart.proceed.blocked
-                : copy.cart.proceed.unknown}
+        {model.kind === "corrupted" ? (
+          <div role="alert" className="alert measure">
+            <p className="font-bold">
+              <span className="error-dot" aria-hidden="true" />
+              {copy.cart.corrupted.title}
             </p>
-          )}
-          <div>
-            <Button
-              type="button"
-              disabled={!model.proceed.canProceed || purchase.busy}
-              aria-busy={purchase.busy ? true : undefined}
-              aria-describedby={model.proceed.canProceed ? undefined : reasonId}
-              onClick={handleProceed}
-            >
-              {copy.cart.proceed.label}
+            <p>{copy.cart.corrupted.description}</p>
+            <Button type="button" variant="outline" onClick={() => cart.reset()}>
+              {copy.cart.corrupted.reset}
             </Button>
           </div>
-          <CartPurchaseFeedback phase={purchase.phase} />
-        </section>
-      ) : null}
+        ) : null}
+
+        {model.kind === "empty" ? <PageState state="empty" message={copy.cart.empty} /> : null}
+
+        {model.kind === "unavailable" ? (
+          <PageState
+            state="unavailable"
+            message={copy.pageState.unavailable(copy.cart.subject)}
+            onRetry={retry}
+          />
+        ) : null}
+
+        {showRows ? (
+          <ul className="flex flex-col gap-6">
+            {model.rows.map((row) => (
+              <CartRowView
+                key={row.lineKey}
+                row={row}
+                onSetQuantity={setQuantity}
+                onRemove={(lineKey) => cart.remove(lineKey)}
+              />
+            ))}
+          </ul>
+        ) : null}
+
+        {showRows || model.kind === "empty" ? (
+          <p className="flex flex-wrap gap-x-6 gap-y-2">
+            <Link href={ENTRY_HREF} prefetch={false} className={linkClass}>
+              {copy.cart.backToEntry}
+            </Link>
+            <Link href={GOODS_HREF} prefetch={false} className={linkClass}>
+              {copy.cart.backToGoods}
+            </Link>
+          </p>
+        ) : null}
+
+        {showRows ? (
+          <section aria-labelledby={summaryId} className="card gap-3">
+            <SectionHeading id={summaryId}>{copy.cart.summary.heading}</SectionHeading>
+            <p className="text-lead">
+              {model.kind === "ready" && model.totalText !== null ? (
+                <>
+                  <span>{copy.cart.summary.totalLabel}</span>{" "}
+                  <span className="num">{model.totalText}</span>
+                </>
+              ) : (
+                copy.cart.summary.totalUnknown
+              )}
+            </p>
+            <p className="text-small">{copy.cart.summary.recalcNote}</p>
+            <p className="text-small">{copy.cart.summary.onePayment}</p>
+            {model.proceed.canProceed ? null : (
+              <p id={reasonId} className="text-small">
+                {model.proceed.reasons.some((reason) => reason.kind === "line")
+                  ? copy.cart.proceed.blocked
+                  : copy.cart.proceed.unknown}
+              </p>
+            )}
+            <div className="pt-3">
+              <Button
+                type="button"
+                disabled={!model.proceed.canProceed || purchase.busy}
+                aria-busy={purchase.busy ? true : undefined}
+                aria-describedby={model.proceed.canProceed ? undefined : reasonId}
+                onClick={handleProceed}
+              >
+                {copy.cart.proceed.label}
+              </Button>
+            </div>
+            <CartPurchaseFeedback phase={purchase.phase} />
+          </section>
+        ) : null}
+      </div>
 
       {showRows || model.kind === "empty" ? (
-        <section aria-labelledby={karaokeId} className="flex flex-col gap-2">
+        <section
+          aria-labelledby={karaokeId}
+          className="surface-ink bleed section-y relative mt-16 flex flex-col gap-4"
+        >
+          <Sticker
+            kind="note"
+            tilt={-8}
+            size={52}
+            className="absolute -top-6 right-6 md:right-24"
+          />
           <SectionHeading id={karaokeId}>{copy.cart.karaoke.heading}</SectionHeading>
-          <p>{copy.cart.karaoke.body}</p>
+          <p className="measure">{copy.cart.karaoke.body}</p>
           <p>
             <Link href={karaokeGuideHref()} prefetch={false} className={linkClass}>
               {copy.cart.karaoke.link}
