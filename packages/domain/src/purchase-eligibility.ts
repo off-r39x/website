@@ -54,7 +54,11 @@ export type StockPurchaseTarget = PurchaseSaleConditions & {
   ownCommittedQuantity: number;
 };
 
-/** A Karaoke Slot; the period, control state and limit are the Karaoke Sales Configuration's. */
+/**
+ * A Karaoke Slot; the period, control state and limit are the Karaoke Sales Configuration's. SPEC-090 §9.2
+ * items 4 (overlap invariant) and 7 (isolation from sale) are not represented: see
+ * {@link evaluatePurchaseEligibility} before mounting the Karaoke purchase Operation.
+ */
 export type KaraokePurchaseTarget = PurchaseSaleConditions & {
   slotState: KaraokeSlotState;
   /** `statement_timestamp() >= usage_end - 30 minutes`, judged by the database (SPEC-090 §9.2 item 5). */
@@ -89,6 +93,14 @@ export type PurchaseEligibility = {
  * purchase Operation); otherwise it is min(remaining capacity, purchase limit - (own held + own committed))
  * for Entry / Goods, and 0 or 1 for Karaoke. Out-of-range quantities are caller defects (RangeError), not
  * business outcomes: the request body and the database constraints exclude them.
+ *
+ * Not evaluated for Karaoke: two candidate conditions of SPEC-090 §9.2 have no input here and no reason
+ * among the nine of API-PUR-ELG-001: item 4 (the same-Scope overlap invariant holds) and item 7 (the Slot is
+ * not isolated from sale for a correlation inconsistency or a Consistency Review). In this release
+ * API-PUR-KRK-001 is not mounted, so every Karaoke item is SALES_STOPPED (UCR-110-004) and neither is
+ * reachable. Before the Karaoke purchase Operation is mounted (`purchaseRouteMounted: true` for KARAOKE),
+ * both conditions must be settled first (an input and its reason, or a UCR to SPEC-110); otherwise a Slot
+ * isolated from sale would be reported purchasable when the other conditions hold.
  */
 export function evaluatePurchaseEligibility(
   request: PurchaseEligibilityRequest,
