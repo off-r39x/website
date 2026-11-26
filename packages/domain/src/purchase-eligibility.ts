@@ -43,8 +43,9 @@ export type StockPurchaseTarget = PurchaseSaleConditions & {
   committedQuantity: number;
   purchaseLimit: number;
   /**
-   * The Profile's active temporary holds of this target: HELD Allocations only; released or expired holds
-   * are not counted (SPEC-030 §7.5).
+   * The Profile's active temporary holds of this target: Allocations whose state is HELD (SPEC-030 §7.5).
+   * Counted by state, not by time: a HELD Allocation past its payment deadline is counted until it is
+   * actually released; only Allocations already released are not.
    */
   ownHeldQuantity: number;
   /**
@@ -64,7 +65,11 @@ export type KaraokePurchaseTarget = PurchaseSaleConditions & {
   /** `statement_timestamp() >= usage_end - 30 minutes`, judged by the database (SPEC-090 §9.2 item 5). */
   paymentWindowTooShort: boolean;
   purchaseLimit: number;
-  /** The Profile's ACTIVE Karaoke Holds only; released or expired Holds are not counted (BR-KRK-010). */
+  /**
+   * The Profile's Karaoke Holds whose state is ACTIVE (BR-KRK-010, SPEC-100 §31). Counted by state, not by
+   * time: a Hold past `hold_expires_at` that is still ACTIVE (for example while the payment result is being
+   * checked) is counted; only Holds already RELEASED or EXPIRED are not (SPEC-090 §11.2).
+   */
   ownActiveHoldCount: number;
   /**
    * The Profile's Karaoke Reservations that were confirmed, including those canceled later: a canceled
