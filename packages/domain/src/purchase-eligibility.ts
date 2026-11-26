@@ -5,6 +5,7 @@
 // compares the instants with statement_timestamp(), so the period and the Karaoke payment window arrive as
 // booleans (no instant is parsed or rounded here).
 
+import { assertNever } from "./assert-never";
 import type { KaraokeSlotState } from "./states";
 
 /** SPEC-110 API-PUR-ELG-001 Reasons, in the order the Operation lists them. */
@@ -144,21 +145,40 @@ function evaluateStock(target: StockPurchaseTarget, requested: number): Purchase
   return { purchasable: reasons.length === 0, reasons, maxPurchasableQuantity: max };
 }
 
+/**
+ * How a Karaoke Slot State bears on a new purchase (SPEC-090 §9.1, KRK-AVL-001), stated for every state
+ * (DEV-TS-010): a state added later fails the compilation here instead of falling through.
+ */
+function slotDisposition(state: KaraokeSlotState): "CANDIDATE" | "TAKEN" | "STOPPED" {
+  switch (state) {
+    case "AVAILABLE":
+      return "CANDIDATE";
+    case "HELD":
+    case "SOLD":
+      return "TAKEN";
+    case "SALES_STOPPED":
+      // A per-Slot sales stop is shown as SALES_STOPPED, as in the public availability (SPEC-110 §27).
+      return "STOPPED";
+    default:
+      return assertNever(state);
+  }
+}
+
 function evaluateKaraoke(target: KaraokePurchaseTarget): PurchaseEligibility {
   requireCount(target.purchaseLimit, "purchaseLimit");
   requireCount(target.ownActiveHoldCount, "ownActiveHoldCount");
   requireCount(target.ownConfirmedReservationCount, "ownConfirmedReservationCount");
 
-  // A per-Slot sales stop is shown as SALES_STOPPED, as in the public availability (SPEC-110 §27).
-  const reasons = saleReasons(target, target.slotState === "SALES_STOPPED");
+  const slot = slotDisposition(target.slotState);
+  const reasons = saleReasons(target, slot === "STOPPED");
   const notNow = reasons.length > 0;
   const accountRemaining =
     target.purchaseLimit - (target.ownActiveHoldCount + target.ownConfirmedReservationCount);
   if (accountRemaining < 1) reasons.push("PURCHASE_LIMIT_EXCEEDED");
-  if (target.slotState === "HELD" || target.slotState === "SOLD") reasons.push("SLOT_UNAVAILABLE");
+  if (slot === "TAKEN") reasons.push("SLOT_UNAVAILABLE");
   if (target.paymentWindowTooShort) reasons.push("PAYMENT_WINDOW_TOO_SHORT");
 
-  const candidate = !notNow && target.slotState === "AVAILABLE" && !target.paymentWindowTooShort;
+  const candidate = !notNow && slot === "CANDIDATE" && !target.paymentWindowTooShort;
   const max = candidate && accountRemaining >= 1 ? 1 : 0;
   return { purchasable: reasons.length === 0, reasons, maxPurchasableQuantity: max };
 }

@@ -416,7 +416,7 @@
       "expected_http": null,
       "expected_domain_postconditions": [
         "each exported constant equals the canonical set with no duplicates",
-        "no extra exports beyond assertNever, the SPEC-030 9.2 display-name policy (DISPLAY_NAME_MAX_CODE_POINTS, normalizeDisplayName) and the PR-L2-3 public Entry sales state function evaluatePublicEntryAvailability"
+        "no extra exports beyond assertNever, the SPEC-030 9.2 display-name policy (DISPLAY_NAME_MAX_CODE_POINTS, normalizeDisplayName), the PR-L2-3 public Entry sales state function evaluatePublicEntryAvailability, and the PR-L1-2a purchase eligibility (PURCHASE_REASONS, evaluatePurchaseEligibility) and Order Purpose (deriveOrderPurpose)"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -34982,7 +34982,8 @@
         "BR-KRK-003",
         "BR-KRK-010",
         "KRK-AVL-001",
-        "SPEC-090-9.2"
+        "SPEC-090-9.2",
+        "DEV-TS-010"
       ],
       "system_invariant_ids": [],
       "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-KRK-001"],
@@ -34996,7 +34997,8 @@
       "expected_domain_postconditions": [
         "Karaoke Slot HELD / SOLD gives SLOT_UNAVAILABLE, Slot SALES_STOPPED gives SALES_STOPPED (as the public availability of SPEC-110 section 27), AVAILABLE is purchasable",
         "paymentWindowTooShort (now >= usage_end - 30 minutes, judged by the database) gives PAYMENT_WINDOW_TOO_SHORT with max 0; confirmed Reservations and ACTIVE Holds of the Profile both consume the limit (PURCHASE_LIMIT_EXCEEDED)",
-        "The Karaoke max is 0 or 1; a requested quantity other than 1 is a RangeError"
+        "The Karaoke max is 0 or 1; a requested quantity other than 1 is a RangeError",
+        "Every canonical Karaoke Slot State has an explicit outcome (exhaustive switch, DEV-TS-010): only AVAILABLE is purchasable, purchasable exactly when the max is 1; a state outside the canonical set throws instead of being treated as purchasable"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],

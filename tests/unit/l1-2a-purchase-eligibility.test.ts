@@ -6,6 +6,7 @@
 import {
   deriveOrderPurpose,
   evaluatePurchaseEligibility,
+  KARAOKE_SLOT_STATES,
   type KaraokePurchaseTarget,
   type KaraokeSlotState,
   PURCHASE_REASONS,
@@ -346,6 +347,22 @@ describe("TC-API-005-106 evaluatePurchaseEligibility: Karaoke Slot, payment wind
     expect(
       karaoke(slot({ purchaseLimit: 5, ownActiveHoldCount: 0, ownConfirmedReservationCount: 0 })),
     ).toEqual(ok(1));
+  });
+
+  it("every canonical Slot State has a stated outcome: only AVAILABLE is purchasable (DEV-TS-010)", () => {
+    const purchasable = KARAOKE_SLOT_STATES.filter(
+      (slotState) => karaoke(slot({ slotState })).purchasable,
+    );
+    expect(purchasable).toEqual(["AVAILABLE"]);
+    for (const slotState of KARAOKE_SLOT_STATES) {
+      const result = karaoke(slot({ slotState }));
+      expect(result.purchasable, slotState).toBe(result.maxPurchasableQuantity === 1);
+    }
+  });
+
+  it("a Slot State outside the canonical set is rejected, never treated as purchasable", () => {
+    const unknown = "RESERVED" as unknown as KaraokeSlotState;
+    expect(() => karaoke(slot({ slotState: unknown }))).toThrow(/Unexpected value: RESERVED/);
   });
 
   it("the max is 0 or 1", () => {
