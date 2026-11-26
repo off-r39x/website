@@ -314,15 +314,17 @@
         "apps/web/src/mock/backend/purpose.ts",
         "apps/web/src/mock/backend/mock-api.ts",
         "apps/web/src/features/purchase/use-cart-purchase.ts",
-        "apps/web/src/features/purchase/cart-purchase-flow.ts"
+        "apps/web/src/features/purchase/cart-purchase-flow.ts",
+        "packages/domain/src/order-purpose.ts"
       ],
       "test_case_ids": [
         "TC-PG-MYP-003-001",
         "TC-BR-ORD-013-101",
         "TC-BR-ORD-013-102",
-        "TC-PG-CRT-001-612"
+        "TC-PG-CRT-001-612",
+        "TC-API-004-101"
       ],
-      "notes": "implementation mapping only: purchase-again target by purpose; S2 mock backend"
+      "notes": "implementation mapping only: purchase-again target by purpose; S2 mock backend; PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
     },
     {
       "rule_id": "SEC-QR-012",
@@ -2572,10 +2574,11 @@
       "rule_id": "BR-SAL-003",
       "code_paths": [
         "apps/web/src/features/goods/goods-list-model.ts",
-        "packages/domain/src/sales-availability.ts"
+        "packages/domain/src/sales-availability.ts",
+        "packages/domain/src/purchase-eligibility.ts"
       ],
-      "test_case_ids": ["TC-PG-GDS-001-601", "TC-API-009-003"],
-      "notes": "implementation mapping only: UI mock test double and the PR-L2-3 backend public read (API/DB tests with synthetic data; not provider coverage, G8 not executed)"
+      "test_case_ids": ["TC-PG-GDS-001-601", "TC-API-009-003", "TC-API-005-103"],
+      "notes": "implementation mapping only: UI mock test double and the PR-L2-3 backend public read (API/DB tests with synthetic data; not provider coverage, G8 not executed); PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
     },
     {
       "rule_id": "DEV-WEB-009",
@@ -6228,9 +6231,12 @@
     },
     {
       "rule_id": "BR-SAL-004",
-      "code_paths": ["packages/domain/src/sales-availability.ts"],
-      "test_case_ids": ["TC-API-009-003"],
-      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+      "code_paths": [
+        "packages/domain/src/sales-availability.ts",
+        "packages/domain/src/purchase-eligibility.ts"
+      ],
+      "test_case_ids": ["TC-API-009-003", "TC-API-005-103"],
+      "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed; PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
     },
     {
       "rule_id": "DB-IDM-001",
@@ -6943,6 +6949,75 @@
         "TC-REVIEW-PORT-005"
       ],
       "notes": "implementation mapping only: the AUTH dedupe key and its input"
+    },
+    {
+      "rule_id": "API-PUR-ELG-001",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": [
+        "TC-API-005-101",
+        "TC-API-005-102",
+        "TC-API-005-103",
+        "TC-API-005-104",
+        "TC-API-005-105",
+        "TC-API-005-106",
+        "TC-API-005-107",
+        "TC-API-005-108"
+      ],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+    },
+    {
+      "rule_id": "BR-SAL-006",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": ["TC-API-005-105"],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+    },
+    {
+      "rule_id": "BR-TKT-001",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": ["TC-API-005-103"],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+    },
+    {
+      "rule_id": "BR-TKT-003",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": ["TC-API-005-105"],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+    },
+    {
+      "rule_id": "BR-TKT-004",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": ["TC-API-005-105"],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+    },
+    {
+      "rule_id": "BR-GDS-001",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": ["TC-API-005-103"],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+    },
+    {
+      "rule_id": "BR-GDS-003",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": ["TC-API-005-105"],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+    },
+    {
+      "rule_id": "BR-KRK-003",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": ["TC-API-005-106"],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+    },
+    {
+      "rule_id": "BR-KRK-010",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": ["TC-API-005-106"],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+    },
+    {
+      "rule_id": "KRK-AVL-001",
+      "code_paths": ["packages/domain/src/purchase-eligibility.ts"],
+      "test_case_ids": ["TC-API-005-106"],
+      "notes": "implementation mapping only: PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
     }
   ]
 }
