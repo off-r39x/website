@@ -1655,12 +1655,9 @@
     },
     {
       "rule_id": "BR-SAL-005",
-      "code_paths": [
-        "apps/web/src/mock/backend/mock-api.ts",
-        "packages/domain/src/purchase-eligibility.ts"
-      ],
-      "test_case_ids": ["TC-PG-GDS-001-101", "TC-API-005-101"],
-      "notes": "implementation mapping only: UI mock test double (not API/DB/provider coverage); PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
+      "code_paths": ["apps/web/src/mock/backend/mock-api.ts"],
+      "test_case_ids": ["TC-PG-GDS-001-101"],
+      "notes": "implementation mapping only: UI mock test double (not API/DB/provider coverage)"
     },
     {
       "rule_id": "INV-010-07",

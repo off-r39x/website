@@ -41,9 +41,15 @@ export type StockPurchaseTarget = PurchaseSaleConditions & {
   /** Every Profile's `committed_quantity`. */
   committedQuantity: number;
   purchaseLimit: number;
-  /** The Profile's active temporary holds (HELD Allocations) of this target. */
+  /**
+   * The Profile's active temporary holds of this target: HELD Allocations only; released or expired holds
+   * are not counted (SPEC-030 §7.5).
+   */
   ownHeldQuantity: number;
-  /** The Profile's confirmed purchases of this target (SPEC-030 §7.5). */
+  /**
+   * The Profile's confirmed purchases of this target, including rights canceled or refunded later unless an
+   * explicit recovery Operation restored the limit (SPEC-030 §7.5).
+   */
   ownCommittedQuantity: number;
 };
 
@@ -53,9 +59,12 @@ export type KaraokePurchaseTarget = PurchaseSaleConditions & {
   /** `statement_timestamp() >= usage_end - 30 minutes`, judged by the database (SPEC-090 §9.2 item 5). */
   paymentWindowTooShort: boolean;
   purchaseLimit: number;
-  /** The Profile's ACTIVE Karaoke Holds (BR-KRK-010). */
+  /** The Profile's ACTIVE Karaoke Holds only; released or expired Holds are not counted (BR-KRK-010). */
   ownActiveHoldCount: number;
-  /** The Profile's confirmed Karaoke Reservations (BR-KRK-010). */
+  /**
+   * The Profile's Karaoke Reservations that were confirmed, including those canceled later: a canceled
+   * Reservation does not restore the limit (BR-KRK-010, SPEC-090 KRK-CAN-014, SPEC-030 §7.5).
+   */
   ownConfirmedReservationCount: number;
 };
 

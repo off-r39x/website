@@ -34840,7 +34840,7 @@
       "test_case_id": "TC-API-005-101",
       "level": "Unit",
       "suite": "unit",
-      "upstream_rule_ids": ["TST-API-005", "API-PUR-ELG-001", "BR-SAL-005"],
+      "upstream_rule_ids": ["TST-API-005", "API-PUR-ELG-001"],
       "system_invariant_ids": [],
       "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-CART-001", "API-PUR-ENTRY-001"],
       "db_constraint_names": [],
