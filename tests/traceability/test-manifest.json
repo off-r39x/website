@@ -34876,7 +34876,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "A target that is not public or not found (target null) gives only NOT_PUBLIC_OR_NOT_FOUND with max 0 for ENTRY, GOODS and KARAOKE, whatever the requested quantity"
+        "A target that is not public or not found (target null) gives only NOT_PUBLIC_OR_NOT_FOUND with max 0 for ENTRY, GOODS and KARAOKE, for any requested quantity that passes the per-kind validation (a positive safe integer; exactly 1 for KARAOKE); an invalid quantity is a RangeError even then (TC-API-005-108)"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],

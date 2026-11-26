@@ -203,9 +203,10 @@ describe("TC-API-005-102 evaluatePurchaseEligibility: not public and not found a
     );
   });
 
-  it("does not add the other reasons, whatever the requested quantity", () => {
+  it("does not add the other reasons for any requested quantity that passes the per-kind validation (an invalid one is TC-API-005-108)", () => {
     expect(entry(2_147_483_647, null)).toEqual(ng(0, "NOT_PUBLIC_OR_NOT_FOUND"));
     expect(goods(1, null)).toEqual(ng(0, "NOT_PUBLIC_OR_NOT_FOUND"));
+    expect(goods(2_147_483_647, null)).toEqual(ng(0, "NOT_PUBLIC_OR_NOT_FOUND"));
   });
 });
 
