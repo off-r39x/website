@@ -114,9 +114,24 @@ function saleReasons(target: PurchaseSaleConditions, slotStopped: boolean): Purc
   const reasons: PurchaseReason[] = [];
   if (target.salesNotStarted) reasons.push("SALES_NOT_STARTED");
   if (target.salesClosed) reasons.push("SALES_CLOSED");
-  if (target.saleControlState === "SUSPENDED" || !target.purchaseRouteMounted || slotStopped)
+  if (controlStopsSale(target.saleControlState) || !target.purchaseRouteMounted || slotStopped)
     reasons.push("SALES_STOPPED");
   return reasons;
+}
+
+/**
+ * Whether the Sale Control State stops new purchases (SPEC-030 §7.6, BR-SAL-004), stated for every state
+ * (DEV-TS-010): a state added later fails the compilation here instead of passing like ENABLED.
+ */
+function controlStopsSale(state: PurchaseSaleConditions["saleControlState"]): boolean {
+  switch (state) {
+    case "ENABLED":
+      return false;
+    case "SUSPENDED":
+      return true;
+    default:
+      return assertNever(state);
+  }
 }
 
 function requireCount(value: number, name: string): void {

@@ -34896,7 +34896,8 @@
         "BR-TKT-001",
         "BR-GDS-001",
         "SPEC-030-7.4",
-        "SPEC-030-10.4"
+        "SPEC-030-10.4",
+        "DEV-TS-010"
       ],
       "system_invariant_ids": [],
       "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-CART-001", "API-PUR-ENTRY-001"],
@@ -34909,7 +34910,8 @@
       "expected_http": null,
       "expected_domain_postconditions": [
         "salesNotStarted gives SALES_NOT_STARTED, salesClosed gives SALES_CLOSED, SUSPENDED gives SALES_STOPPED; each makes purchasable false and the max 0 although capacity and the limit are left, for Entry, Goods and Karaoke",
-        "Inside the period and ENABLED, the target is purchasable"
+        "Inside the period and ENABLED, the target is purchasable",
+        "Both Sale Control States are handled explicitly (exhaustive switch, DEV-TS-010): a state outside ENABLED / SUSPENDED throws instead of passing like ENABLED"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],

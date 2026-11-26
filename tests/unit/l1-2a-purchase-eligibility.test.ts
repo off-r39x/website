@@ -229,6 +229,17 @@ describe("TC-API-005-103 evaluatePurchaseEligibility: the Sales Period and the S
     expect(goods(4)).toEqual(ok(4));
     expect(karaoke()).toEqual(ok(1));
   });
+
+  it("a Sale Control State outside ENABLED / SUSPENDED is rejected, never treated like ENABLED (DEV-TS-010)", () => {
+    const unknown = "PAUSED" as unknown as StockPurchaseTarget["saleControlState"];
+    expect(() => entry(1, stock({ saleControlState: unknown }))).toThrow(
+      /Unexpected value: PAUSED/,
+    );
+    expect(() => goods(1, stock({ saleControlState: unknown }))).toThrow(
+      /Unexpected value: PAUSED/,
+    );
+    expect(() => karaoke(slot({ saleControlState: unknown }))).toThrow(/Unexpected value: PAUSED/);
+  });
 });
 
 describe("TC-API-005-104 evaluatePurchaseEligibility: a kind without a mounted purchase Operation is SALES_STOPPED (UCR-110-004)", () => {
