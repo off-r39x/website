@@ -97,8 +97,9 @@ export type PurchaseEligibility = {
  * Not evaluated for Karaoke: two candidate conditions of SPEC-090 §9.2 have no input here and no reason
  * among the nine of API-PUR-ELG-001: item 4 (the same-Scope overlap invariant holds) and item 7 (the Slot is
  * not isolated from sale for a correlation inconsistency or a Consistency Review). In this release
- * API-PUR-KRK-001 is not mounted, so every Karaoke item is SALES_STOPPED (UCR-110-004) and neither is
- * reachable. Before the Karaoke purchase Operation is mounted (`purchaseRouteMounted: true` for KARAOKE),
+ * API-PUR-KRK-001 is not mounted, so no Karaoke item is purchasable and neither is reachable: a public,
+ * existing Slot gets SALES_STOPPED among its reasons (UCR-110-004), and a Slot that is not public or not
+ * found keeps only NOT_PUBLIC_OR_NOT_FOUND (the first-code rule of API-PUR-ELG-001). Before the Karaoke purchase Operation is mounted (`purchaseRouteMounted: true` for KARAOKE),
  * both conditions must be settled first (an input and its reason, or a UCR to SPEC-110); otherwise a Slot
  * isolated from sale would be reported purchasable when the other conditions hold.
  */
