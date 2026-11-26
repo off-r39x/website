@@ -165,8 +165,14 @@ async function run(): Promise<void> {
   }
 
   const created = outcome.outcome === "CREATED" ? outcome.created : undefined;
-  const events = [...(created?.events ?? [])];
-  const offerings = [...(created?.entry_ticket_offerings ?? [])];
+  const createdRefs = {
+    events: [...(created?.events ?? [])],
+    entry_ticket_offerings: [...(created?.entry_ticket_offerings ?? [])],
+    goods: [...(created?.goods ?? [])],
+    karaoke_sales_configurations: [...(created?.karaoke_sales_configurations ?? [])],
+    karaoke_exclusive_scopes: [...(created?.karaoke_exclusive_scopes ?? [])],
+    karaoke_slots: [...(created?.karaoke_slots ?? [])],
+  };
   process.stdout.write(
     `${JSON.stringify({
       schema_version: 1,
@@ -174,8 +180,12 @@ async function run(): Promise<void> {
       operation_execution_id: outcome.operationExecutionId,
       outcome: outcome.outcome,
       actor_ref: actorRef ?? null,
-      created: { events, entry_ticket_offerings: offerings },
-      counts: { events: events.length, entry_ticket_offerings: offerings.length },
+      created: createdRefs,
+      counts: Object.fromEntries(
+        Object.entries(createdRefs).map(([key, refs]) => [key, refs.length]),
+      ),
+      // INF-SEED-005 (UCR-180-007): CREATED / EXISTING / DEFERRED per target, for a run that decided.
+      targets: "targets" in outcome ? { ...outcome.targets } : null,
       audit_event_ids: outcome.outcome === "CREATED" ? [...outcome.auditEventIds] : [],
       error_code: "errorCode" in outcome ? outcome.errorCode : null,
     })}\n`,

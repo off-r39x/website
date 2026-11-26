@@ -6522,7 +6522,8 @@
         "TC-TST-SEED-006-014",
         "TC-TST-SEED-003-004",
         "TC-TST-SEED-003-015",
-        "TC-TST-SEED-003-021"
+        "TC-TST-SEED-003-021",
+        "TC-TST-SEED-005-008"
       ],
       "notes": "implementation mapping only: runs as app_migrator under the migration lock handle, and takes the migration lock again on the new connection before the re-check after an unknown COMMIT result; the lock acquisition is bounded to 60 seconds on the client too (a connection that stops answering is abandoned); the command connects only to the direct endpoint it checked (decoded host, no -pooler host in any case, port fixed to 5432, database name required so that PGDATABASE cannot choose it, no host with a slash, which pg would take as a Unix socket without TLS); SQL limited to the target tables, audit_events, lock and session settings; a lock granted after its deadline is not used (the client is ended); an error of the migration lock acquisition seen at or after its deadline, measured on the monotonic clock, is a lock timeout whatever the error (the client is ended), as the timer would have made it"
     },
@@ -6575,7 +6576,10 @@
         "TC-TST-SEED-003-022",
         "TC-TST-SEED-006-022",
         "TC-TST-SEED-003-023",
-        "TC-TST-SEED-006-023"
+        "TC-TST-SEED-006-023",
+        "TC-TST-SEED-002-008",
+        "TC-TST-SEED-002-010",
+        "TC-TST-SEED-006-024"
       ],
       "notes": "implementation mapping only: decision order, four outcomes, exit codes 0/2/3, no repair after FAILED or UNKNOWN_RESULT; a connection whose peer stops answering is destroyed after the close wait, so the command exits; the first connection is acquired within the SPEC-150 temporary connection budget (3 attempts, 3 seconds, backoff included), else FAILED; a connection that succeeds after the budget is ended, not used; an authentication rejection (SQLSTATE class 28) is not retried; a connection failure seen at or after the end of the connection budget, measured on the monotonic clock, is the budget running out whatever it is, an authentication rejection included; a lowered statement timeout acknowledged at or after the transaction deadline sends no further statement"
     },
@@ -6594,7 +6598,8 @@
         "TC-TST-SEED-003-017",
         "TC-TST-SEED-003-018",
         "TC-TST-SEED-003-023",
-        "TC-TST-SEED-006-023"
+        "TC-TST-SEED-006-023",
+        "TC-TST-SEED-002-007"
       ],
       "notes": "implementation mapping only: result line on stdout, common log fields on stderr, no input value, connection string or exception message; a refused authentication is FAILED(PERMANENT_FAILURE, DATABASE_AUTHENTICATION_FAILED); a SQLSTATE is written only as the cause on the retry events; a seed or re-check transaction ended by its wall clock, or a COMMIT not acknowledged within it, logs reliability.timeout.occurred (SPEC-160 section 22) with query_name and duration_ms, and no SQLSTATE"
     },
@@ -6608,7 +6613,8 @@
       "rule_id": "DB-SEED-001",
       "code_paths": [
         "packages/db/src/initial-data/seed.ts",
-        "packages/db/src/initial-data/targets.ts"
+        "packages/db/src/initial-data/targets.ts",
+        "packages/db/src/initial-data/input.ts"
       ],
       "test_case_ids": [
         "TC-TST-SEED-001-001",
@@ -6616,7 +6622,14 @@
         "TC-TST-SEED-002-002",
         "TC-TST-SEED-002-003",
         "TC-TST-SEED-002-004",
-        "TC-TST-SEED-002-006"
+        "TC-TST-SEED-002-006",
+        "TC-TST-SEED-001-005",
+        "TC-TST-SEED-002-007",
+        "TC-TST-SEED-002-008",
+        "TC-TST-SEED-002-009",
+        "TC-TST-SEED-002-010",
+        "TC-TST-SEED-003-025",
+        "TC-TST-SEED-006-026"
       ],
       "notes": "implementation mapping only: create only when there is no Event (or no Offering for the only Event); never update or delete"
     },
@@ -6656,7 +6669,11 @@
         "TC-TST-SEED-006-021",
         "TC-TST-SEED-003-022",
         "TC-TST-SEED-006-022",
-        "TC-TST-SEED-006-023"
+        "TC-TST-SEED-006-023",
+        "TC-TST-SEED-003-027",
+        "TC-TST-SEED-006-024",
+        "TC-TST-SEED-006-025",
+        "TC-TST-SEED-006-026"
       ],
       "notes": "implementation mapping only: transaction advisory lock before the count; re-check on a new connection, under the migration lock, after an unknown COMMIT result, each re-check transaction within the transaction deadline, kept on the client too (a connection that stops answering is abandoned); the reconnect stays within 3 attempts and 3 seconds in total, each attempt bounded by what is left; the retries of the seed and of the re-check, and the retry after an uncommitted re-check (after a full jitter 55P03 backoff), stay within the attempts and elapsed budget, backoff included, each retried transaction running within what is left of the budget and a later SQLSTATE never extending a budget already applied; a COMMIT acknowledged at or after the wall clock of its transaction (the 8 s, or what is left of the retry budget), measured on the monotonic clock once the acknowledgement is seen, is an unknown result and is re-checked, never CREATED from the late acknowledgement; a ROLLBACK that ends a transaction whose verdict was reached before COMMIT, acknowledged at or after its wall clock (measured on the monotonic clock once the acknowledgement is seen), ends the transaction by its wall clock: the seed transaction is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), never NOOP, and the re-check decides nothing (UNKNOWN_RESULT); likewise a transaction that failed is ended by its wall clock when, once it is rolled back or its connection is found gone, the deadline has passed (by the timer or on the monotonic clock), whatever the error: the seed transaction is FAILED (TEMPORARY_FAILURE, DATABASE_TEMPORARY_FAILURE), not a constraint rejection and not retried, and the re-check decides nothing"
     },
@@ -6664,26 +6681,41 @@
       "rule_id": "DB-SEED-003",
       "code_paths": [
         "packages/db/src/initial-data/input.ts",
-        "packages/db/src/initial-data/targets.ts"
+        "packages/db/src/initial-data/targets.ts",
+        "packages/db/src/initial-data/slots.ts"
       ],
       "test_case_ids": [
         "TC-TST-SEED-001-004",
         "TC-TST-SEED-003-001",
         "TC-TST-SEED-003-002",
-        "TC-TST-SEED-003-024"
+        "TC-TST-SEED-003-024",
+        "TC-TST-SEED-001-005",
+        "TC-TST-SEED-001-006",
+        "TC-TST-SEED-003-025",
+        "TC-TST-SEED-003-026",
+        "TC-TST-SEED-003-027",
+        "TC-TST-SEED-003-028"
       ],
       "notes": "implementation mapping only: strict input validation with the same conditions as the CHECK constraints; numbers are checked as written (a plain integer literal only, before JSON.parse rounding); no guessed values; a key written twice in one object is rejected (JSON.parse would keep only its last value)"
     },
     {
       "rule_id": "DB-SEED-004",
-      "code_paths": ["packages/db/src/initial-data/targets.ts"],
-      "test_case_ids": ["TC-TST-SEED-001-001"],
+      "code_paths": [
+        "packages/db/src/initial-data/targets.ts",
+        "packages/db/src/initial-data/seed.ts"
+      ],
+      "test_case_ids": ["TC-TST-SEED-001-001", "TC-TST-SEED-001-005"],
       "notes": "implementation mapping only: Offerings are created SUSPENDED with counters at 0"
     },
     {
       "rule_id": "DB-SEED-005",
       "code_paths": ["packages/db/src/initial-data/seed.ts", "packages/db/src/audit-events.ts"],
-      "test_case_ids": ["TC-TST-SEED-003-003", "TC-TST-SEED-004-001", "TC-TST-SEED-003-007"],
+      "test_case_ids": [
+        "TC-TST-SEED-003-003",
+        "TC-TST-SEED-004-001",
+        "TC-TST-SEED-003-007",
+        "TC-TST-SEED-004-004"
+      ],
       "notes": "implementation mapping only: one Audit Event per created row in the same transaction"
     },
     {
@@ -6694,9 +6726,21 @@
     },
     {
       "rule_id": "DB-SEED-007",
-      "code_paths": ["packages/db/src/initial-data/targets.ts"],
-      "test_case_ids": ["TC-TST-SEED-005-003", "TC-TST-SEED-005-004"],
+      "code_paths": [
+        "packages/db/src/initial-data/targets.ts",
+        "packages/db/src/initial-data/seed.ts"
+      ],
+      "test_case_ids": ["TC-TST-SEED-005-003", "TC-TST-SEED-005-004", "TC-TST-SEED-002-009"],
       "notes": "implementation mapping only: no schema change; targets are table definitions only"
+    },
+    {
+      "rule_id": "KRK-GEN-001",
+      "code_paths": [
+        "packages/db/src/initial-data/slots.ts",
+        "packages/db/src/initial-data/seed.ts"
+      ],
+      "test_case_ids": ["TC-TST-SEED-001-005", "TC-TST-SEED-001-007"],
+      "notes": "implementation mapping only: the initial data seeding exception (UCR-180-007), Slots only for the Scopes created in the same run, by the SPEC-090 section 8.2 standard algorithm; the Administrator batch generation (API-ADM-KRK-003) is not implemented"
     },
     {
       "rule_id": "OBS-AUD-014",
@@ -6709,7 +6753,8 @@
         "TC-TST-SEED-004-001",
         "TC-TST-SEED-004-002",
         "TC-TST-SEED-004-003",
-        "TC-TST-SEED-006-006"
+        "TC-TST-SEED-006-006",
+        "TC-TST-SEED-004-004"
       ],
       "notes": "implementation mapping only: Audit Event per created row; none for NOOP, FAILED or UNKNOWN_RESULT"
     },

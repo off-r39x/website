@@ -53,6 +53,9 @@ export const AUDIT_TARGET_TYPES = [
   "CONSISTENCY_REVIEW",
   "PUBLIC_CONTENT",
   "ENTRY_TICKET_OFFERING",
+  // SPEC-160 section 20 (UCR-180-007): targets of the initial data seeding (OBS-AUD-014).
+  "KARAOKE_SALES_CONFIGURATION",
+  "KARAOKE_EXCLUSIVE_SCOPE",
   "SECURITY_CONFIGURATION",
   "WEBHOOK_RECEIPT",
 ] as const;
@@ -524,6 +527,32 @@ export async function insertAuditEventReturningId<const O extends string = strin
       .returning({ auditEventId: auditEvents.auditEventId });
     if (inserted === undefined) throw new Error("Audit event was not returned");
     return String(inserted.auditEventId);
+  } catch (error) {
+    if (error instanceof DrizzleQueryError && error.cause !== undefined) throw error.cause;
+    throw error;
+  }
+}
+
+/**
+ * `insertAuditEventReturningId` for several events in one multi-row INSERT, each validated the same way
+ * (a rejected one sends nothing). Returns the database-generated IDs. For `app_migrator` only, like the
+ * single form; used by the initial data seeding for the Karaoke Slots of one run, so that up to 1,000
+ * Audit Events fit in the transaction deadline (SPEC-150 section 9, SPEC-100 DB-SEED-003 (4)). Callers
+ * keep the batches small enough for the bind parameter limit (65535).
+ */
+export async function insertAuditEventsReturningIds<const O extends string = string>(
+  client: Client | PoolClient,
+  events: readonly AuditEventInput<O>[],
+): Promise<string[]> {
+  if (events.length === 0) return [];
+  const rows = events.map((event) => buildAuditRow(event));
+  try {
+    const inserted = await drizzle(client)
+      .insert(auditEvents)
+      .values(rows)
+      .returning({ auditEventId: auditEvents.auditEventId });
+    if (inserted.length !== rows.length) throw new Error("Audit events were not returned");
+    return inserted.map((row) => String(row.auditEventId));
   } catch (error) {
     if (error instanceof DrizzleQueryError && error.cause !== undefined) throw error.cause;
     throw error;

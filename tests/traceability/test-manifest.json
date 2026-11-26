@@ -19183,6 +19183,535 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-001-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-003",
+        "DB-SEED-004",
+        "DB-GDS-001",
+        "KRK-GEN-001",
+        "INF-SEED-004",
+        "TST-SEED-001",
+        "UCR-180-007",
+        "INV-010-07",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-07"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17, empty database: seedInitialData as app_migrator with a complete synthetic input (2 Goods, 1 Sales Configuration, 2 Scopes, 3 one-hour windows); a Goods row without description; then app_api_runtime reads the new tables (database privilege only, not an API check)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "CREATED, every target CREATED; the outcome lists every created Public Reference"
+      ],
+      "expected_db_postconditions": [
+        "Goods SUSPENDED with one Inventory row each (saleable_capacity, held_quantity, committed_quantity 0); one Sales Configuration SUSPENDED with 15 / 5; Scopes with the input name and sort_order; 9 Slots per Scope, AVAILABLE, usage_start every 20 minutes from window_start, usage_end +15 min, cycle_end +20 min, sales_configuration_id the created Configuration, generation_cause_key the run's execution id, generation_candidate_no 0..8; an omitted description stays NULL; app_api_runtime can SELECT every new table"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-001-006",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "TST-SEED-001",
+        "TST-UNT-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput on a complete synthetic input with one forbidden key added to a Goods row, the Sales Configuration, a Scope or a window (id, public_ref, event_id, created_at, updated_at, sale_control_state, saleable_capacity, held_quantity, committed_quantity, goods_id, standard_usage_minutes, standard_maintenance_minutes, state, usage_start, usage_end, cycle_end, generation_cause_key, generation_candidate_no, exclusive_scope_id, sales_configuration_id)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The baseline is accepted; each forbidden key is rejected with INITIAL_DATA_INPUT_INVALID only, carrying no input value"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-001-007",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "KRK-GEN-001",
+        "KRK-GEN-002",
+        "KRK-GEN-003",
+        "DB-SEED-003",
+        "TST-SEED-001",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: slotCandidates on synthetic windows: one hour, 50 minutes, a start at :07, a window across midnight in Asia/Tokyo, and three windows given out of order",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Candidates every 20 minutes from window_start (not rounded), 15 minutes of use, 5 of maintenance, no incomplete last cycle, numbered 0.. in usage_start order"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "TST-SEED-002",
+        "UCR-180-007",
+        "REL-DB-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: (a) a run with goods and karaoke null, then a complete run; (b) an existing Event, Offering, Goods and Sales Configuration with no Scope; (c) an existing Sales Configuration, Scope and Slot with no Goods, and a three-Scope input; (d) existing Goods and a three-Goods input",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) CREATED with Goods and Karaoke DEFERRED, then CREATED with Event and Offerings EXISTING; (b) only the Scope and Slots CREATED; (c) only Goods CREATED; (d) NOOP with goods EXISTING"
+      ],
+      "expected_db_postconditions": [
+        "(a) Event and Offerings unchanged, Goods, Inventory, Configuration, Scope and 9 Slots added for the one Event; (b) the existing Configuration unchanged and referenced by every new Slot; (c) the existing Configuration, Scope and Slot unchanged, no Slot added; (d) still one Goods and one Inventory row, no Audit Event"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-008",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-003",
+        "INF-SEED-004",
+        "TST-SEED-002",
+        "UCR-180-007",
+        "REL-DB-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: goods null with Karaoke values; an existing Event and Offering with goods and karaoke null; the same with the input missing or without the goods key; a later run with Goods values; a complete set followed by a run with goods and karaoke null",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "DEFERRED for each null target with no row; NOOP when every candidate is deferred (the input is read once); FAILED with INITIAL_DATA_INPUT_MISSING or INITIAL_DATA_INPUT_INVALID when the input is missing or lacks a key; CREATED for the later Goods; every target EXISTING when rows exist"
+      ],
+      "expected_db_postconditions": [
+        "No row and no Audit Event for a deferred target; nothing written on NOOP or FAILED; null never deletes or changes a row"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-009",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-007",
+        "TST-SEED-002",
+        "UCR-180-007",
+        "REL-DB-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: an Event with two Karaoke Sales Configurations, or with a Scope that has no Slot (beside one that has), seeded with karaoke values and with karaoke null",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "FAILED with CONSISTENCY_FAILURE and INITIAL_DATA_KARAOKE_SALES_CONFIGURATION_NOT_UNIQUE or INITIAL_DATA_KARAOKE_SCOPE_WITHOUT_SLOTS; the input is not read"
+      ],
+      "expected_db_postconditions": [
+        "Every table unchanged; no Slot is added to the existing Scope"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-010",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "INF-SEED-004",
+        "TST-SEED-002",
+        "UCR-180-007",
+        "REL-DB-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: a complete run followed by a run with malformed input text; a database with every target inserted by other means and no input",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "NOOP with every target EXISTING; the input is never read"
+      ],
+      "expected_db_postconditions": [
+        "Every table unchanged"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-025",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-003",
+        "TST-SEED-003",
+        "TST-UNT-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput on complete synthetic inputs and on variants: goods or karaoke null, a Goods row without description, a missing or unknown top-level or karaoke key, null event or Offerings, empty, non-array or null-element goods, Scopes or windows, an array or null Sales Configuration, and Goods, Sales Configuration or Scope values outside the CHECK conditions (negative or fractional amounts, lower-case or short currency, purchase_limit 0, an empty or reversed sales period, a timestamp without an offset, a missing or non-integer sort_order, a description on the Sales Configuration); a negative sort_order and empty names",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Complete inputs and null goods or karaoke are accepted with their values; the variants are rejected with INITIAL_DATA_INPUT_INVALID only, carrying no input value; a negative sort_order and empty names are accepted (no CHECK)"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-026",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "KRK-GEN-002",
+        "KRK-GEN-003",
+        "DB-KRK-002",
+        "TST-SEED-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput with slot windows that are empty, reversed, without an offset, not timestamps, missing window_end, shorter or exactly as long as one 20 minute cycle, overlapping by their candidates (also when given in reverse order or twice), touching, overlapping only as windows, and making 1,000 or 1,001 Slots over one or two Scopes",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Rejected with INITIAL_DATA_INPUT_INVALID: empty, reversed, offset-less, non-timestamp and incomplete windows, a window without a candidate, overlapping candidates, more than 1,000 Slots; accepted: a 20 minute window, touching candidates, overlapping windows whose candidates do not overlap, exactly 1,000 Slots"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-027",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "DB-SEED-003",
+        "REL-DB-002",
+        "TST-SEED-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17, empty database: (a) a complete input whose second Goods row has purchase_limit 0; (b) a test-only CHECK on app.karaoke_slots refusing generation_candidate_no 5 or more (dropped afterwards); (c) two Scopes and one window of 500 candidates (1,000 Slots) under the default transaction deadline",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) FAILED with INITIAL_DATA_INPUT_INVALID; (b) FAILED with PERMANENT_FAILURE and INITIAL_DATA_CONSTRAINT_REJECTED, one attempt; (c) CREATED"
+      ],
+      "expected_db_postconditions": [
+        "(a), (b) no row of any target and no Audit Event; (c) 1,000 Slots and 1,000 KARAOKE_SLOT Audit Events"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-004-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "OBS-AUD-014",
+        "DB-SEED-005",
+        "TST-SEED-004",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17, empty database: a complete synthetic input with two Scopes; then a run with goods and karaoke null and a second complete run",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The outcome's Audit Event IDs are exactly the rows written"
+      ],
+      "expected_db_postconditions": [
+        "One Audit Event per created row: GOODS (after_state SUSPENDED, changed_fields with the Inventory field names, no separate Inventory event), KARAOKE_SALES_CONFIGURATION (SUSPENDED), KARAOKE_EXCLUSIVE_SCOPE (no after_state) and KARAOKE_SLOT (AVAILABLE), all BUSINESS_EFFECT, INFRASTRUCTURE_OPERATOR, PROVISION.INITIAL_DATA_SEED, COMMITTED, PASSED, with the run's execution id and the created Public References; no input value in any column and an empty safe_change_summary; no further Audit Event for deferred or existing targets"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-005-008",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "SEC-DB-001",
+        "TST-SEED-005",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: the statements recorded for a CREATED, a NOOP and a FAILED (empty slot_windows) run; INSERTs into app.goods, app.karaoke_sales_configurations and app.karaoke_exclusive_scopes as app_api_runtime, app_email_runtime and app_reconciliation_runtime",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Only the allowed statement forms are issued; INSERTs go only to the seven target tables and app.audit_events"
+      ],
+      "expected_db_postconditions": [
+        "The runtime roles' INSERTs fail with 42501"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-024",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17 with an existing Event and Offering; the seed connection goes through the commit proxy, which (1) drops the COMMIT acknowledgement or (3) drops the COMMIT request, for a complete synthetic input",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(1) CREATED with Event and Offerings EXISTING and the other targets CREATED, and every created Public Reference from this run's Audit Events; (3) CREATED after a retry: the existing Event and Offerings are not taken as proof of success"
+      ],
+      "expected_db_postconditions": [
+        "One Goods, one Inventory row, one Sales Configuration, one Scope and 9 Slots; (1) 12 Audit Events; (3) the Slots carry the retry's execution id"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(3) reliability.unknown_result.resolved with result FAILED"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-028",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "REL-DB-001",
+        "TST-SEED-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput with one slot window of four millennia (about a hundred million candidates) for one and for three Scopes, and with 200,000 consecutive 20 minute windows",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Rejected with INITIAL_DATA_INPUT_INVALID without expanding a candidate: the long windows within 100 ms, the long list within 2 s; parsing never throws"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-025",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "DB-GDS-001",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17 with an existing Event, Offering, Sales Configuration and Scope with a Slot; a run that creates only Goods goes through the commit proxy, which drops the COMMIT request; before the re-check reads, a Goods row of the Event is inserted without its Inventory",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check does not take the Goods row without Inventory as complete: resolved FAILED (TEMPORARY_FAILURE), a retry is attempted, and the retry ends NOOP (the Goods target has a row and is not topped up)"
+      ],
+      "expected_db_postconditions": [
+        "One Goods row, no Inventory row and no Audit Event"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.resolved with result FAILED, then reliability.retry.attempted"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-026",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-002",
+        "DB-SEED-007",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17; the run goes through the commit proxy, which drops the COMMIT request; before the re-check reads, other means create what the run was creating and also (a) a second Sales Configuration of the Event, with Sales Configuration, Scope and Slots planned, (b) a Scope without Slots, with only Goods planned, (c) a second Event, with only Goods planned",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check reads the DB-SEED-001 conditions before it decides success: FAILED(CONSISTENCY_FAILURE) with INITIAL_DATA_KARAOKE_SALES_CONFIGURATION_NOT_UNIQUE, INITIAL_DATA_KARAOKE_SCOPE_WITHOUT_SLOTS or INITIAL_DATA_EVENT_NOT_UNIQUE; never NOOP, never retried"
+      ],
+      "expected_db_postconditions": [
+        "Only the rows inserted by other means; no Audit Event; nothing repaired"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.resolved once with result FAILED and failure_class CONSISTENCY_FAILURE; no reliability.retry.attempted"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-003-024",
       "level": "Unit",
       "suite": "unit",

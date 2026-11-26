@@ -10,7 +10,11 @@ import {
   TIMEOUTS,
 } from "@off-r39x/reliability";
 import type { Client } from "pg";
-import { insertAuditEventReturningId } from "../audit-events.ts";
+import {
+  type AuditTargetType,
+  insertAuditEventReturningId,
+  insertAuditEventsReturningIds,
+} from "../audit-events.ts";
 import { isSqlstate, sqlState } from "../errors.ts";
 import {
   acquireMigrationLock,
@@ -19,20 +23,40 @@ import {
   type MigrationLock,
 } from "../migration-lock.ts";
 import { type InitialDataInput, type InputRow, parseInitialDataInput } from "./input.ts";
+import { slotCandidates } from "./slots.ts";
 import {
+  EVENT_TARGET,
+  GOODS_INVENTORY_FIXED,
+  GOODS_TARGET,
   INITIAL_DATA_AUDIT_CHANGE,
-  INITIAL_DATA_TARGETS,
   type InitialDataTarget,
+  KARAOKE_SALES_CONFIGURATION_TARGET,
+  KARAOKE_SCOPE_TARGET,
+  OFFERING_TARGET,
+  SLOT_COLUMNS,
 } from "./targets.ts";
 
 // Initial data seeding (SPEC-100 section 13.5 DB-SEED-001..007, SPEC-180 section 45.3 INF-SEED-001..006,
-// SPEC-160 OBS-AUD-014). One transaction per attempt: lock, count, (read input), insert, Audit, COMMIT.
+// SPEC-160 OBS-AUD-014; Goods, Karaoke and the deferral by UCR-180-007). One transaction per attempt:
+// lock, count each target, (read input), insert, Audit, COMMIT.
 // Every value is a bind parameter; table and column names come from `targets.ts`. This module never
 // updates or deletes a row, never logs a value from the input, and never retries an unknown result
 // blindly: after a lost COMMIT acknowledgement it re-checks on a new connection (DB-SEED-002). Every
 // statement runs in a session that holds the migration lock (INF-SEED-003), the re-check included.
 
 export const SEED_OPERATION_ID = "PROVISION.INITIAL_DATA_SEED";
+/** The field names the initial data Audit change accepts (targets.ts). */
+type AuditField = NonNullable<
+  Parameters<typeof INITIAL_DATA_AUDIT_CHANGE.change>[0]["changedFields"]
+>[number];
+const ALL_EXISTING: SeedTargets = Object.freeze({
+  event: "EXISTING",
+  entry_ticket_offerings: "EXISTING",
+  goods: "EXISTING",
+  karaoke_sales_configuration: "EXISTING",
+  karaoke_exclusive_scopes: "EXISTING",
+  karaoke_slots: "EXISTING",
+});
 const SEED_XACT_LOCK = "SELECT pg_advisory_xact_lock(hashtext('app:initial-data-seed'))";
 const SAFE_REF = /^[A-Za-z0-9_:-]{1,128}$/;
 /** SPEC-150 section 11 (55P03 row): the seed transactions of one command run, re-check retries included. */
@@ -43,19 +67,35 @@ export type SeedFailureClass = "TEMPORARY_FAILURE" | "PERMANENT_FAILURE" | "CONS
 export type SeedCreated = {
   readonly events: readonly string[];
   readonly entry_ticket_offerings: readonly string[];
+  readonly goods: readonly string[];
+  readonly karaoke_sales_configurations: readonly string[];
+  readonly karaoke_exclusive_scopes: readonly string[];
+  readonly karaoke_slots: readonly string[];
 };
+/** DB-SEED-001: the state of each target in a run that decided (CREATED or NOOP). */
+export type SeedTargetState = "CREATED" | "EXISTING" | "DEFERRED";
+export type SeedTargetKey =
+  | "event"
+  | "entry_ticket_offerings"
+  | "goods"
+  | "karaoke_sales_configuration"
+  | "karaoke_exclusive_scopes"
+  | "karaoke_slots";
+export type SeedTargets = { readonly [K in SeedTargetKey]: SeedTargetState };
 export type SeedOutcome =
   | {
       readonly outcome: "CREATED";
       readonly operationExecutionId: string;
       readonly attemptNumber: number;
       readonly created: SeedCreated;
+      readonly targets: SeedTargets;
       readonly auditEventIds: readonly string[];
     }
   | {
       readonly outcome: "NOOP";
       readonly operationExecutionId: string;
       readonly attemptNumber: number;
+      readonly targets: SeedTargets;
     }
   | {
       readonly outcome: "FAILED";
@@ -142,7 +182,11 @@ export type SeedOptions = {
   readonly migrationLockDeadlineMs?: number;
 };
 
-type Plan = { readonly kind: "all" } | { readonly kind: "offerings"; readonly eventId: string };
+/**
+ * What the attempt in flight was creating (DB-SEED-002: the base of the re-check): the existing Event,
+ * if any, and the state of each target.
+ */
+type Plan = { readonly eventId: string | undefined; readonly targets: SeedTargets };
 type Attempt =
   // `deadlineHit`: the attempt was ended by its wall clock (which, for a retry, can be what was left
   // of the retry budget).
@@ -150,9 +194,15 @@ type Attempt =
   | { readonly kind: "retry"; readonly code: "40001" | "40P01" | "55P03" }
   | { readonly kind: "unknown" };
 type Recheck =
-  | { readonly kind: "created"; readonly created: SeedCreated; readonly auditEventIds: string[] }
+  | {
+      readonly kind: "created";
+      readonly created: SeedCreated;
+      readonly auditEventIds: string[];
+    }
   | { readonly kind: "complete" }
-  | { readonly kind: "uncommitted" };
+  | { readonly kind: "uncommitted" }
+  // Not committed by this run, and the state read is one that fails the command (DB-SEED-001).
+  | { readonly kind: "inconsistent"; readonly errorCode: string };
 
 export const failedOutcome = (
   operationExecutionId: string,
@@ -307,6 +357,57 @@ async function hasOfferings(client: Client, eventId: string): Promise<boolean> {
   return result.rows[0]?.present === true;
 }
 
+/**
+ * The Goods and Karaoke rows of the Event (DB-SEED-001, UCR-180-007), in one SELECT: whether Goods
+ * exist, how many Sales Configurations there are (and the one, when there is exactly one), whether
+ * Scopes exist, and whether one of them has no Slot. A missing answer row is not read as "none": it
+ * throws, and the attempt fails closed.
+ */
+type TargetStatus = {
+  readonly goods: boolean;
+  /** A Goods row of the Event has no Inventory row (DB-GDS-001): not a complete Goods target. */
+  readonly goodsWithoutInventory: boolean;
+  readonly salesConfigurations: number;
+  readonly salesConfigurationId: string | undefined;
+  readonly scopes: boolean;
+  readonly scopesWithoutSlots: boolean;
+};
+async function readTargetStatus(client: Client, eventId: string): Promise<TargetStatus> {
+  const result = await client.query(
+    `SELECT EXISTS (SELECT 1 FROM app.goods WHERE event_id = $1) AS goods,
+            EXISTS (SELECT 1 FROM app.goods g WHERE g.event_id = $1
+                      AND NOT EXISTS (SELECT 1 FROM app.goods_inventory i WHERE i.goods_id = g.id)) AS goods_without_inventory,
+            (SELECT count(*)::int FROM app.karaoke_sales_configurations WHERE event_id = $1) AS sales_configurations,
+            (SELECT min(id)::text FROM app.karaoke_sales_configurations WHERE event_id = $1) AS sales_configuration_id,
+            EXISTS (SELECT 1 FROM app.karaoke_exclusive_scopes WHERE event_id = $1) AS scopes,
+            EXISTS (SELECT 1 FROM app.karaoke_exclusive_scopes s WHERE s.event_id = $1
+                      AND NOT EXISTS (SELECT 1 FROM app.karaoke_slots k WHERE k.exclusive_scope_id = s.id)) AS scopes_without_slots`,
+    [eventId],
+  );
+  const row = result.rows[0];
+  if (row === undefined) throw new Error("Target status was not returned");
+  return {
+    goods: row.goods === true,
+    goodsWithoutInventory: row.goods_without_inventory === true,
+    salesConfigurations: Number(row.sales_configurations),
+    salesConfigurationId:
+      row.sales_configuration_id === null || row.sales_configuration_id === undefined
+        ? undefined
+        : String(row.sales_configuration_id),
+    scopes: row.scopes === true,
+    scopesWithoutSlots: row.scopes_without_slots === true,
+  };
+}
+
+const NO_TARGET_STATUS: TargetStatus = {
+  goods: false,
+  goodsWithoutInventory: false,
+  salesConfigurations: 0,
+  salesConfigurationId: undefined,
+  scopes: false,
+  scopesWithoutSlots: false,
+};
+
 async function insertRow(
   client: Client,
   target: InitialDataTarget,
@@ -316,7 +417,8 @@ async function insertRow(
   const columns: string[] = [];
   const placeholders: string[] = [];
   const values: (string | number)[] = [];
-  if (target.condition === "noChildrenOf" && parentEventId !== undefined) {
+  if (target.parent === "event") {
+    if (parentEventId === undefined) throw new Error("Parent Event required");
     columns.push("event_id");
     values.push(parentEventId);
     placeholders.push(`$${values.length}::bigint`);
@@ -349,6 +451,59 @@ async function insertRow(
   const inserted = result.rows[0];
   if (inserted === undefined) throw new Error("Row was not returned");
   return { id: String(inserted.id), publicRef: String(inserted.public_ref), fields };
+}
+
+/** DB-GDS-001 / DB-SEED-004: the Inventory row of a Goods just created, with no stock. */
+async function insertGoodsInventory(client: Client, goodsId: string): Promise<string[]> {
+  const names = GOODS_INVENTORY_FIXED.map((column) => column.name);
+  const values = GOODS_INVENTORY_FIXED.map((column) => column.sql);
+  await client.query(
+    `INSERT INTO app.goods_inventory (goods_id, ${names.join(", ")}) VALUES ($1::bigint, ${values.join(", ")})`,
+    [goodsId],
+  );
+  return names;
+}
+
+/**
+ * SPEC-100 section 13.5 (KRK-GEN-001 exception): the Slots of the Scopes created in this run, every
+ * candidate of the windows for each Scope, in one multi-row INSERT (at most 1,000 rows of 5 values:
+ * DB-SEED-003 (4)). State AVAILABLE, the run's execution ID as the generation cause, and the candidate
+ * number as generation_candidate_no. Returns the Public References.
+ */
+async function insertSlots(
+  client: Client,
+  options: {
+    readonly scopeIds: readonly string[];
+    readonly salesConfigurationId: string;
+    readonly executionId: string;
+    readonly windows: NonNullable<InitialDataInput["karaoke"]>["slot_windows"];
+  },
+): Promise<string[]> {
+  const candidates = slotCandidates(options.windows);
+  const values: (string | number)[] = [options.salesConfigurationId, options.executionId];
+  const tuples: string[] = [];
+  for (const scopeId of options.scopeIds) {
+    for (const candidate of candidates) {
+      const at = values.length;
+      values.push(
+        scopeId,
+        candidate.usageStart,
+        candidate.usageEnd,
+        candidate.cycleEnd,
+        candidate.candidateNo,
+      );
+      tuples.push(
+        `($${at + 1}::bigint, $1::bigint, 'AVAILABLE', $${at + 2}::timestamptz, $${at + 3}::timestamptz, $${at + 4}::timestamptz, $2::uuid, $${at + 5}::integer)`,
+      );
+    }
+  }
+  if (tuples.length === 0) throw new Error("No Slot candidate");
+  const result = await client.query(
+    `INSERT INTO app.karaoke_slots (exclusive_scope_id, sales_configuration_id, ${SLOT_COLUMNS.join(", ")}) VALUES ${tuples.join(", ")} RETURNING public_ref`,
+    values,
+  );
+  if (result.rows.length !== tuples.length) throw new Error("Slots were not returned");
+  return result.rows.map((row) => String(row.public_ref));
 }
 
 /**
@@ -646,7 +801,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
   };
 
   // What the attempt in flight was creating, for the re-check after a lost COMMIT acknowledgement.
-  let plan: Plan = { kind: "all" };
+  let plan: Plan | undefined;
 
   /**
    * One seed transaction. `attemptDeadlineMs` is its wall clock: the transaction deadline, or, for a
@@ -716,61 +871,189 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
       const eventIds = await withinDeadline(() => readEventIds(client));
       if (eventIds.length >= 2)
         return await rollbackThen(fail("CONSISTENCY_FAILURE", "INITIAL_DATA_EVENT_NOT_UNIQUE"));
-      if (eventIds.length === 1) {
-        const eventId = eventIds[0] as string;
-        if (await withinDeadline(() => hasOfferings(client, eventId)))
-          return await rollbackThen({
-            kind: "done",
-            outcome: { outcome: "NOOP", operationExecutionId: executionId, attemptNumber },
-          });
-        plan = { kind: "offerings", eventId };
-      } else {
-        plan = { kind: "all" };
+      const existingEventId = eventIds[0];
+      // DB-SEED-001: each target is counted on its own, for the one Event (none yet: nothing exists).
+      let offeringsExist = false;
+      let status = NO_TARGET_STATUS;
+      if (existingEventId !== undefined) {
+        offeringsExist = await withinDeadline(() => hasOfferings(client, existingEventId));
+        status = await withinDeadline(() => readTargetStatus(client, existingEventId));
       }
+      // Whatever the input says (a value or null), before it is read: the Slots would refer to one
+      // Sales Configuration that cannot be chosen, or a Scope has lost its Slots by other means
+      // (DB-SEED-001, DB-SEED-007). Nothing is topped up.
+      if (status.salesConfigurations >= 2)
+        return await rollbackThen(
+          fail("CONSISTENCY_FAILURE", "INITIAL_DATA_KARAOKE_SALES_CONFIGURATION_NOT_UNIQUE"),
+        );
+      if (status.scopesWithoutSlots)
+        return await rollbackThen(
+          fail("CONSISTENCY_FAILURE", "INITIAL_DATA_KARAOKE_SCOPE_WITHOUT_SLOTS"),
+        );
+      const exists = {
+        event: existingEventId !== undefined,
+        entry_ticket_offerings: offeringsExist,
+        goods: status.goods,
+        karaoke_sales_configuration: status.salesConfigurations === 1,
+        karaoke_exclusive_scopes: status.scopes,
+      };
+      // No candidate (every target has a row): NOOP without reading the input (INF-SEED-004).
+      if (Object.values(exists).every(Boolean))
+        return await rollbackThen({
+          kind: "done",
+          outcome: {
+            outcome: "NOOP",
+            operationExecutionId: executionId,
+            attemptNumber,
+            targets: ALL_EXISTING,
+          },
+        });
 
       const parsed = loadInput();
       if (!parsed.ok) return await rollbackThen(fail("PERMANENT_FAILURE", parsed.errorCode));
       const data: InitialDataInput = parsed.value;
 
-      const created: { events: string[]; entry_ticket_offerings: string[] } = {
-        events: [],
-        entry_ticket_offerings: [],
+      const state = (present: boolean, deferred: boolean): SeedTargetState =>
+        present ? "EXISTING" : deferred ? "DEFERRED" : "CREATED";
+      const scopesState = state(exists.karaoke_exclusive_scopes, data.karaoke === null);
+      const targets: SeedTargets = {
+        event: state(exists.event, false),
+        entry_ticket_offerings: state(exists.entry_ticket_offerings, false),
+        goods: state(exists.goods, data.goods === null),
+        karaoke_sales_configuration: state(
+          exists.karaoke_sales_configuration,
+          data.karaoke === null,
+        ),
+        karaoke_exclusive_scopes: scopesState,
+        // Slots only for the Scopes created in this run (KRK-GEN-001 exception).
+        karaoke_slots: scopesState,
+      };
+      plan = { eventId: existingEventId, targets };
+      // Every candidate deferred: nothing to create (INF-SEED-004 (4)).
+      if (!Object.values(targets).includes("CREATED"))
+        return await rollbackThen({
+          kind: "done",
+          outcome: { outcome: "NOOP", operationExecutionId: executionId, attemptNumber, targets },
+        });
+
+      const created = {
+        events: [] as string[],
+        entry_ticket_offerings: [] as string[],
+        goods: [] as string[],
+        karaoke_sales_configurations: [] as string[],
+        karaoke_exclusive_scopes: [] as string[],
+        karaoke_slots: [] as string[],
       };
       const auditEventIds: string[] = [];
-      let parentEventId = plan.kind === "offerings" ? plan.eventId : undefined;
-      for (const target of INITIAL_DATA_TARGETS) {
-        // An existing Event is never touched; the input's `event` was validated but is not used.
-        if (target.cardinality === "one" && plan.kind !== "all") continue;
-        const rows = target.cardinality === "one" ? [data.event] : data.entry_ticket_offerings;
-        for (const row of rows) {
-          stage = "statement";
-          const inserted = await withinDeadline(() =>
-            insertRow(client, target, row, parentEventId),
-          );
-          if (target.cardinality === "one") parentEventId = inserted.id;
-          if (target.cardinality === "one") created.events.push(inserted.publicRef);
-          else created.entry_ticket_offerings.push(inserted.publicRef);
-          stage = "audit";
-          auditEventIds.push(
-            await withinDeadline(() =>
-              insertAuditEventReturningId(client, {
-                auditEventType: "BUSINESS_EFFECT",
-                actorType: "INFRASTRUCTURE_OPERATOR",
-                actorRef,
-                operationId: SEED_OPERATION_ID,
-                operationExecutionId: executionId,
-                targetType: target.auditTargetType,
-                targetRef: inserted.publicRef,
-                preconditionResult: "PASSED",
-                auditResult: "COMMITTED",
-                change: INITIAL_DATA_AUDIT_CHANGE.change({
-                  afterState: target.afterState,
-                  changedFields: inserted.fields,
-                }),
-              }),
+      const auditOf = (
+        target: {
+          readonly auditTargetType: AuditTargetType;
+          readonly afterState: "SUSPENDED" | "AVAILABLE" | null;
+        },
+        targetRef: string,
+        fields: readonly string[],
+      ) => ({
+        auditEventType: "BUSINESS_EFFECT" as const,
+        actorType: "INFRASTRUCTURE_OPERATOR" as const,
+        actorRef,
+        operationId: SEED_OPERATION_ID,
+        operationExecutionId: executionId,
+        targetType: target.auditTargetType,
+        targetRef,
+        preconditionResult: "PASSED" as const,
+        auditResult: "COMMITTED" as const,
+        change: INITIAL_DATA_AUDIT_CHANGE.change({
+          afterState: target.afterState,
+          changedFields: fields as AuditField[],
+        }),
+      });
+      /** One row of a target and its Audit Event (DB-SEED-005), on the transaction's wall clock. */
+      const createRow = async (
+        target: InitialDataTarget,
+        row: InputRow,
+        parentEventId: string | undefined,
+        afterInsert?: (id: string) => Promise<readonly string[]>,
+      ) => {
+        stage = "statement";
+        const inserted = await withinDeadline(() => insertRow(client, target, row, parentEventId));
+        const extraFields = afterInsert ? await afterInsert(inserted.id) : [];
+        stage = "audit";
+        auditEventIds.push(
+          await withinDeadline(() =>
+            insertAuditEventReturningId(
+              client,
+              auditOf(target, inserted.publicRef, [...inserted.fields, ...extraFields]),
             ),
+          ),
+        );
+        return inserted;
+      };
+
+      // An existing Event is never touched; the input's `event` was validated but is not used.
+      let eventId = existingEventId;
+      if (targets.event === "CREATED") {
+        const inserted = await createRow(EVENT_TARGET, data.event, undefined);
+        eventId = inserted.id;
+        created.events.push(inserted.publicRef);
+      }
+      if (targets.entry_ticket_offerings === "CREATED")
+        for (const row of data.entry_ticket_offerings)
+          created.entry_ticket_offerings.push(
+            (await createRow(OFFERING_TARGET, row, eventId)).publicRef,
           );
+      if (targets.goods === "CREATED" && data.goods !== null)
+        for (const row of data.goods)
+          created.goods.push(
+            (
+              await createRow(GOODS_TARGET, row, eventId, (goodsId) =>
+                withinDeadline(() => insertGoodsInventory(client, goodsId)),
+              )
+            ).publicRef,
+          );
+      let salesConfigurationId = status.salesConfigurationId;
+      if (targets.karaoke_sales_configuration === "CREATED" && data.karaoke !== null) {
+        const inserted = await createRow(
+          KARAOKE_SALES_CONFIGURATION_TARGET,
+          data.karaoke.sales_configuration,
+          eventId,
+        );
+        salesConfigurationId = inserted.id;
+        created.karaoke_sales_configurations.push(inserted.publicRef);
+      }
+      if (targets.karaoke_exclusive_scopes === "CREATED" && data.karaoke !== null) {
+        const scopeIds: string[] = [];
+        for (const row of data.karaoke.exclusive_scopes) {
+          const inserted = await createRow(KARAOKE_SCOPE_TARGET, row, eventId);
+          scopeIds.push(inserted.id);
+          created.karaoke_exclusive_scopes.push(inserted.publicRef);
         }
+        // The one Sales Configuration of the Event: created above, or the existing one.
+        if (salesConfigurationId === undefined) throw new Error("Sales Configuration required");
+        const configurationId = salesConfigurationId;
+        const windows = data.karaoke.slot_windows;
+        stage = "statement";
+        const slotRefs = await withinDeadline(() =>
+          insertSlots(client, {
+            scopeIds,
+            salesConfigurationId: configurationId,
+            executionId,
+            windows,
+          }),
+        );
+        created.karaoke_slots.push(...slotRefs);
+        stage = "audit";
+        const slotAudit = {
+          auditTargetType: "KARAOKE_SLOT" as const,
+          afterState: "AVAILABLE" as const,
+        };
+        auditEventIds.push(
+          ...(await withinDeadline(() =>
+            insertAuditEventsReturningIds(
+              client,
+              slotRefs.map((ref) => auditOf(slotAudit, ref, SLOT_COLUMNS)),
+            ),
+          )),
+        );
       }
       stage = "statement";
       // Wall clock (SPEC-150 section 9), checked before COMMIT rather than only by a timer: a
@@ -806,6 +1089,7 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
           operationExecutionId: executionId,
           attemptNumber,
           created,
+          targets,
           auditEventIds,
         },
       };
@@ -924,22 +1208,52 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
             created: {
               events: refs("PUBLIC_CONTENT"),
               entry_ticket_offerings: refs("ENTRY_TICKET_OFFERING"),
+              goods: refs("GOODS"),
+              karaoke_sales_configurations: refs("KARAOKE_SALES_CONFIGURATION"),
+              karaoke_exclusive_scopes: refs("KARAOKE_EXCLUSIVE_SCOPE"),
+              karaoke_slots: refs("KARAOKE_SLOT"),
             },
             auditEventIds: audit.rows.map((row) => String(row.audit_event_id)),
           };
         } else {
-          // Another run may have completed meanwhile. An Event alone is not proof of success.
-          let eventId: string | undefined;
-          if (plan.kind === "offerings") eventId = plan.eventId;
-          else {
-            const eventIds = await within(() => readEventIds(connection));
-            if (eventIds.length === 1) eventId = eventIds[0];
+          // Another run may have completed meanwhile. The base is what this run was creating
+          // (DB-SEED-002): an existing Event, or the rows of a target that was EXISTING or DEFERRED
+          // for this run, are not proof of success.
+          const creating = plan?.targets;
+          // What fails the command whatever the input or the planned states (DB-SEED-001) is checked
+          // first, as the seed attempt does, before the planned rows can be taken as success.
+          const eventIds = await within(() => readEventIds(connection));
+          const eventId = plan?.eventId ?? (eventIds.length === 1 ? eventIds[0] : undefined);
+          const found =
+            eventId === undefined
+              ? NO_TARGET_STATUS
+              : await within(() => readTargetStatus(connection, eventId));
+          const inconsistency =
+            eventIds.length >= 2
+              ? "INITIAL_DATA_EVENT_NOT_UNIQUE"
+              : found.salesConfigurations >= 2
+                ? "INITIAL_DATA_KARAOKE_SALES_CONFIGURATION_NOT_UNIQUE"
+                : found.scopesWithoutSlots
+                  ? "INITIAL_DATA_KARAOKE_SCOPE_WITHOUT_SLOTS"
+                  : undefined;
+          if (inconsistency !== undefined) {
+            verdict = { kind: "inconsistent", errorCode: inconsistency };
+          } else {
+            let complete = creating !== undefined && eventId !== undefined;
+            if (complete && creating !== undefined && eventId !== undefined) {
+              const target = eventId;
+              if (creating.entry_ticket_offerings === "CREATED")
+                complete = await within(() => hasOfferings(connection, target));
+              // The Goods and their Inventory (DB-SEED-002, DB-GDS-001): Goods alone are not complete.
+              if (creating.goods === "CREATED")
+                complete &&= found.goods && !found.goodsWithoutInventory;
+              if (creating.karaoke_sales_configuration === "CREATED")
+                complete &&= found.salesConfigurations === 1;
+              // The Scopes and their Slots (none of the Event's Scopes is without a Slot, as above).
+              if (creating.karaoke_exclusive_scopes === "CREATED") complete &&= found.scopes;
+            }
+            verdict = complete ? { kind: "complete" } : { kind: "uncommitted" };
           }
-          const target = eventId;
-          verdict =
-            target !== undefined && (await within(() => hasOfferings(connection, target)))
-              ? { kind: "complete" }
-              : { kind: "uncommitted" };
         }
         await connection.query("ROLLBACK");
         // The re-check transaction ends within its wall clock too (SPEC-150 section 9): a ROLLBACK
@@ -1102,12 +1416,32 @@ export async function seedInitialData(options: SeedOptions): Promise<SeedOutcome
           operationExecutionId: executionId,
           attemptNumber,
           created: checked.created,
+          // The run's own commit: the states it decided before COMMIT.
+          targets: plan?.targets ?? ALL_EXISTING,
           auditEventIds: checked.auditEventIds,
         };
       }
       if (checked.kind === "complete") {
         log({ ...resolved(), level: "INFO", result: "NOOP", failure_class: null });
-        return { outcome: "NOOP", operationExecutionId: executionId, attemptNumber };
+        // Another run created what this run was creating: those targets now exist.
+        const targets = Object.fromEntries(
+          Object.entries(plan?.targets ?? ALL_EXISTING).map(([key, value]) => [
+            key,
+            value === "CREATED" ? "EXISTING" : value,
+          ]),
+        ) as SeedTargets;
+        return { outcome: "NOOP", operationExecutionId: executionId, attemptNumber, targets };
+      }
+      if (checked.kind === "inconsistent") {
+        // This run did not commit (no Audit Event of its own), and what is there fails the command
+        // (DB-SEED-001): FAILED, neither NOOP nor retried. Nothing is repaired.
+        log({
+          ...resolved(),
+          level: "ERROR",
+          result: "FAILED",
+          failure_class: "CONSISTENCY_FAILURE",
+        });
+        return failedOutcome(executionId, attemptNumber, "CONSISTENCY_FAILURE", checked.errorCode);
       }
       // Not committed (DB-SEED-002 (3)): start over on the new connection, which already holds the
       // migration lock, with a new execution id, only within the REL-DB-001 retry budget (SPEC-150
