@@ -139,11 +139,17 @@ function requireCount(value: number, name: string): void {
     throw new RangeError(`${name} must be a non-negative safe integer`);
 }
 
+/** A purchase limit is positive (SPEC-100: CHECK `purchase_limit > 0` on all three sales tables). */
+function requirePurchaseLimit(value: number): void {
+  if (!Number.isSafeInteger(value) || value < 1)
+    throw new RangeError("purchaseLimit must be a positive safe integer");
+}
+
 function evaluateStock(target: StockPurchaseTarget, requested: number): PurchaseEligibility {
   requireCount(target.capacity, "capacity");
   requireCount(target.heldQuantity, "heldQuantity");
   requireCount(target.committedQuantity, "committedQuantity");
-  requireCount(target.purchaseLimit, "purchaseLimit");
+  requirePurchaseLimit(target.purchaseLimit);
   requireCount(target.ownHeldQuantity, "ownHeldQuantity");
   requireCount(target.ownCommittedQuantity, "ownCommittedQuantity");
 
@@ -180,7 +186,7 @@ function slotDisposition(state: KaraokeSlotState): "CANDIDATE" | "TAKEN" | "STOP
 }
 
 function evaluateKaraoke(target: KaraokePurchaseTarget): PurchaseEligibility {
-  requireCount(target.purchaseLimit, "purchaseLimit");
+  requirePurchaseLimit(target.purchaseLimit);
   requireCount(target.ownActiveHoldCount, "ownActiveHoldCount");
   requireCount(target.ownConfirmedReservationCount, "ownConfirmedReservationCount");
 

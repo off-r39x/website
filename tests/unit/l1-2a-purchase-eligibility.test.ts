@@ -454,6 +454,15 @@ describe("TC-API-005-108 evaluatePurchaseEligibility: caller defects are RangeEr
     },
   );
 
+  it("a purchase limit of 0 is a RangeError for Entry, Goods and Karaoke (SPEC-100: CHECK purchase_limit > 0)", () => {
+    expect(() => entry(1, stock({ purchaseLimit: 0 }))).toThrow(RangeError);
+    expect(() => goods(1, stock({ purchaseLimit: 0 }))).toThrow(RangeError);
+    expect(() => karaoke(slot({ purchaseLimit: 0 }))).toThrow(RangeError);
+    expect(
+      entry(1, stock({ purchaseLimit: 1, ownHeldQuantity: 0, ownCommittedQuantity: 0 })),
+    ).toEqual(ok(1));
+  });
+
   it("a requested quantity is validated even for a target that is not public or not found", () => {
     expect(() => entry(0, null)).toThrow(RangeError);
   });

@@ -35047,7 +35047,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "requestedQuantity below 1, fractional, NaN or beyond the safe integers, and negative or fractional counters and limits, are RangeError (caller defects, not reasons), also for a target that is not public or not found",
+        "requestedQuantity below 1, fractional, NaN or beyond the safe integers, negative or fractional counters, and a purchase limit that is not a positive safe integer (0 included: SPEC-100 CHECK purchase_limit > 0), are RangeError (caller defects, not reasons), also for a target that is not public or not found",
         "The input is not modified and equal inputs give equal, independent results"
       ],
       "expected_db_postconditions": [],
