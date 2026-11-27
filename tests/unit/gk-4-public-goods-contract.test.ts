@@ -10,9 +10,11 @@ import {
 import {
   evaluatePublicEntryAvailability,
   evaluatePublicSaleAvailability,
+  evaluatePurchaseEligibility,
   type PublicSaleAvailabilityInput,
+  type PurchaseSaleConditions,
 } from "@off-r39x/domain";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   isEntryPurchaseMounted,
   isPurchaseMounted,
@@ -193,6 +195,64 @@ describe("TC-API-010-003 evaluatePublicSaleAvailability (API-PUB-GDS-003, BR-SAL
                 evaluatePublicEntryAvailability(input),
               );
             }
+  });
+
+  it("takes the sale conditions of the purchase eligibility (API-PUR-ELG-001) plus the remaining-stock flag", () => {
+    expectTypeOf<PublicSaleAvailabilityInput>().toEqualTypeOf<
+      PurchaseSaleConditions & { hasRemainingCapacity: boolean }
+    >();
+  });
+
+  it("is the first reason of the purchase eligibility without the per-user conditions, for every input and both stock kinds", () => {
+    const flags = [true, false];
+    for (const kind of ["ENTRY", "GOODS"] as const)
+      for (const salesNotStarted of flags)
+        for (const salesClosed of flags)
+          for (const saleControlState of ["ENABLED", "SUSPENDED"] as const)
+            for (const hasRemainingCapacity of flags)
+              for (const purchaseRouteMounted of flags) {
+                const conditions = {
+                  salesNotStarted,
+                  salesClosed,
+                  saleControlState,
+                  purchaseRouteMounted,
+                };
+                // One unit requested against one unit of stock (or none) and an unused limit of one: the
+                // per-user and quantity reasons (INSUFFICIENT_QUANTITY, PURCHASE_LIMIT_EXCEEDED) never apply.
+                const eligibility = evaluatePurchaseEligibility({
+                  kind,
+                  requestedQuantity: 1,
+                  target: {
+                    ...conditions,
+                    capacity: hasRemainingCapacity ? 1 : 0,
+                    heldQuantity: 0,
+                    committedQuantity: 0,
+                    purchaseLimit: 1,
+                    ownHeldQuantity: 0,
+                    ownCommittedQuantity: 0,
+                  },
+                });
+                const label = JSON.stringify({ kind, ...conditions, hasRemainingCapacity });
+                const first = eligibility.reasons[0] ?? null;
+                expect(
+                  evaluatePublicSaleAvailability({ ...conditions, hasRemainingCapacity }),
+                  label,
+                ).toEqual(
+                  first === null
+                    ? { availability: "AVAILABLE", reason: null }
+                    : { availability: "UNAVAILABLE", reason: first },
+                );
+                expect(eligibility.purchasable, label).toBe(first === null);
+              }
+  });
+
+  it("states every Sale Control State, as the purchase eligibility does (DEV-TS-010): an unknown state throws instead of passing like ENABLED", () => {
+    // Unreachable from the database (CHECK sale_control_state IN ('ENABLED','SUSPENDED')); a state added
+    // later must fail here rather than be shown as purchasable.
+    const unknown = "PAUSED" as unknown as PublicSaleAvailabilityInput["saleControlState"];
+    expect(() => evaluatePublicSaleAvailability({ ...INPUT, saleControlState: unknown })).toThrow(
+      /Unexpected value: PAUSED/,
+    );
   });
 });
 

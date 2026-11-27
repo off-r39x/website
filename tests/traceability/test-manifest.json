@@ -35712,7 +35712,7 @@
       "system_invariant_ids": [],
       "api_operation_ids": ["API-PUB-010", "API-PUB-011"],
       "db_constraint_names": [],
-      "preconditions": "Pure functions evaluatePublicSaleAvailability / evaluatePublicEntryAvailability (@off-r39x/domain), PURCHASE_START_OPERATIONS and isPurchaseMounted (apps/api routes/public.ts) and the listGoods / readGoods services on a stub store; the period inputs are booleans judged by the database; no clock; no database",
+      "preconditions": "Pure functions evaluatePublicSaleAvailability / evaluatePublicEntryAvailability, compared with evaluatePurchaseEligibility (@off-r39x/domain), PURCHASE_START_OPERATIONS and isPurchaseMounted (apps/api routes/public.ts) and the listGoods / readGoods services on a stub store; the period inputs are booleans judged by the database; no clock; no database",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
@@ -35720,6 +35720,7 @@
       "expected_http": null,
       "expected_domain_postconditions": [
         "The reason is the first of SALES_NOT_STARTED, SALES_CLOSED, SALES_STOPPED (SUSPENDED or no purchase Operation), SOLD_OUT, else AVAILABLE with null; the Goods rule equals the Entry rule for all 32 inputs",
+        "The input is the purchase eligibility's PurchaseSaleConditions plus hasRemainingCapacity, and the public state equals the first reason of evaluatePurchaseEligibility (ENTRY and GOODS, one unit requested against one or no unit of stock and an unused limit of one) for all 32 inputs; an unknown Sale Control State throws (exhaustive switch, DEV-TS-010)",
         "PURCHASE_START_OPERATIONS is ENTRY: API-PUR-ENTRY-001 / API-PUR-CART-001, GOODS: API-PUR-GDS-001 / API-PUR-CART-001, KARAOKE: API-PUR-KRK-001; no kind is mounted by ROUTES in this release; GOODS is mounted only by API-PUR-GDS-001 or API-PUR-CART-001",
         "The service gives AVAILABLE / SOLD_OUT with a Goods purchase Operation mounted and SALES_STOPPED without one, never exposes the capacity flag, answers invalid_row for a null Inventory flag (whatever the other inputs) or an unreadable instant, and maps not_found / multiple_events / unavailable"
       ],
