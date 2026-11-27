@@ -94,6 +94,7 @@ const contract = JSON.parse(readFileSync(contractUrl, "utf8")) as SchemaContract
 // classifyDatabaseError, DatabaseUnavailableError and isDatabaseUnavailableCode; L2-1a adds
 // createCurrentProfileRepository (13 -> 17). The PR #66 round 6 fix adds isDatabaseTemporaryFailure
 // and typeDirectQueryFailure, which the profile repository and the HTTP boundary share (17 -> 19). PR-L2-3 adds createPublicContentRepository (19 -> 20).
+// PR-L1-1c adds enqueueNotificationRequest and openConsistencyReviewCase (20 -> 22).
 const EXPECTED_ROOT_EXPORTS = [
   "DatabaseUnavailableError",
   "TransactionDeadlineError",
@@ -104,12 +105,14 @@ const EXPECTED_ROOT_EXPORTS = [
   "createDatabase",
   "createPrincipalRepository",
   "createPublicContentRepository",
+  "enqueueNotificationRequest",
   "insertAuditEvent",
   "installBaselineRoles",
   "installIdentityDirectory",
   "isDatabaseTemporaryFailure",
   "isDatabaseUnavailableCode",
   "migrationIdentity",
+  "openConsistencyReviewCase",
   "runMigrations",
   "sqlState",
   "transaction",
@@ -118,7 +121,7 @@ const EXPECTED_ROOT_EXPORTS = [
 ];
 
 describe("TC-DEV-DB-001-001 db package public surface", () => {
-  it("TC-DEV-DB-001-001 @off-r39x/db/schema exports exactly app and the thirty-one table declarations by name", async () => {
+  it("TC-DEV-DB-001-001 @off-r39x/db/schema exports exactly app and the thirty-three table declarations by name", async () => {
     const schemaModule = await import("@off-r39x/db/schema");
 
     // (1) no helper or extra name leaks through the barrel (DEV-DB-001).
@@ -128,6 +131,7 @@ describe("TC-DEV-DB-001-001 db package public surface", () => {
       "auditEvents",
       "businessProfiles",
       "checkoutAttempts",
+      "consistencyReviewCases",
       "entryCheckins",
       "entrySalesAllocations",
       "entryTicketOfferings",
@@ -147,6 +151,7 @@ describe("TC-DEV-DB-001-001 db package public surface", () => {
       "karaokeSalesConfigurations",
       "karaokeSlots",
       "karaokeTickets",
+      "notificationRequests",
       "orderItems",
       "orders",
       "paymentBindings",
@@ -173,13 +178,13 @@ describe("TC-DEV-DB-001-001 db package public surface", () => {
     expect(contract.schemas.map(([name]) => name)).toContain("app");
   });
 
-  it("TC-DEV-DB-001-001 @off-r39x/db root exports exactly the 20 runtime names", async () => {
+  it("TC-DEV-DB-001-001 @off-r39x/db root exports exactly the 22 runtime names", async () => {
     const rootModule = await import("@off-r39x/db");
 
     // (4) runtime exports only; type-only exports are erased and out of scope. Importing the
     // package must not open a connection: createDatabase is never called here.
     expect(Object.keys(rootModule).sort()).toEqual(EXPECTED_ROOT_EXPORTS);
-    expect(EXPECTED_ROOT_EXPORTS).toHaveLength(20);
+    expect(EXPECTED_ROOT_EXPORTS).toHaveLength(22);
     // The schema is intentionally not part of the root surface.
     expect(rootModule).not.toHaveProperty("businessProfiles");
     expect(rootModule).not.toHaveProperty("roleAssignments");
@@ -605,6 +610,7 @@ describe("TC-DB-ARC-007-001 Drizzle declarations match schema-contract.json", ()
       "audit_events",
       "business_profiles",
       "checkout_attempts",
+      "consistency_review_cases",
       "entry_checkins",
       "entry_sales_allocations",
       "entry_ticket_offerings",
@@ -624,6 +630,7 @@ describe("TC-DB-ARC-007-001 Drizzle declarations match schema-contract.json", ()
       "karaoke_sales_configurations",
       "karaoke_slots",
       "karaoke_tickets",
+      "notification_requests",
       "order_items",
       "orders",
       "payment_bindings",

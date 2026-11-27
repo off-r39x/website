@@ -133,6 +133,23 @@ function scriptedClient(options: {
         };
       if (/FROM app\.entry_ticket_offerings WHERE event_id/i.test(text))
         return { rows: [{ present: (options.events ?? 0) > 0 }] };
+      // UCR-180-007: the Goods and Karaoke status of the Event. With an Event, every target is
+      // present (the scripted database is complete), so the run stays NOOP as before.
+      if (/FROM app\.goods WHERE event_id/i.test(text)) {
+        const present = (options.events ?? 0) > 0;
+        return {
+          rows: [
+            {
+              goods: present,
+              goods_without_inventory: false,
+              sales_configurations: present ? 1 : 0,
+              sales_configuration_id: present ? "1" : null,
+              scopes: present,
+              scopes_without_slots: false,
+            },
+          ],
+        };
+      }
       if (options.committedAudit && /from app\.audit_events where operation_id/i.test(text))
         return {
           rows: [

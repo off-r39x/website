@@ -31,5 +31,32 @@
       "sales_capacity": 50,
       "purchase_limit": 2
     }
-  ]
+  ],
+  "goods": [
+    {
+      "name": "合成データ グッズ名",
+      "description": "合成データ グッズの説明",
+      "unit_amount": 1500,
+      "currency": "JPY",
+      "sales_starts_at": "2030-05-01T00:00:00+09:00",
+      "sales_ends_at": "2030-06-03T21:00:00+09:00",
+      "purchase_limit": 2
+    }
+  ],
+  "karaoke": {
+    "sales_configuration": {
+      "name": "合成データ カラオケ",
+      "unit_amount": 300,
+      "currency": "JPY",
+      "sales_starts_at": "2030-05-01T00:00:00+09:00",
+      "sales_ends_at": "2030-06-03T21:00:00+09:00",
+      "purchase_limit": 1
+    },
+    "exclusive_scopes": [{ "name": "合成データ カラオケ機材", "sort_order": 0 }],
+    "slot_windows": [
+      { "window_start": "2030-06-01T18:00:00+09:00", "window_end": "2030-06-01T21:00:00+09:00" },
+      { "window_start": "2030-06-02T18:00:00+09:00", "window_end": "2030-06-02T21:00:00+09:00" },
+      { "window_start": "2030-06-03T18:00:00+09:00", "window_end": "2030-06-03T21:00:00+09:00" }
+    ]
+  }
 }

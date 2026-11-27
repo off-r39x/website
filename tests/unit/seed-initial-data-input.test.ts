@@ -370,10 +370,19 @@ describe("TC-TST-SEED-005-001 the repository example is synthetic (DB-SEED-006, 
   const example = JSON.parse(text) as InitialDataInput;
   const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T/;
 
-  it("TC-TST-SEED-005-001 parses with the command's own strict parser: one Event, Offerings", () => {
+  it("TC-TST-SEED-005-001 parses with the command's own strict parser: one Event, Offerings, Goods and Karaoke", () => {
     expect(parseInitialDataInput(text).ok).toBe(true);
-    expect(Object.keys(example).sort()).toEqual(["entry_ticket_offerings", "event"]);
+    expect(Object.keys(example).sort()).toEqual([
+      "entry_ticket_offerings",
+      "event",
+      "goods",
+      "karaoke",
+    ]);
     expect(example.entry_ticket_offerings.length).toBeGreaterThanOrEqual(2);
+    // UCR-180-007: the example shows every target filled in (null would defer it).
+    expect(example.goods?.length).toBeGreaterThanOrEqual(1);
+    expect(example.karaoke?.exclusive_scopes.length).toBeGreaterThanOrEqual(1);
+    expect(example.karaoke?.slot_windows.length).toBeGreaterThanOrEqual(1);
   });
 
   it("TC-TST-SEED-005-001 every free-text value says it is synthetic data and sits in a fictional year", () => {
@@ -408,9 +417,9 @@ describe("TC-TST-SEED-005-001 the repository example is synthetic (DB-SEED-006, 
   });
 });
 
-describe("TC-TST-SEED-005-003 no migration inserts an Event or an Entry Ticket Offering (INF-SEED-001, DB-SEED-007)", () => {
+describe("TC-TST-SEED-005-003 no migration inserts a row of an initial data target (INF-SEED-001, DB-SEED-007, UCR-180-007)", () => {
   const INSERT_TARGET =
-    /\binsert\s+into\s+(?:"?app"?\s*\.\s*)?"?(events|entry_ticket_offerings)"?(?![\w])/i;
+    /\binsert\s+into\s+(?:"?app"?\s*\.\s*)?"?(events|entry_ticket_offerings|goods|goods_inventory|karaoke_sales_configurations|karaoke_exclusive_scopes|karaoke_slots)"?(?![\w])/i;
   const stripComments = (sql: string) =>
     sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
 
@@ -420,6 +429,11 @@ describe("TC-TST-SEED-005-003 no migration inserts an Event or an Entry Ticket O
       'insert   into\n  "app"."events" (name) values (\'x\')',
       'Insert Into app . "entry_ticket_offerings" DEFAULT VALUES',
       "INSERT INTO entry_ticket_offerings (name) VALUES ('x')",
+      "INSERT INTO app.goods (name) VALUES ('x')",
+      'insert into "app"."goods_inventory" (goods_id) values (1)',
+      "INSERT INTO app.karaoke_sales_configurations (name) VALUES ('x')",
+      "INSERT INTO app.karaoke_exclusive_scopes (name) VALUES ('x')",
+      "INSERT INTO karaoke_slots (state) VALUES ('AVAILABLE')",
     ])
       expect(stripComments(sample)).toMatch(INSERT_TARGET);
     for (const sample of [
@@ -451,6 +465,16 @@ describe("TC-TST-SEED-005-005 the Business API has no Event or Offering creation
         route.path.startsWith("/api/v1/admin/entry-offerings/")
       )
         expect(["GET", "PATCH"], `${route.method} ${route.path}`).toContain(route.method);
+    }
+  });
+
+  it("TC-TST-SEED-005-005 no registered route creates or replaces Goods, a Karaoke Sales Configuration or an Exclusive Scope (UCR-180-007)", () => {
+    for (const route of ROUTES) {
+      if (
+        /(^|\/)goods(\/|$)/.test(route.path) ||
+        /\/karaoke\/(sales-configurations|exclusive-scopes)(\/|$)/.test(route.path)
+      )
+        expect(["POST", "PUT"], `${route.method} ${route.path}`).not.toContain(route.method);
     }
   });
 

@@ -418,7 +418,8 @@ describe("TC-TST-SEED-006-007 re-running after recovery (INF-SEED-004, REL-DB-00
     const before = await snapshotSeededTables(admin);
     const rerun = await runSeed({ input: buildInitialDataInput(), actorRef: SEED_ACTOR_REF });
     expect(shape(rerun.outcome).outcome).toBe("NOOP");
-    expect(rerun.reads()).toBe(0);
+    // Read once: the Goods and Karaoke the input defers are candidates (UCR-180-007, INF-SEED-004).
+    expect(rerun.reads()).toBe(1);
     expect(await snapshotSeededTables(admin)).toEqual(before);
     expect(await counts()).toEqual({ events: 1, offerings: 2, audits: 3 });
   });

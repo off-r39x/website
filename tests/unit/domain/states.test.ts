@@ -56,17 +56,21 @@ describe("TC-DEV-TS-010-002 canonical state constants", () => {
   it("exports only the documented constants, assertNever and the SPEC-030 9.2 display-name policy", () => {
     // PR-L2-1a adds the display-name normalization (SPEC-030 section 9.2); PR-L2-3 adds the public Entry
     // sales state (SPEC-110 section 26.1 API-PUB-005): evaluatePublicEntryAvailability at runtime, plus the
-    // types PublicEntryUnavailableReason, PublicEntryAvailability and PublicEntryAvailabilityInput. PR-GK-4
-    // adds the same rule under the name used for Goods too (SPEC-110 section 26.2 API-PUB-GDS-003):
-    // evaluatePublicSaleAvailability.
+    // types PublicEntryUnavailableReason, PublicEntryAvailability and PublicEntryAvailabilityInput. PR-L1-2a
+    // adds the purchase eligibility (SPEC-110 API-PUR-ELG-001: PURCHASE_REASONS, evaluatePurchaseEligibility)
+    // and the Order Purpose (BR-ORD-013: deriveOrderPurpose). PR-GK-4 adds the public sales state under the
+    // name used for Goods too (SPEC-110 section 26.2 API-PUB-GDS-003): evaluatePublicSaleAvailability.
     expect(Object.keys(domain).sort()).toEqual(
       [
         ...Object.keys(canonical),
         "assertNever",
+        "deriveOrderPurpose",
         "DISPLAY_NAME_MAX_CODE_POINTS",
         "evaluatePublicEntryAvailability",
         "evaluatePublicSaleAvailability",
+        "evaluatePurchaseEligibility",
         "normalizeDisplayName",
+        "PURCHASE_REASONS",
       ].sort(),
     );
   });

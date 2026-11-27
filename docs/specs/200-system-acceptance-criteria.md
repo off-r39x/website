@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-200
 title: System Acceptance Criteria
-version: 3.3.0
+version: 3.4.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -180,9 +180,9 @@ Admin authoritative read / filterは `SPEC-110` §41 / §48.3 のcanonical Opera
 
 `UCR-RELSCOPE-001` は `INCORPORATED` である。Release Manifestの `mounted_operation_ids`（`SPEC-180 §44`、`INF-DEP-006`）、本書 §7.5、`SPEC-110` `API-PUR-ELG-001`、`SPEC-170 §27` / `§74` に反映済みである。Acceptance Manifestは §7.5 のEvidenceを要求する。
 
-### 4.8 Initial data seeding（`UCR-180-001`）
+### 4.8 Initial data seeding（`UCR-180-001`、`UCR-180-007`）
 
-`UCR-180-001` は、`SPEC-180 §45.3`、`SPEC-100 §13.5`、`SPEC-160 §37`、`SPEC-170 §22.1` へ反映済みの `INCORPORATED` である。反映状態であり、実装済み・Test実行済み・System Acceptance済みの意味ではない。
+`UCR-180-001` と `UCR-180-007`（対象へGoods・Karaoke Sales Configuration・Exclusive Scope・Karaoke Slotを追加）は、`SPEC-180 §45.3`、`SPEC-100 §13.5`、`SPEC-090 §8.1`（`UCR-180-007` のみ）、`SPEC-160 §37`、`SPEC-170 §22.1` へ反映済みの `INCORPORATED` である。反映状態であり、実装済み・Test実行済み・System Acceptance済みの意味ではない。
 
 **ACC-GEN-032:** 初期データの投入は、`ACC-INF-023` のEvidenceを要求する。投入手段の仮実装（migrationへのINSERT、Business APIの追加、手作業のSQL、実値のrepository配置）はFAILとする。
 
@@ -1005,7 +1005,7 @@ Pagesは静的SPAのみとしNode server runtimeを持たない。Node majorはC
 
 **ACC-INF-022:** active Critical/High condition、readiness failure、schema mismatch、Critical smoke failure等、Current `SPEC-180`がrelease acceptanceを停止すると定義したconditionが存在する間はSystem Acceptanceしない。
 
-**ACC-INF-023:** 初期データ（EventとEntry Ticket Offering）が、専用の運用コマンドだけで、migration jobの `app_migrator` により、schema readiness checkの後・API deployの前に、stagingとproductionへ投入されている。入力は環境別のprotected Environment Secretから渡り、実値がsource・log・artifact・release evidenceに出ない。対象が0件のときだけ作り、再実行で行が増えず、運用で変更した値を巻き戻さず、Offeringは `SUSPENDED` で作られ、作成した行ごとのAudit Eventが残る。Business APIにEvent・Offeringの作成経路がない（`SPEC-180 INF-SEED-001〜006`、`SPEC-100 DB-SEED-001〜007`、`SPEC-160 OBS-AUD-014`、`TST-SEED-001〜006`）。
+**ACC-INF-023:** 初期データ（Event、Entry Ticket Offering、Goods（Inventoryを含む）、Karaoke Sales Configuration、Exclusive Scope、Karaoke Slot）が、専用の運用コマンドだけで、migration jobの `app_migrator` により、schema readiness checkの後・API deployの前に、stagingとproductionへ投入されている。入力は環境別のprotected Environment Secretから渡り、実値がsource・log・artifact・release evidenceに出ない。対象ごとに0件のときだけ作り、再実行で行が増えず、運用で変更した値を巻き戻さず、Offering・Goods・Karaoke Sales Configurationは `SUSPENDED`、Goods Inventoryは在庫0、Karaoke Slotは `AVAILABLE` で作られ、作成した行ごとのAudit Eventが残る（Goods InventoryはGoodsのAudit Eventに含む）。入力で保留した対象（`goods`・`karaoke` の `null`）は作られず、release evidenceの対象ごとの状態 `DEFERRED` で示される。Productionで保留中の対象は、この `DEFERRED` のrelease evidenceで示す。Business APIにEvent・Offering・Goods・Karaoke Sales Configuration・Exclusive Scopeの作成経路がない（`SPEC-180 INF-SEED-001〜006`、`SPEC-100 DB-SEED-001〜007`、`SPEC-090 KRK-GEN-001`、`SPEC-160 OBS-AUD-014`、`TST-SEED-001〜006`）。
 
 ---
 
@@ -1139,7 +1139,7 @@ failure_outcome
 |---|---|---|---|---|---|---|---|
 | `ACC-GEN-009` | Release identity | `INF-DEP-*` | manifest validator | release-manifest hash | staging + Production IDs | Yes | all identity joins equal |
 | `ACC-GEN-029〜031` | Mounted Operation Set | `INF-DEP-006`, `SPEC-110 §21`, `TST-COV-004` | G4 | `mounted_operation_ids` | `ACC-GEN-030` (3)・(4) が必要な条項に限り、§39ではstagingの現在値・既存rowと、API切替前のProductionの現在値・既存row・未処理義務、Productionへ適用する初期値、§40ではProductionの現在値・既存row | Yes | Unmounted Operationの404 / 405 + `NOT_APPLICABLE` 条項のEvidence |
-| `ACC-GEN-032` | Initial data seeding | `INF-SEED-*`, `DB-SEED-*`, `OBS-AUD-014`, `TST-SEED-*` | G1 / G2 / G3 / G4 / G5 / G6 | seeding command result / release evidence | stagingとProductionのseeding結果（区分、public_ref、件数。値を含めない） | Yes | 専用コマンドだけで投入され、0件のときだけ作り、`SUSPENDED` で作られ、Auditが残る |
+| `ACC-GEN-032` | Initial data seeding | `INF-SEED-*`, `DB-SEED-*`, `OBS-AUD-014`, `TST-SEED-*` | G1 / G2 / G3 / G4 / G5 / G6 | seeding command result / release evidence | stagingとProductionのseeding結果（区分、対象ごとの状態、public_ref、件数。値を含めない） | Yes | 専用コマンドだけで投入され、対象ごとに0件のときだけ作り、Offering・Goods・Karaoke Sales Configurationが `SUSPENDED`（Goodsは在庫0）で作られ、保留が `DEFERRED` で示され、Auditが残る |
 | `ACC-TRC-001` | Spec set completeness | `SPEC-000`, `TST-TRC-*`, `DEV-TRC-*` | manifest validation | spec set hash | none | Yes | no unknown / missing Current rule owner |
 | `ACC-INV-001〜010` | System invariants | `INV-010-01〜10` | §13 exact cases + G3/G4/G5/G6/G8/G10 as applicable | DB/provider config as applicable | same release deployment | Yes | all invariant criteria PASS |
 | `ACC-BIZ-001〜032` | Functional / Domain capability | `FR-*`, `BR-*`, `DI-030-*` | G1/G3/G4/G8 + domain required groups、§15.1の個別Case | feature/current config | staging smoke | Yes | 全Current DIのsemantic coverage + observable outcome PASS |

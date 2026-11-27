@@ -1,7 +1,7 @@
 ---
 spec_id: SPEC-180
 title: Infrastructure and Deployment Specification
-version: 2.8.0
+version: 2.9.0
 status: provisional
 depends_on:
   - SPEC-000
@@ -1176,19 +1176,19 @@ preview検査は本番data / Sessionを使用しない。Production API / Auth�
 
 ### 45.3 Initial data seeding
 
-`UCR-180-001`。Business API（`SPEC-110`）にはEventとEntry Ticket Offeringの作成Operationがなく、本節はそれを追加しない。空のDBに最初の行を作る方法を定める。対象、入力の項目、作成時の値、冪等の条件は `SPEC-100 §13.5`、Auditは `SPEC-160 §37` が定める。
+`UCR-180-001`、`UCR-180-007`。Business API（`SPEC-110`）にはEvent、Entry Ticket Offering、Goods、Karaoke Sales Configuration、Exclusive Scopeの作成Operationがなく、本節はそれを追加しない。空のDBに最初の行を作る方法を定める。Karaoke Slotは、同じ実行で作るExclusive Scopeに対してだけ作る（`SPEC-090` `KRK-GEN-001` の例外）。対象、入力の項目、作成時の値、冪等の条件は `SPEC-100 §13.5`、Auditは `SPEC-160 §37` が定める。
 
 **INF-SEED-001:** 初期データは、専用の運用コマンド（`packages/db` のCLI。名称・引数は実装のWork Planが決める）だけが投入する。migration、Business API、Browser、runtime principal（`app_api_runtime` を含む）、手作業のSQLでは投入しない。
 
-**INF-SEED-002:** 入力は、環境ごと（stagingとproduction）のGitHub protected Environment Secretに置き、migration jobだけが読む（§26）。値はSecretではないが公開前の情報であるため、source、test fixture、log、artifact、release evidence、Pull Requestへ出さない（`INF-SEC-001`）。リポジトリに置くのは、合成値（架空の名称、予約済みdomain）の見本だけとする。stagingとdevelopment・testは合成値だけを使い、Productionの入力はproject-ownerが準備してstagingと共有しない（`INF-SEC-002`、§18 の非本番はsynthetic dataとする規則）。入力を読み、検証するのは、`SPEC-100 §13.5` の条件で作成する行があるときだけとする（`INF-SEED-004`）。
+**INF-SEED-002:** 入力は、環境ごと（stagingとproduction）のGitHub protected Environment Secretに置き、migration jobだけが読む（§26）。値はSecretではないが公開前の情報であるため、source、test fixture、log、artifact、release evidence、Pull Requestへ出さない（`INF-SEC-001`）。リポジトリに置くのは、合成値（架空の名称、予約済みdomain）の見本だけとする。stagingとdevelopment・testは合成値だけを使い、Productionの入力はproject-ownerが準備してstagingと共有しない（`INF-SEC-002`、§18 の非本番はsynthetic dataとする規則）。入力を読み、検証するのは、`SPEC-100 §13.5` の作成の候補（行が0件の対象。`DB-SEED-003`）があるときだけとする（`INF-SEED-004`）。
 
-**INF-SEED-003:** コマンドはmigration jobの一部として、migration lock（§24）を保持したまま、`app_migrator` で実行する。schema readiness checkの後、API deployの前に置く（§45.1、§45.2）。API・workerへmigration credentialを置かず（`INF-DB-006`）、新しいDB roleを追加しない。コマンドは `SPEC-100 §13.5` の対象表と `app.audit_events` へのINSERT、および `SPEC-100 §13.5` の判定に必要なSELECTだけを発行し、それ以外のDML・DDL・GRANTを発行しない。Productionの実行は、migrationと同じprotected Environmentのproject-owner承認に含まれ、別の承認や、break-glass（§70）の手順を要求しない。
+**INF-SEED-003:** コマンドはmigration jobの一部として、migration lock（§24）を保持したまま、`app_migrator` で実行する。schema readiness checkの後、API deployの前に置く（§45.1、§45.2）。API・workerへmigration credentialを置かず（`INF-DB-006`）、新しいDB roleを追加しない。コマンドは `SPEC-100 §13.5` の対象表（Goodsと同時に作る `app.goods_inventory` を含む）と `app.audit_events` へのINSERT、および `SPEC-100 §13.5` の判定に必要なSELECTだけを発行し、それ以外のDML・DDL・GRANTを発行しない。Productionの実行は、migrationと同じprotected Environmentのproject-owner承認に含まれ、別の承認や、break-glass（§70）の手順を要求しない。
 
-**INF-SEED-004:** コマンドは、毎回のdeployで実行しなければならない。判定の順序は、(1) `SPEC-100 §13.5` のlockを取得、(2) 対象の件数を判定、(3) 作成する行があるときだけ入力を読んで検証する、とする。作成する行がなければ入力を読まず、入力が未設定または不正でも `NOOP` とする。作成する行があるのに入力が未設定または不正なときは `FAILED` とする。結果は次の4つのいずれかとする。`CREATED`（1行以上を作成した。COMMITの結果不明から、再照合で自分の実行のcommitを確認した場合を含む）、`NOOP`（作成する行がない）、`FAILED`（rollbackを確認できた失敗。行もAudit Eventも残らない）、`UNKNOWN_RESULT`（COMMIT送信後、acknowledgement受領前の接続断で、新しい接続による再照合（`SPEC-100` `DB-SEED-002`）でもcommitの有無を確認できなかった場合。`SPEC-150` `REL-DB-006`）。`CREATED` と `NOOP` は、どちらも成功として終了code 0で終了し、両者は機械可読な結果区分（標準出力とlogの結果の区分。`INF-SEED-005`）で区別する。`FAILED` と `UNKNOWN_RESULT` は、互いに異なる非ゼロの終了codeで終了する。終了codeの具体的な数値は実装が決める（この仕様が定めるのは、0が成功、2つの失敗が互いに異なる非ゼロであること）。`FAILED` と `UNKNOWN_RESULT` は、migration failureと同じく、deploymentを停止し、API・workerをdeployしない（§47、`INF-DEP-005`）。投入は1つのtransactionであり、`FAILED` ではDBへ部分的な行を残さない。`UNKNOWN_RESULT` では、commit済みである可能性がある行とAudit Eventを削除・修復せずに残し、新しいBusiness Causeを作らない（`REL-DB-007`）。DBへ書けない状況であるため、Consistency Review Caseは作らない。原因（DB接続）を直した後に、同じコマンドを再実行して回復する。再実行は冪等であり、commit済みなら `NOOP`、未commitなら `CREATED` になる。`FAILED` も、原因を直した後に同じ手順を再実行できる。
+**INF-SEED-004:** コマンドは、毎回のdeployで実行しなければならない。判定の順序は、(1) `SPEC-100 §13.5` のlockを取得、(2) 対象ごとの件数を判定、(3) 作成の候補（行が0件の対象）があるときだけ入力を読んで検証する、(4) 保留（入力の値が `null`。`SPEC-100` `DB-SEED-001`）の対象を除く、とする。作成の候補がなければ入力を読まず、入力が未設定または不正でも `NOOP` とする。作成の候補があるのに入力が未設定または不正なときは、候補がすべて保留の場合も含めて `FAILED` とする。(4) の後に作成する行がなければ `NOOP` とする。結果は次の4つのいずれかとする。`CREATED`（1行以上を作成した。COMMITの結果不明から、再照合で自分の実行のcommitを確認した場合を含む）、`NOOP`（作成する行がない）、`FAILED`（rollbackを確認できた失敗。行もAudit Eventも残らない）、`UNKNOWN_RESULT`（COMMIT送信後、acknowledgement受領前の接続断で、新しい接続による再照合（`SPEC-100` `DB-SEED-002`）でもcommitの有無を確認できなかった場合。`SPEC-150` `REL-DB-006`）。`CREATED` と `NOOP` は、どちらも成功として終了code 0で終了し、両者は機械可読な結果区分（標準出力とlogの結果の区分。`INF-SEED-005`）で区別する。`FAILED` と `UNKNOWN_RESULT` は、互いに異なる非ゼロの終了codeで終了する。終了codeの具体的な数値は実装が決める（この仕様が定めるのは、0が成功、2つの失敗が互いに異なる非ゼロであること）。`FAILED` と `UNKNOWN_RESULT` は、migration failureと同じく、deploymentを停止し、API・workerをdeployしない（§47、`INF-DEP-005`）。投入は1つのtransactionであり、`FAILED` ではDBへ部分的な行を残さない。`UNKNOWN_RESULT` では、commit済みである可能性がある行とAudit Eventを削除・修復せずに残し、新しいBusiness Causeを作らない（`REL-DB-007`）。DBへ書けない状況であるため、Consistency Review Caseは作らない。原因（DB接続）を直した後に、同じコマンドを再実行して回復する。再実行は冪等であり、commit済みなら `NOOP`、未commitなら `CREATED` になる。`FAILED` も、原因を直した後に同じ手順を再実行できる。
 
-**INF-SEED-005:** 業務固有の出力項目（logとrelease evidence（§76）が含む、初期データの内容に関する項目）は、結果の区分、作成した行の `public_ref`、件数、実行identity、Audit Event IDだけとする。この制限は業務固有の項目に対するものであり、`SPEC-160` §15 の共通log項目（`timestamp`、`level`、`event_name`、`service`、`environment`、`operation_id`、`operation_execution_id`、`actor_type`、`result`、`failure_class`、`error_code`、`duration_ms`、`schema_version` など）の出力を妨げない。`operation_id` は `PROVISION.INITIAL_DATA_SEED`（`SPEC-160` §9.1）、`service` は通常のBusiness APIの外で動く運用コマンドとして `RECOVERY`（§15の既存の値。新しい値を足さない）、`actor_type` は `INFRASTRUCTURE_OPERATOR` とする。`error_code` はbounded safe stringだけとし、raw exception messageを出さない。結果と共通logの対応は次のとおりとする。`CREATED` は `result=SUCCESS`（`failure_class=SUCCESS`）、`NOOP` は `result=NOOP`、`FAILED` は `result=FAILED`（`failure_class` は原因に応じて `TEMPORARY_FAILURE` / `PERMANENT_FAILURE` / `CONSISTENCY_FAILURE`）、`UNKNOWN_RESULT` は `result=PENDING`（`failure_class=UNKNOWN_RESULT`。`reliability.unknown_result.opened` を出す。`SPEC-160` `OBS-DB-004`）。入力の値とDB connection stringは、どの出力にも含めない（`INF-SEC-001`）。
+**INF-SEED-005:** 業務固有の出力項目（logとrelease evidence（§76）が含む、初期データの内容に関する項目）は、結果の区分、対象ごとの状態（`CREATED` / `EXISTING` / `DEFERRED`。`SPEC-100` `DB-SEED-001`）、作成した行の `public_ref`、件数、実行identity、Audit Event IDだけとする。対象ごとの状態は上記の3値だけとし、入力の値を含めない。この制限は業務固有の項目に対するものであり、`SPEC-160` §15 の共通log項目（`timestamp`、`level`、`event_name`、`service`、`environment`、`operation_id`、`operation_execution_id`、`actor_type`、`result`、`failure_class`、`error_code`、`duration_ms`、`schema_version` など）の出力を妨げない。`operation_id` は `PROVISION.INITIAL_DATA_SEED`（`SPEC-160` §9.1）、`service` は通常のBusiness APIの外で動く運用コマンドとして `RECOVERY`（§15の既存の値。新しい値を足さない）、`actor_type` は `INFRASTRUCTURE_OPERATOR` とする。`error_code` はbounded safe stringだけとし、raw exception messageを出さない。結果と共通logの対応は次のとおりとする。`CREATED` は `result=SUCCESS`（`failure_class=SUCCESS`）、`NOOP` は `result=NOOP`、`FAILED` は `result=FAILED`（`failure_class` は原因に応じて `TEMPORARY_FAILURE` / `PERMANENT_FAILURE` / `CONSISTENCY_FAILURE`）、`UNKNOWN_RESULT` は `result=PENDING`（`failure_class=UNKNOWN_RESULT`。`reliability.unknown_result.opened` を出す。`SPEC-160` `OBS-DB-004`）。入力の値とDB connection stringは、どの出力にも含めない（`INF-SEC-001`）。
 
-**INF-SEED-006:** 初期データは、API deployの前に投入する。公開API（`API-PUB-001`、`API-PUB-005`）が、行のない状態で配信される期間を作らない。初期データの不足を、空の応答の許容や、APIの起動時の自動作成で補わない。
+**INF-SEED-006:** 初期データは、API deployの前に投入する。公開API（`API-PUB-001`、`API-PUB-005`、`API-PUB-006`、`API-PUB-008`、`API-PUB-010`）が、行のない状態で配信される期間を作らない。ただし、`DEFERRED` の対象（入力で明示した保留）に対応する公開API（Goodsの保留では `API-PUB-010`、Karaokeの保留では `API-PUB-006` と `API-PUB-008`）は、保留の間は本Ruleの対象から除く。当該EventにSlotが0件のExclusive Scopeがある状態は、`SPEC-100` `DB-SEED-001` によりコマンドの失敗（`FAILED`）としてdeploymentを止め、`EXISTING` の成功として配信しない。初期データの不足を、空の応答の許容や、APIの起動時の自動作成で補わない。
 
 ## 46. Expand / contract compatibility
 
@@ -1786,7 +1786,7 @@ staging deployment IDs
 staging readiness/smoke result
 provider contract smoke result
 migration set hash
-initial data seeding result（区分、public_ref、件数、実行identity、Audit Event ID。値を含めない。INF-SEED-005）
+initial data seeding result（区分、対象ごとの状態、public_ref、件数、実行identity、Audit Event ID。値を含めない。INF-SEED-005）
 production backup freshness check
 production config drift check
 approval actor ref
@@ -1834,7 +1834,7 @@ approval actor ref
 | `INF-PRV-*` | relevant `API-WHK-*`, `API-WHK-EML-*`, `EML-RSD-*`, `SEC-PAY-*`, `SEC-EML-*`, `REL-PAY-*`, `REL-EML-*`, `REL-WHK-*`, `TST-PRV-*` |
 | `INF-WRK-*` | `EML-*`, `REL-KRK-*`, `REL-EML-*`, `REL-REC-*`, `OBS-REC-*`, `TST-REC-*` |
 | `INF-DEP-*`, `INF-RBK-*` | `DB-MIG-*`, `REL-GEN-*`, `REL-DB-*`, `TST-FLK-*`, `TST-TRC-*` |
-| `INF-SEED-*` | `DB-SEED-*`, `REL-AUTH-008`（out-of-band投入の前例）, `OBS-AUD-014`, `BR-EVT-001`, `TST-SEED-*` |
+| `INF-SEED-*` | `DB-SEED-*`, `REL-AUTH-008`（out-of-band投入の前例）, `OBS-AUD-014`, `BR-EVT-001`, `KRK-GEN-001`, `TST-SEED-*` |
 | `INF-HLT-*` | `SEC-KEY-006`, `REL-DB-012`, `DB-MIG-005`, `OBS-ALT-014`, `TST-SEC-*`, `TST-DB-003` |
 | `INF-OBS-*` | `OBS-GEN-*`, `OBS-LOG-*`, `OBS-MET-*`, `OBS-ALT-*`, `OBS-SEC-*`, `TST-OBS-*` |
 | `INF-AUD-*` | `OBS-AUD-*`, `SEC-PII-*`, `TST-OBS-*`, `TST-CON-AUDIT-*` |
@@ -1919,7 +1919,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 53. Production promotion前に `INF-RLS-008`（#1 `TRUSTED_PROXY_HOPS` の検証、#3 Redisの実versionとCIのRedis majorの一致、#4 Redisの `maxmemory-policy` / `maxmemory` の設定、#6 Providerのrate / bot protection、#7 Google OAuth callbackの経路）が完了している。Googleログインの無効化・未提供を理由に#7や§18.1の全4方式の互換性gateを省略していない。
 54. rate limitの実Redis Testは、`SPEC-170` `TST-RLM-010` のgroup（G5）で、Pull Requestとmerge commitのgateとして実行される（`INF-TST-004`）。
 55. Release Manifestの `mounted_operation_ids` がbuild時にroute registryから生成され、stagingとProductionで一致する（`INF-DEP-006`）。
-56. 初期データ（EventとEntry Ticket Offering）が、専用の運用コマンドだけで、migration jobの `app_migrator` により、schema readiness checkの後・API deployの前に投入される。入力は環境別のprotected Environment Secretから渡り、実値がsource・log・artifact・release evidenceに出ない。対象が0件のときだけ作り、再実行で行が増えず、Offeringは `SUSPENDED` で作られ、`FAILED` と `UNKNOWN_RESULT` ではdeploymentが停止し、結果不明の場合は再実行で再照合できる（`INF-SEED-001〜006`）。
+56. 初期データ（Event、Entry Ticket Offering、Goods（Inventoryを含む）、Karaoke Sales Configuration、Exclusive Scope、Karaoke Slot）が、専用の運用コマンドだけで、migration jobの `app_migrator` により、schema readiness checkの後・API deployの前に投入される。入力は環境別のprotected Environment Secretから渡り、実値がsource・log・artifact・release evidenceに出ない。対象ごとに0件のときだけ作り、入力で保留（`null`）した対象は作らずに `DEFERRED` を出力し、再実行で行が増えず、Offering・Goods・Karaoke Sales Configurationは `SUSPENDED`、Goods Inventoryは在庫0、Karaoke Slotは `AVAILABLE` で作られ、`FAILED` と `UNKNOWN_RESULT` ではdeploymentが停止し、結果不明の場合は再実行で再照合できる（`INF-SEED-001〜006`）。
 57. `LIST_CURSOR_HMAC_KEY` がAPI serviceだけに配置され、他serviceやClientへ出ず、他のSecretと共有されず、他のSecretから導出されない。鍵またはversionの欠落・形式不正でAPI readinessがfalseになり、署名しないcursorへfallbackしない（`INF-SEC-007`）。
 58. 旧artifactのreadinessが、後続releaseのmigrationが `INF-HLT-006` 4の許容範囲にある場合はReadyになり、`INF-HLT-006` の1〜4を満たさない場合（後方互換な変更であってもrequired要素の削除・属性の変更に当たるもの（既存CHECKの緩和を含む）、required tableへのNOT NULLでdefault等のない追加列、journalの先頭の不一致・不足、journalが同じ長さでの追加object）はReadyにならない。`SPEC-170` §22 項目9のTestがG2でPassする。
 59. Railwayの各Canonical Environment（`test` はRailway environmentを置く場合だけ。置かない場合は§74.1のCIのephemeral services）が§14の表のRailway environmentに置かれ、`APP_ENV` がCanonical Environment名である。SecretがShared Variablesになく、PR environmentsが無効で、CI/CDのRailway credentialは対象environmentに限定したproject tokenだけであり、Account token・Workspace tokenがCI/CD・GitHub Secret・runtimeにない。複製したenvironmentは、最初のdeployの前に `INF-RWY-009` の1〜3を、利用を始める前に4を満たしている（`INF-RWY-006〜009`）。
@@ -1930,7 +1930,7 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 
 ## 81. 上流仕様変更要求
 
-`UCR-140-003` により本書が受けた変更は §14、§16、§17.1〜§17.2、§26、§28.1〜§28.2、§40、§74.1、§77 に反映済みである。`UCR-RELSCOPE-001`（`SPEC-200 §48`）により本書が受けた変更は §44 に反映済みである。本書が起票する要求は次の5件である。
+`UCR-140-003` により本書が受けた変更は §14、§16、§17.1〜§17.2、§26、§28.1〜§28.2、§40、§74.1、§77 に反映済みである。`UCR-RELSCOPE-001`（`SPEC-200 §48`）により本書が受けた変更は §44 に反映済みである。本書が起票する要求は次の6件である。
 
 ### UCR-180-001 — INCORPORATED
 
@@ -2024,6 +2024,26 @@ SPEC-180は次をすべて満たしたとき受入可能とする。
 - **影響を受ける可能性がある仕様書:** SPEC-200（§28 の検証内容の文を変更した）、SPEC-140（§101.4 の記録に注記した）、SPEC-170（`TC-STACK-010` を明確化した）。SPEC-010（§8.1.1 の「4環境は別project」はNeonの記述）、SPEC-190（`DEV-INF-001`）、SPEC-150、SPEC-160は、読んだうえで変更不要と判断した。
 - **反映先:** 本書 §4、§8（`INF-ENV-002`）、§8.1、§10（`INF-RWY-001`）、§14（`INF-RWY-006〜009`）、§16、§17.1（`INF-RLS-001`）、§25、§68、§69、§78、§80 項目3・49・50・59、§82。`SPEC-200` v3.3.0 §28、`SPEC-140` v2.5.1 §101.4、`SPEC-170` v2.9.2 §18.1。新しいState・Operation・Capability・error code・DB role・環境変数は追加していない。
 - **決定（利用者、2026-11-22）:** RailwayはRailway project `off-r39x` の中のenvironment `dev`・`staging`・`production` で運用する。ほかのProviderの分け方は変えない。Railway environment名 `dev` は対応表で吸収し、`APP_ENV=development` のままとする。`test` は今はRailway environmentを置かず、CIのephemeral servicesだけとする。権限は上記の要求する変更3〜7で補う。人が画面またはCLIで行う、Railwayのproduction environmentのvariableの変更（§42の承認を経たProduction deployment jobによる設定を除く）、Secret rotationの手順に伴う稼働中と同じimage digestの再deploy、release evidenceに記録されたimage digestへのrollbackは、project-owner（またはapproved infrastructure operator）だけが行ってよく（deployはRailwayの画面から）、運用記録に残す（release evidenceには含めない）。`test` のCIのRedis service containerには、Railway固有の条件（`INF-RLS-002`・`INF-RLS-005`、§80 項目49・50）を適用しない。複製はproduction以外を複製元とする場合に限って許す（作成済みの3つのenvironmentは複製で作っていない）。版はMINOR（v2.8.0）とした。Railwayのprojectの分け方に依存する実装がまだなく、`APP_ENV` の値も変わらず、既存実装と他の仕様書に大きな再解釈を要求しない（`SPEC-000 §7.1`）ためである。
+
+### UCR-180-007 — INCORPORATED
+
+- **Status:** `INCORPORATED`（本改訂 v2.9.0、`SPEC-100` v2.6.0、`SPEC-090` v1.1.0、`SPEC-160` v2.4.0、`SPEC-170` v2.10.0、`SPEC-200` v3.4.0）。現在の契約は本文を正とし、本記録は経緯である。
+- **対象:** SPEC-180（§45.3 `INF-SEED-002〜006`、§76、§78、§80 項目56）。`SPEC-100` §13.5（`DB-SEED-001〜005`、`DB-SEED-007`）・§48、`SPEC-090` §8.1 `KRK-GEN-001`・§8.5 `KRK-GEN-009`、`SPEC-160` §20・§35・§37・`OBS-AUD-014`、`SPEC-170` §22.1 `TST-SEED-001〜006`、`SPEC-200` `ACC-INF-023`・`ACC-GEN-032` に及ぶ。
+- **現在の仕様（改訂前）:** `SPEC-100 §13.5` は初期データの対象をEventとEntry Ticket Offeringに限り、Goods・Karaoke Sales Configuration・Exclusive Scopeを明示的に対象外とする。`SPEC-110` には、Goods（`API-ADM-GDS-001〜005`）・Karaoke Sales Configuration（`API-ADM-KRK-SALES-001〜003`）・Exclusive Scope（`API-ADM-KRK-010〜011`）の作成Operationがない。Karaoke Slotの作成（`API-ADM-KRK-003`）はあるが、`UCR-RELSCOPE-001`（`SPEC-200 §48`）の決定時点の一覧では今回のreleaseでmountしない。`SPEC-090` `KRK-GEN-001` はSlot生成をAdministratorの `karaoke_slots.manage` に接続するoperationに限る。このため、Goods・Karaokeを簡易スコープ内とするreleaseで、これらの最初の行を作る方法がどの仕様にもない。`SPEC-160 §20` の `target_type` に、Karaoke Sales ConfigurationとExclusive Scopeの値がない。
+- **要求する変更:**
+  1. `SPEC-100 §13.5` の対象表に、Goods（Goods 1件ごとにInventoryを1行。`DB-GDS-001`）、Karaoke Sales Configuration、Exclusive Scope、Karaoke Slotを加える。対象ごとに独立に判定し、Goods・Exclusive Scopeは入力の件数（1件以上）、Karaoke Sales Configurationは1件（2件以上あればコマンドを失敗させる）、Karaoke Slotは同じ実行で作るExclusive Scopeに対してだけ作る。当該EventにSlotが0件の既存のExclusive Scopeがあれば、コマンドを失敗させる（`DB-SEED-001`）。
+  2. 入力の検証は、DBのCHECKと同じ条件だけとする。`currency` は入力で受け取り、Exclusive Scopeの `sort_order` は必須とする（`DB-SEED-003`）。
+  3. Goods・Karaoke Sales Configurationは `SUSPENDED`、Goods Inventoryは在庫0（`saleable_capacity = 0`）、Karaoke Slotは `AVAILABLE` で作る。Slotの3時刻は `SPEC-090 §8.2` の標準algorithm、`generation_cause_key` は投入コマンドの実行の `operation_execution_id` とする（`DB-SEED-004`、§13.5の表）。
+  4. Karaoke Slotの入力は、全Scopeに共通のwindowの配列とする。window `window_start < window_end`、各windowが候補を1件以上作ること、異なるwindowの候補のOccupancy Intervalが重ならないこと（接するのは可）、1回の実行で作るSlotが1,000件以下であることをコマンドで検証し、排他制約を最後の防御とする（`DB-SEED-003`）。
+  5. 入力のtop-level keyを `event`、`entry_ticket_offerings`、`goods`、`karaoke` の4つとし、常に必須とする。`goods` と `karaoke` は値に `null`（保留）を書け、保留の対象は0件でも作らない（Karaokeは販売設定・Scope・Slotをまとめて保留する）。対象ごとの状態 `CREATED` / `EXISTING` / `DEFERRED` を出力する（`DB-SEED-001`、`DB-SEED-003`、本書 `INF-SEED-004`・`INF-SEED-005`）。
+  6. Auditは、Goods（Inventoryを含めて1件）、Karaoke Sales Configuration、Exclusive Scope、Karaoke Slotの行ごととし、`SPEC-160 §20` に `KARAOKE_SALES_CONFIGURATION` と `KARAOKE_EXCLUSIVE_SCOPE` を加える（`SPEC-160` `OBS-AUD-014`）。
+  7. `SPEC-090` `KRK-GEN-001` に、初期データの投入コマンドによるSlotの生成を唯一の例外として加える。
+  8. 本書 `INF-SEED-006` の対象に `API-PUB-006`・`API-PUB-008`・`API-PUB-010` を加え、`DEFERRED` の対象に対応する公開APIを除く。
+- **理由:** プロジェクト所有者は、Goods・Karaokeの表を仕様どおりに作り、公開読取と購入可否の照会を提供し、販売は初期データで `SUSPENDED` にする方針を決めた（2026-11-13）。作成Operationがないentityの最初の行は、EventとOfferingと同じ運用コマンドで作るのが `UCR-180-001` の前例に最も近く、管理APIという新しい攻撃面を足さない。Slotの作成Operation（`API-ADM-KRK-003`）をmountすると、Administratorの認証・`karaoke_slots.manage`・Idempotency-Key・Rate Limit・Audit・管理画面の作業がまとめて必要になる。販売の可否が未確定のGoodsと、日程が未確定のKaraokeを、他の変更のdeployを止めずに待てるよう、入力で明示的に保留できるようにした。保留をkeyの省略で表すと、作り忘れが `NOOP` に見えるため、keyは常に必須とし、値の `null` で表す。在庫を0とするのは、販売停止が誤って解除されても売れないようにするためである。
+- **変更しない場合の影響:** Goods・Karaokeの公開API（`API-PUB-006〜011`）がstaging・Productionで返す行がなく、Goodsが見える、Karaokeの枠が見えてすべて購入できない、という状態を作れない。Goodsの販売停止を初期データで固定する手段がなく、実装者が手作業のSQLやmigrationへのINSERTで補う危険がある（`INF-SEED-001` 違反）。
+- **影響を受ける可能性がある仕様書:** SPEC-090、SPEC-100、SPEC-160、SPEC-170、SPEC-200（いずれも変更した）。SPEC-110（作成Operationを追加しない。`API-PUB-READ-002` は `DB-SEED-001` を参照するだけ）、SPEC-130（管理画面のSlot生成を変えない）、SPEC-020（`FR-KRK-028`・`FR-ADM-010` はAdministratorが一括生成できることを求めるが、他の生成経路を禁じない）は、読んだうえで変更不要と判断した。
+- **反映先:** 本書 §45.3（導入文、`INF-SEED-002〜006`）、§76、§78、§80 項目56。`SPEC-100` v2.6.0 §13.5（`DB-SEED-001〜005`、`DB-SEED-007`）・§48・§70、`SPEC-090` v1.1.0 §8.1（`KRK-GEN-001`）・§8.5（`KRK-GEN-009`）・§53、`SPEC-160` v2.4.0（§20、§35、§37、`OBS-AUD-014`、§60）、`SPEC-170` v2.10.0（§22.1 `TST-SEED-001〜006`、§78 項目56、UCRの一覧）、`SPEC-200` v3.4.0（§4.8、`ACC-INF-023`、`ACC-GEN-032`）。新しい列・制約・Index・Operation・Capability・Domain State・DB roleは追加していない。`target_type` の2値はAudit registry（`SPEC-160 §20`）への追加であり、DBのCHECKを伴わない。
+- **決定（利用者、2026-11-24）:** 予約枠を初期データに含め、`SPEC-090` `KRK-GEN-001` に例外を書く（`API-ADM-KRK-003` はmountしない）。対象ごとに独立に判定し、Goods・Exclusive Scopeは1件以上、Karaoke Sales Configurationは1件（2件以上で `FAILED`）、Slotは同じ実行で作るScopeにだけ作る。Slotが0件の既存のScopeがある場合は、入力の値・`null` にかかわらずコマンドを失敗させ、deploymentを止める（Pull Request #98 のレビューの指摘を受けた利用者の決定、2026-11-25。この状態は本書の外の経路でしか生じず、Slotを補う案と、規則を足さない案は採らなかった）。検証はDBのCHECKと同じ条件だけとし、`currency` を `JPY` に固定せず、名前の空文字・Scope名の重複を拒否する規則は足さない。Goods・Karaoke Sales Configurationは `SUSPENDED`、在庫は0、Slotは `AVAILABLE`、`generation_cause_key` は実行の `operation_execution_id` とする。windowは全Scope共通の配列とし、重なりを禁止し、上限1,000件を本文に書く。4つのkeyは常に必須とし、`goods`・`karaoke` は `null` で保留でき、対象ごとの状態を出力する。Auditは、GoodsはInventoryを含めて1件、Scope・Slotは行ごととし、`target_type` を2つ加える。Productionでは本番の値がすべて確定するまで `goods`・`karaoke` を `null`（保留）とし、作成後に誤りが見つかった場合の訂正の手段（更新Operationのmount）は本改訂では決めない。`INF-SEED-006` の対象に `API-PUB-006`・`008`・`010` を加え、`DEFERRED` の対象を除く（`007`・`009`・`011` は加えない）。各仕様の版はMINORとした（`SPEC-000 §7.2`）。対象の追加と保留は規則の追加であり、Event・Offeringの作成の条件・固定値・Audit・結果の区分を変えない。入力のtop-level keyが4つとも必須になる点は入力の形の変更だが、改訂の時点でdeploy workflowは投入コマンドをまだ呼んでおらず、staging・Productionに既存の入力の運用がないため、既存実装と他の仕様書に大きな再解釈を要求しない（`SPEC-000 §7.1`）。Goods・Karaokeを含む最初のdeployより前に、staging・Productionの入力へ `goods` と `karaoke`（少なくとも `null`）を加える。
 
 本仕様は、Infrastructure Ownerとして明示的に委譲されたEnvironment、DB principal、Secret placement、scheduler、health、deployment、Audit access/purge、observability backend、backup / restore、Test gateの具体化だけを行っている。
 

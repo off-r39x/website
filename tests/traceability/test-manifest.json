@@ -416,7 +416,7 @@
       "expected_http": null,
       "expected_domain_postconditions": [
         "each exported constant equals the canonical set with no duplicates",
-        "no extra exports beyond assertNever, the SPEC-030 9.2 display-name policy (DISPLAY_NAME_MAX_CODE_POINTS, normalizeDisplayName) and the PR-L2-3 public Entry sales state function evaluatePublicEntryAvailability"
+        "no extra exports beyond assertNever, the SPEC-030 9.2 display-name policy (DISPLAY_NAME_MAX_CODE_POINTS, normalizeDisplayName), the PR-L2-3 public Entry sales state function evaluatePublicEntryAvailability, and the PR-L1-2a purchase eligibility (PURCHASE_REASONS, evaluatePurchaseEligibility) and Order Purpose (deriveOrderPurpose)"
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -19183,6 +19183,535 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-TST-SEED-001-005",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-003",
+        "DB-SEED-004",
+        "DB-GDS-001",
+        "KRK-GEN-001",
+        "INF-SEED-004",
+        "TST-SEED-001",
+        "UCR-180-007",
+        "INV-010-07",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-07"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17, empty database: seedInitialData as app_migrator with a complete synthetic input (2 Goods, 1 Sales Configuration, 2 Scopes, 3 one-hour windows); a Goods row without description; then app_api_runtime reads the new tables (database privilege only, not an API check)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "CREATED, every target CREATED; the outcome lists every created Public Reference"
+      ],
+      "expected_db_postconditions": [
+        "Goods SUSPENDED with one Inventory row each (saleable_capacity, held_quantity, committed_quantity 0); one Sales Configuration SUSPENDED with 15 / 5; Scopes with the input name and sort_order; 9 Slots per Scope, AVAILABLE, usage_start every 20 minutes from window_start, usage_end +15 min, cycle_end +20 min, sales_configuration_id the created Configuration, generation_cause_key the run's execution id, generation_candidate_no 0..8; an omitted description stays NULL; app_api_runtime can SELECT every new table"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-001-006",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "TST-SEED-001",
+        "TST-UNT-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput on a complete synthetic input with one forbidden key added to a Goods row, the Sales Configuration, a Scope or a window (id, public_ref, event_id, created_at, updated_at, sale_control_state, saleable_capacity, held_quantity, committed_quantity, goods_id, standard_usage_minutes, standard_maintenance_minutes, state, usage_start, usage_end, cycle_end, generation_cause_key, generation_candidate_no, exclusive_scope_id, sales_configuration_id)",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The baseline is accepted; each forbidden key is rejected with INITIAL_DATA_INPUT_INVALID only, carrying no input value"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-001-007",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "KRK-GEN-001",
+        "KRK-GEN-002",
+        "KRK-GEN-003",
+        "DB-SEED-003",
+        "TST-SEED-001",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: slotCandidates on synthetic windows: one hour, 50 minutes, a start at :07, a window across midnight in Asia/Tokyo, and three windows given out of order",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Candidates every 20 minutes from window_start (not rounded), 15 minutes of use, 5 of maintenance, no incomplete last cycle, numbered 0.. in usage_start order"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "TST-SEED-002",
+        "UCR-180-007",
+        "REL-DB-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: (a) a run with goods and karaoke null, then a complete run; (b) an existing Event, Offering, Goods and Sales Configuration with no Scope; (c) an existing Sales Configuration, Scope and Slot with no Goods, and a three-Scope input; (d) existing Goods and a three-Goods input",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) CREATED with Goods and Karaoke DEFERRED, then CREATED with Event and Offerings EXISTING; (b) only the Scope and Slots CREATED; (c) only Goods CREATED; (d) NOOP with goods EXISTING"
+      ],
+      "expected_db_postconditions": [
+        "(a) Event and Offerings unchanged, Goods, Inventory, Configuration, Scope and 9 Slots added for the one Event; (b) the existing Configuration unchanged and referenced by every new Slot; (c) the existing Configuration, Scope and Slot unchanged, no Slot added; (d) still one Goods and one Inventory row, no Audit Event"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-008",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-003",
+        "INF-SEED-004",
+        "TST-SEED-002",
+        "UCR-180-007",
+        "REL-DB-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: goods null with Karaoke values; an existing Event and Offering with goods and karaoke null; the same with the input missing or without the goods key; a later run with Goods values; a complete set followed by a run with goods and karaoke null",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "DEFERRED for each null target with no row; NOOP when every candidate is deferred (the input is read once); FAILED with INITIAL_DATA_INPUT_MISSING or INITIAL_DATA_INPUT_INVALID when the input is missing or lacks a key; CREATED for the later Goods; every target EXISTING when rows exist"
+      ],
+      "expected_db_postconditions": [
+        "No row and no Audit Event for a deferred target; nothing written on NOOP or FAILED; null never deletes or changes a row"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-009",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-007",
+        "TST-SEED-002",
+        "UCR-180-007",
+        "REL-DB-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: an Event with two Karaoke Sales Configurations, or with a Scope that has no Slot (beside one that has), seeded with karaoke values and with karaoke null",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "FAILED with CONSISTENCY_FAILURE and INITIAL_DATA_KARAOKE_SALES_CONFIGURATION_NOT_UNIQUE or INITIAL_DATA_KARAOKE_SCOPE_WITHOUT_SLOTS; the input is not read"
+      ],
+      "expected_db_postconditions": [
+        "Every table unchanged; no Slot is added to the existing Scope"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-002-010",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "INF-SEED-004",
+        "TST-SEED-002",
+        "UCR-180-007",
+        "REL-DB-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: a complete run followed by a run with malformed input text; a database with every target inserted by other means and no input",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "NOOP with every target EXISTING; the input is never read"
+      ],
+      "expected_db_postconditions": [
+        "Every table unchanged"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-025",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-003",
+        "TST-SEED-003",
+        "TST-UNT-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput on complete synthetic inputs and on variants: goods or karaoke null, a Goods row without description, a missing or unknown top-level or karaoke key, null event or Offerings, empty, non-array or null-element goods, Scopes or windows, an array or null Sales Configuration, and Goods, Sales Configuration or Scope values outside the CHECK conditions (negative or fractional amounts, lower-case or short currency, purchase_limit 0, an empty or reversed sales period, a timestamp without an offset, a missing or non-integer sort_order, a description on the Sales Configuration); a negative sort_order and empty names",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Complete inputs and null goods or karaoke are accepted with their values; the variants are rejected with INITIAL_DATA_INPUT_INVALID only, carrying no input value; a negative sort_order and empty names are accepted (no CHECK)"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-026",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "KRK-GEN-002",
+        "KRK-GEN-003",
+        "DB-KRK-002",
+        "TST-SEED-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput with slot windows that are empty, reversed, without an offset, not timestamps, missing window_end, shorter or exactly as long as one 20 minute cycle, overlapping by their candidates (also when given in reverse order or twice), touching, overlapping only as windows, and making 1,000 or 1,001 Slots over one or two Scopes",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Rejected with INITIAL_DATA_INPUT_INVALID: empty, reversed, offset-less, non-timestamp and incomplete windows, a window without a candidate, overlapping candidates, more than 1,000 Slots; accepted: a 20 minute window, touching candidates, overlapping windows whose candidates do not overlap, exactly 1,000 Slots"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-027",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "DB-SEED-003",
+        "REL-DB-002",
+        "TST-SEED-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17, empty database: (a) a complete input whose second Goods row has purchase_limit 0; (b) a test-only CHECK on app.karaoke_slots refusing generation_candidate_no 5 or more (dropped afterwards); (c) two Scopes and one window of 500 candidates (1,000 Slots) under the default transaction deadline",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(a) FAILED with INITIAL_DATA_INPUT_INVALID; (b) FAILED with PERMANENT_FAILURE and INITIAL_DATA_CONSTRAINT_REJECTED, one attempt; (c) CREATED"
+      ],
+      "expected_db_postconditions": [
+        "(a), (b) no row of any target and no Audit Event; (c) 1,000 Slots and 1,000 KARAOKE_SLOT Audit Events"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-004-004",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "OBS-AUD-014",
+        "DB-SEED-005",
+        "TST-SEED-004",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17, empty database: a complete synthetic input with two Scopes; then a run with goods and karaoke null and a second complete run",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The outcome's Audit Event IDs are exactly the rows written"
+      ],
+      "expected_db_postconditions": [
+        "One Audit Event per created row: GOODS (after_state SUSPENDED, changed_fields with the Inventory field names, no separate Inventory event), KARAOKE_SALES_CONFIGURATION (SUSPENDED), KARAOKE_EXCLUSIVE_SCOPE (no after_state) and KARAOKE_SLOT (AVAILABLE), all BUSINESS_EFFECT, INFRASTRUCTURE_OPERATOR, PROVISION.INITIAL_DATA_SEED, COMMITTED, PASSED, with the run's execution id and the created Public References; no input value in any column and an empty safe_change_summary; no further Audit Event for deferred or existing targets"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-005-008",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-SEED-003",
+        "SEC-DB-001",
+        "TST-SEED-005",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17: the statements recorded for a CREATED, a NOOP and a FAILED (empty slot_windows) run; INSERTs into app.goods, app.karaoke_sales_configurations and app.karaoke_exclusive_scopes as app_api_runtime, app_email_runtime and app_reconciliation_runtime",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Only the allowed statement forms are issued; INSERTs go only to the seven target tables and app.audit_events"
+      ],
+      "expected_db_postconditions": [
+        "The runtime roles' INSERTs fail with 42501"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-024",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "REL-DB-006",
+        "INF-SEED-004",
+        "TST-SEED-006",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17 with an existing Event and Offering; the seed connection goes through the commit proxy, which (1) drops the COMMIT acknowledgement or (3) drops the COMMIT request, for a complete synthetic input",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "(1) CREATED with Event and Offerings EXISTING and the other targets CREATED, and every created Public Reference from this run's Audit Events; (3) CREATED after a retry: the existing Event and Offerings are not taken as proof of success"
+      ],
+      "expected_db_postconditions": [
+        "One Goods, one Inventory row, one Sales Configuration, one Scope and 9 Slots; (1) 12 Audit Events; (3) the Slots carry the retry's execution id"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "(3) reliability.unknown_result.resolved with result FAILED"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-003-028",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-SEED-003",
+        "REL-DB-001",
+        "TST-SEED-003",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Unit, no database: parseInitialDataInput with one slot window of four millennia (about a hundred million candidates) for one and for three Scopes, and with 200,000 consecutive 20 minute windows",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Rejected with INITIAL_DATA_INPUT_INVALID without expanding a candidate: the long windows within 100 ms, the long list within 2 s; parsing never throws"
+      ],
+      "expected_db_postconditions": [
+        "No database is used"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-025",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-002",
+        "DB-GDS-001",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17 with an existing Event, Offering, Sales Configuration and Scope with a Slot; a run that creates only Goods goes through the commit proxy, which drops the COMMIT request; before the re-check reads, a Goods row of the Event is inserted without its Inventory",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check does not take the Goods row without Inventory as complete: resolved FAILED (TEMPORARY_FAILURE), a retry is attempted, and the retry ends NOOP (the Goods target has a row and is not topped up)"
+      ],
+      "expected_db_postconditions": [
+        "One Goods row, no Inventory row and no Audit Event"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.resolved with result FAILED, then reliability.retry.attempted"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-TST-SEED-006-026",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-SEED-001",
+        "DB-SEED-002",
+        "DB-SEED-007",
+        "REL-DB-006",
+        "TST-SEED-006",
+        "UCR-180-007",
+        "SPEC-180-45.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Real PG17; the run goes through the commit proxy, which drops the COMMIT request; before the re-check reads, other means create what the run was creating and also (a) a second Sales Configuration of the Event, with Sales Configuration, Scope and Slots planned, (b) a Scope without Slots, with only Goods planned, (c) a second Event, with only Goods planned",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [
+        "FP.DB.AFTER_COMMIT_SENT_BEFORE_ACK"
+      ],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The re-check reads the DB-SEED-001 conditions before it decides success: FAILED(CONSISTENCY_FAILURE) with INITIAL_DATA_KARAOKE_SALES_CONFIGURATION_NOT_UNIQUE, INITIAL_DATA_KARAOKE_SCOPE_WITHOUT_SLOTS or INITIAL_DATA_EVENT_NOT_UNIQUE; never NOOP, never retried"
+      ],
+      "expected_db_postconditions": [
+        "Only the rows inserted by other means; no Audit Event; nothing repaired"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "reliability.unknown_result.resolved once with result FAILED and failure_class CONSISTENCY_FAILURE; no reliability.retry.attempted"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-TST-SEED-003-024",
       "level": "Unit",
       "suite": "unit",
@@ -21108,7 +21637,7 @@
       "fault_points": [],
       "expected_http": null,
       "expected_domain_postconditions": [
-        "targets accepts one or more of the ten SPEC-100 section 43 target ids and rejects none, unknown keys and non-bigint ids; the five EML reasons accept only order or reservation targets."
+        "targets accepts one or more of the ten SPEC-100 section 43 target ids and rejects none, unknown keys and non-bigint ids; the five EML reasons accept only order or reservation targets; AUTH_PROFILE_RELATION_INCONSISTENT has no target shape (UCR-100-004, TC-REVIEW-PORT-005)."
       ],
       "expected_db_postconditions": [],
       "expected_provider_postconditions": [],
@@ -34214,6 +34743,871 @@
       ],
       "sensitivity_class": "synthetic",
       "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-015",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-002",
+        "DB-STA-001",
+        "DB-STA-002",
+        "DB-TIM-001",
+        "DEV-DB-001",
+        "DEV-DB-006",
+        "SPEC-100-42",
+        "SPEC-100-43",
+        "SPEC-100-55",
+        "SPEC-100-57"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Static Drizzle declaration check of the two cross-functional tables against the reviewed schema-contract.json and the hand-written goldens of tests/harness/db/cross-functional-golden.ts; not a database execution test; DB enforcement is TC-DB-ARC-007-016 and the other DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The contract rows of notification_requests and consistency_review_cases equal the golden columns, constraints and indexes; the golden Notification Request states equal @off-r39x/domain NOTIFICATION_STATES",
+        "For each table the Drizzle name, schema app, column order, SQL type, NOT NULL, identity only on id, no generated column, defaults (none on state; '{}'::jsonb on render_context and details) and lossless PgBigInt64 for every bigint equal the golden",
+        "Constraint names, kinds, the primary key and UNIQUE column lists equal the golden and the contract; CHECK text equals the golden exactly and matches the contract by column and literal; the thirteen foreign keys reference the golden parent columns (goods_order_items by order_item_id) with ON DELETE RESTRICT; the two partial indexes carry the golden column and predicate; both exports are in the schema barrel"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-ARC-007-016",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-ARC-007",
+        "DB-MIG-002",
+        "DB-MIG-003",
+        "DB-TIM-001",
+        "DB-TIM-002",
+        "DB-ID-003",
+        "DB-XFN-004",
+        "DEV-DB-013",
+        "SPEC-170-22",
+        "SPEC-100-42",
+        "SPEC-100-43",
+        "SPEC-100-45.6",
+        "SPEC-100-59"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Applied migrations are immutable: 0009 equals its committed hash, and 0010 statically creates only the two tables and the two separately named partial indexes, with one REVOKE ALL and no ALTER, GRANT, DROP, TRUNCATE, DELETE, INSERT, UPDATE, generated column, trigger, function, extension, role, view, OWNER TO or row level security; the eleven existing tables appear only as REFERENCES targets"
+      ],
+      "expected_db_postconditions": [
+        "The journal lists every migration once with the bundled source hashes, 0010_cross_functional after 0009, and a second runMigrations leaves it unchanged",
+        "The two tables have 11 + 19 columns in attnum order equal to the golden; every constraint and index name fits 63 bytes; exactly 22 named constraints and 7 valid indexes equal the golden definitions, all validated and not deferrable; no index covers auth_subject; owner app_migrator, row level security off, two bigint identity sequences, 5 time columns all timestamptz; the live catalog equals requiredCatalog",
+        "A duplicate id given with OVERRIDING SYSTEM VALUE is 23505 pk_<table>, and an explicit id is 428C9; the Case public_ref is a database generated v4 UUID refused as a duplicate by uq_consistency_review_cases_public_ref; render_context and details default to {}; created_at, updated_at and opened_at default to the transaction's transaction_timestamp()"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-STA-002-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-STA-001",
+        "DB-STA-002",
+        "EML-DB-001",
+        "SPEC-100-10",
+        "SPEC-100-42",
+        "SPEC-120-7"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "ck_notification_requests_state"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "PENDING, SENT, FAILED_RETRYABLE and CANCELED are accepted; near misses and the Email Job processing states (READY, CLAIMED, UNKNOWN_RESULT, BLOCKED, CLOSED) are 23514 ck_notification_requests_state; an omitted state is 23502 (no default)",
+        "Plan U-3: an unlisted notification_type and an unlisted reason_code are accepted (no allowlist CHECK); both are NOT NULL"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-001",
+        "EML-GEN-004",
+        "SPEC-100-42",
+        "SPEC-120-8.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_notification_requests_business_cause_key",
+        "ck_notification_requests_source",
+        "fk_notification_requests_recipient_profile",
+        "fk_notification_requests_source_order",
+        "fk_notification_requests_source_reservation"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second row of the same business_cause_key is 23505 uq_notification_requests_business_cause_key in every state",
+        "A source Order, a source Reservation or both are accepted; neither is 23514 ck_notification_requests_source",
+        "An absent recipient, source Order or source Reservation is 23503 by name; the key and the recipient are NOT NULL and a NULL render_context is 23502"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-001",
+        "EML-GEN-001",
+        "EML-GEN-003",
+        "EML-GEN-005",
+        "SPEC-120-8.1",
+        "SPEC-120-8.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "enqueueNotificationRequest on the caller's transaction creates one PENDING row with the SPEC-120 section 8.2 UUIDv5 key, the recipient, the source Order / Reservation and the render context; the same input again is existing and leaves the row, its times and the source Order unchanged"
+      ],
+      "expected_db_postconditions": [
+        "A SENT, FAILED_RETRYABLE or CANCELED row of the same cause is existing and keeps its state (no resend)",
+        "A KARAOKE_RESERVATION_CANCELED cause without an Order is created with source_order_id NULL",
+        "An absent recipient is 23503 fk_notification_requests_recipient_profile in the caller's transaction, and no row remains"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-001",
+        "EML-GEN-004",
+        "TST-CON-001",
+        "TST-DB-004",
+        "SPEC-170-24",
+        "SPEC-120-8.3"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_notification_requests_business_cause_key"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied; parents committed by the administrator and deleted again in finally; two additional connections X and Y checked to run in UTC and READ COMMITTED and always closed in finally, a barrier on pg_stat_activity instead of sleep that fails at once if Y finishes without waiting, statement_timeout 10s on Y; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "X enqueues a cause uncommitted (created); Y's enqueue of the same input waits on X's lock; after X COMMIT, Y is existing; after X ROLLBACK, Y is created; exactly one row of the key remains; nothing remains after the case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-004",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-XFN-001",
+        "EML-GEN-002",
+        "EML-GEN-003",
+        "SPEC-120-8.1"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers each query in order; synthetic values only; not a database execution test (TST-DB-001); the UNIQUE convergence, the constraints and the races are the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A new cause is one INSERT ... ON CONFLICT (business_cause_key) DO NOTHING with the derived key, PENDING and the context as JSON, and no transaction statement; the result is created",
+        "An existing cause is reselected by a separate SELECT that writes nothing: the same content is existing and a different one is conflict; a reselect without a row is an error, never a second INSERT; a PostgreSQL error is rethrown unchanged"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-EML-GEN-004-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "EML-GEN-004",
+        "DB-XFN-001",
+        "SPEC-120-8.3",
+        "REL-DB-002"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Plan U-4: the same Business Cause with a different recipient, source Order, source Reservation, render context or type is conflict; the existing row is unchanged and no second row is written"
+      ],
+      "expected_db_postconditions": [
+        "The render context is compared as a JSON value, so the same context with its keys in another order is existing"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-002-001",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-002",
+        "DB-XFN-004",
+        "REL-REC-009",
+        "SPEC-100-43",
+        "SPEC-100-45.6"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_consistency_review_cases_dedupe_key",
+        "ck_consistency_review_cases_target",
+        "ck_consistency_review_cases_auth_subject"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "A second Case of the same dedupe_key is 23505 uq_consistency_review_cases_dedupe_key, also after the first is resolved; dedupe_key and reason_code are NOT NULL",
+        "Each of the ten targets alone and all together are accepted; none is 23514 ck_consistency_review_cases_target",
+        "UCR-100-004: AUTH_PROFILE_RELATION_INCONSISTENT with only auth_subject is accepted; the reason without auth_subject, and another reason with auth_subject, are 23514 ck_consistency_review_cases_auth_subject; auth_subject has no foreign key",
+        "ix_consistency_review_cases_unresolved has the predicate resolved_at IS NULL and ix_notification_requests_pending the predicate state IN (PENDING, FAILED_RETRYABLE)"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-002-002",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-002",
+        "REL-REC-013",
+        "REL-REC-016",
+        "REL-AUTH-009",
+        "SPEC-100-43"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "openConsistencyReviewCase opens an AUTH_PROFILE_RELATION_INCONSISTENT Case with the REL-REC-016 dedupe key, the Auth Subject, details {} and no target; the same incident is existing on the same Case",
+        "A resolved Case of the same epoch is existing with resolved true; the next epoch opens a new Case (REL-REC-013); another Auth Subject is another incident"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-002-003",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-XFN-002",
+        "REL-REC-016",
+        "TST-CON-001",
+        "TST-DB-004",
+        "SPEC-170-24"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [
+        "uq_consistency_review_cases_dedupe_key"
+      ],
+      "preconditions": "Independent real PG17 database with every migration applied; parents committed by the administrator and deleted again in finally; two additional connections X and Y checked to run in UTC and READ COMMITTED and always closed in finally, a barrier on pg_stat_activity instead of sleep that fails at once if Y finishes without waiting, statement_timeout 10s on Y; synthetic data only",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "X opens the Case of an Auth Subject uncommitted; Y's open of the same input waits on X's lock; after X COMMIT, Y is existing on X's Case; after X ROLLBACK, Y opens it; exactly one Case of the dedupe key remains; nothing remains after the case"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-DB-XFN-004-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DB-XFN-004",
+        "DEV-TS-005",
+        "SEC-PII-002",
+        "REL-REC-008"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers each query in order; synthetic values only; not a database execution test (TST-DB-001); the UNIQUE convergence, the constraints and the races are the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Enqueue results carry the status and the Business Cause key only; open results carry the status, the Case Public Reference and resolved only, never the Auth Subject, the dedupe key or an Internal ID",
+        "An invalid input (an Email in the render context, a non-bigint id, an unknown type, a missing source, an upper-case Auth Subject, a zero epoch, a supplied dedupe key, the AUTH reason with a target) is refused before any query, and the message names no value"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-REL-REC-016-001",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "REL-REC-007",
+        "REL-REC-016",
+        "REL-AUTH-009",
+        "DB-XFN-002"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers each query in order; synthetic values only; not a database execution test (TST-DB-001); the UNIQUE convergence, the constraints and the races are the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "The AUTH Case is one INSERT ... ON CONFLICT (dedupe_key) DO NOTHING of the dedupe key r150:AUTH_PROFILE_RELATION_INCONSISTENT:auth_subject:<subject>:epoch-<n> (decimal, no leading zero), the reason and the Auth Subject, with no target and no details; an existing Case is reselected by the dedupe key in a separate statement; a PostgreSQL error is rethrown unchanged",
+        "Plan U-1: every other reason is refused before any query until UCR-150-004 defines its dedupe key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-FK-002-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "DB-FK-002",
+        "DB-FK-004",
+        "DB-XFN-003",
+        "SPEC-100-11",
+        "SPEC-100-12"
+      ],
+      "system_invariant_ids": [
+        "INV-010-06"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; administrator connection in UTC and READ COMMITTED inside BEGIN / ROLLBACK, one savepoint per attempt (a probe savepoint is rolled back even on success); parents (Business Profiles, an Entry + Goods Order with an issued Entry Ticket and a Goods Order Item, a Checkout Attempt, a Payment Binding, a Refund Record, two Karaoke Slots with committed Holds and confirmed Reservations, a Karaoke Ticket and an Entry-only Order) created in the same transaction; Auth Subjects are synthetic UUIDs; synthetic data only. The catalog goldens are tests/harness/db/cross-functional-golden.ts, written by hand from SPEC-100 and the plan and not derived from schema-contract.json or the migration. The migration number 0010 is fixed just before the merge",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "All thirteen foreign keys of the two tables are ON DELETE RESTRICT and ON UPDATE NO ACTION",
+        "Deleting the recipient, source Order or source Reservation of a Notification Request, or any of the ten targets of a resolved Case, is 23503 (by the Case's key where only the Case holds the row), and no row is lost"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-SEC-DB-001-007",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "SEC-DB-001",
+        "SEC-DB-003",
+        "DB-FK-004",
+        "SPEC-100-53",
+        "SPEC-180-22.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; the app_api_runtime, app_email_runtime and app_reconciliation_runtime pools connect over verified TLS with the test CA",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the two tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the two identity sequences",
+        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE from the three runtime pools are 42501 on both tables"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-016",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "DB-MIG-003"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations before 0010_cross_functional applied (the build released before L1-1c); synthetic history committed under 0009 before 0010 runs (the 0008 history of TC-INF-HLT-006-015 plus an issued Entry Ticket with a REVOKED and an ACTIVE Entry QR Token and its Check-in, and an ACTIVE Karaoke QR Token); readiness evaluated from a temporary directory holding those migrations, with the fixed 0009 required catalog fixture (asserted equal to the old live catalog); then 0010, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0010",
+      "fixture_ids": [
+        "tests/fixtures/db/required-catalog-0009.json"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "SPEC-170 section 22 item 8: every table that existed before 0010 keeps exactly its rows, ids and values; the only new tables are the two of 0010 and they are empty",
+        "Before 0010 the old build is Ready with an exact catalog; after 0010 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-REVIEW-PORT-005",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "REL-REC-016",
+        "REL-AUTH-009",
+        "DB-XFN-004",
+        "SPEC-100-43"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Synthetic values only; runtime schema checks and compile-time type assertions checked by typecheck; does not prove persistence",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "UCR-100-004 (plan U-2): AUTH_PROFILE_RELATION_INCONSISTENT takes exactly { reasonCode, authSubject, epoch }: a canonical lowercase UUID of any version and a positive safe integer; targets, details, a dedupe key and other shapes are rejected, the reason is refused in the target shape, the Auth Subject is refused with any other reason, and the types keep the two shapes apart"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-XFN-001-005",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DEV-DB-004",
+        "DB-XFN-001",
+        "SPEC-120-8.3"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers as node-postgres does for drizzle-orm (query config in array row mode, rows as arrays); synthetic values only; not a database execution test (TST-DB-001); what PostgreSQL does with the statements is the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Both statements of enqueueNotificationRequest are built from the Drizzle declaration of app.notification_requests and sent in array row mode: the INSERT lists every column with default for the unset ones, binds the seven written values and is ON CONFLICT (business_cause_key) DO NOTHING RETURNING business_cause_key; the reselect is one comparison of the type, the recipient, the two sources (IS NOT DISTINCT FROM, bigint) and the render context (jsonb) with bound values, by the Business Cause key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-DB-XFN-002-004",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "DEV-DB-004",
+        "DB-XFN-002",
+        "REL-REC-016"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "A recording stand-in for the caller's transaction client answers as node-postgres does for drizzle-orm (query config in array row mode, rows as arrays); synthetic values only; not a database execution test (TST-DB-001); what PostgreSQL does with the statements is the DB cases on real PostgreSQL 17",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Both statements of openConsistencyReviewCase are built from the Drizzle declaration of app.consistency_review_cases and sent in array row mode: the INSERT lists every column with default for all but the dedupe key, the reason and the Auth Subject, and is ON CONFLICT (dedupe_key) DO NOTHING RETURNING public_ref; the reselect projects public_ref and resolved_at IS NOT NULL by the dedupe key"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-005-101",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["TST-API-005", "API-PUR-ELG-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-CART-001", "API-PUR-ENTRY-001"],
+      "db_constraint_names": [],
+      "preconditions": "Pure function evaluatePurchaseEligibility (@off-r39x/domain); the period and the Karaoke payment window are booleans judged by the database, counters are synthetic integers; no clock, no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "PURCHASE_REASONS equals the nine SPEC-110 API-PUR-ELG-001 codes in the listed order",
+        "Over every combination of the period flags, Sale Control State, mounted purchase route, capacity, purchase limit, requested quantity and Karaoke Slot state, the reasons equal an independently written list of every applicable reason (not only the first) and are an ordered subsequence of PURCHASE_REASONS without duplicates",
+        "purchasable is true exactly when reasons is empty; then requestedQuantity <= maxPurchasableQuantity, otherwise requestedQuantity > maxPurchasableQuantity; the max is a non-negative safe integer"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-005-102",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["TST-API-005", "API-PUR-ELG-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-CART-001", "API-PUR-ENTRY-001"],
+      "db_constraint_names": [],
+      "preconditions": "Pure function evaluatePurchaseEligibility (@off-r39x/domain); the period and the Karaoke payment window are booleans judged by the database, counters are synthetic integers; no clock, no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "A target that is not public or not found (target null) gives only NOT_PUBLIC_OR_NOT_FOUND with max 0 for ENTRY, GOODS and KARAOKE, for any requested quantity that passes the per-kind validation (a positive safe integer; exactly 1 for KARAOKE); an invalid quantity is a RangeError even then (TC-API-005-108)"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-005-103",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "TST-API-005",
+        "API-PUR-ELG-001",
+        "BR-SAL-003",
+        "BR-SAL-004",
+        "BR-TKT-001",
+        "BR-GDS-001",
+        "SPEC-030-7.4",
+        "SPEC-030-10.4",
+        "DEV-TS-010"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-CART-001", "API-PUR-ENTRY-001"],
+      "db_constraint_names": [],
+      "preconditions": "Pure function evaluatePurchaseEligibility (@off-r39x/domain); the period and the Karaoke payment window are booleans judged by the database, counters are synthetic integers; no clock, no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "salesNotStarted gives SALES_NOT_STARTED, salesClosed gives SALES_CLOSED, SUSPENDED gives SALES_STOPPED; each makes purchasable false and the max 0 although capacity and the limit are left, for Entry, Goods and Karaoke",
+        "Inside the period and ENABLED, the target is purchasable",
+        "Both Sale Control States are handled explicitly (exhaustive switch, DEV-TS-010): a state outside ENABLED / SUSPENDED throws instead of passing like ENABLED"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-005-104",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["TST-API-005", "API-PUR-ELG-001", "UCR-110-004"],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-CART-001", "API-PUR-ENTRY-001"],
+      "db_constraint_names": [],
+      "preconditions": "Pure function evaluatePurchaseEligibility (@off-r39x/domain); the period and the Karaoke payment window are booleans judged by the database, counters are synthetic integers; no clock, no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "purchaseRouteMounted false gives SALES_STOPPED, purchasable false and max 0 although every sale condition holds (Entry, Goods, Karaoke); with SUSPENDED it is still a single SALES_STOPPED; other per-condition reasons stay listed after it"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-005-105",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "TST-API-005",
+        "API-PUR-ELG-001",
+        "BR-SAL-006",
+        "BR-TKT-003",
+        "BR-TKT-004",
+        "BR-GDS-003",
+        "SPEC-030-7.5"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-CART-001", "API-PUR-ENTRY-001"],
+      "db_constraint_names": [],
+      "preconditions": "Pure function evaluatePurchaseEligibility (@off-r39x/domain); the period and the Karaoke payment window are booleans judged by the database, counters are synthetic integers; no clock, no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Entry / Goods: remaining = capacity - held - committed; remaining <= 0 is SOLD_OUT, 0 < remaining < requested is INSUFFICIENT_QUANTITY, requested > limit - (own held + own committed) is PURCHASE_LIMIT_EXCEEDED, distinguished and listed together when both apply",
+        "max = max(0, min(remaining, limit - (own held + own committed))); both own held and own committed quantities consume the limit; requested = max is purchasable and max + 1 is not; consumption above the limit or counters above the capacity give max 0, never negative"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-005-106",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": [
+        "TST-API-005",
+        "API-PUR-ELG-001",
+        "BR-KRK-003",
+        "BR-KRK-010",
+        "KRK-AVL-001",
+        "SPEC-090-9.2",
+        "DEV-TS-010"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-KRK-001"],
+      "db_constraint_names": [],
+      "preconditions": "Pure function evaluatePurchaseEligibility (@off-r39x/domain); the period and the Karaoke payment window are booleans judged by the database, counters are synthetic integers; no clock, no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Karaoke Slot HELD / SOLD gives SLOT_UNAVAILABLE, Slot SALES_STOPPED gives SALES_STOPPED (as the public availability of SPEC-110 section 27), AVAILABLE is purchasable",
+        "paymentWindowTooShort (now >= usage_end - 30 minutes, judged by the database) gives PAYMENT_WINDOW_TOO_SHORT with max 0; confirmed Reservations and ACTIVE Holds of the Profile both consume the limit (PURCHASE_LIMIT_EXCEEDED)",
+        "The Karaoke max is 0 or 1; a requested quantity other than 1 is a RangeError",
+        "Every canonical Karaoke Slot State has an explicit outcome (exhaustive switch, DEV-TS-010): only AVAILABLE is purchasable, purchasable exactly when the max is 1; a state outside the canonical set throws instead of being treated as purchasable"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-005-107",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["TST-API-005", "API-PUR-ELG-001", "UCR-RELSCOPE-001", "UCR-110-004", "TST-SEED-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-CART-001"],
+      "db_constraint_names": [],
+      "preconditions": "Pure function evaluatePurchaseEligibility (@off-r39x/domain); the period and the Karaoke payment window are booleans judged by the database, counters are synthetic integers; no clock, no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Seeded Goods (SUSPENDED, inventory 0) give SALES_STOPPED (and SOLD_OUT) with max 0; a seeded Karaoke Slot (AVAILABLE, configuration SUSPENDED, purchase Operation not mounted) gives SALES_STOPPED with max 0",
+        "ENABLED Goods with stock behind a mounted Cart are purchasable: there is no Goods-only rejection beyond the ordinary rules"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-005-108",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["TST-API-005", "API-PUR-ELG-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUR-ELG-001", "API-PUR-CART-001", "API-PUR-ENTRY-001"],
+      "db_constraint_names": [],
+      "preconditions": "Pure function evaluatePurchaseEligibility (@off-r39x/domain); the period and the Karaoke payment window are booleans judged by the database, counters are synthetic integers; no clock, no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "requestedQuantity below 1, fractional, NaN or beyond the safe integers, negative or fractional counters, and a purchase limit that is not a positive safe integer (0 included: SPEC-100 CHECK purchase_limit > 0), are RangeError (caller defects, not reasons), also for a target that is not public or not found",
+        "The input is not modified and equal inputs give equal, independent results"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
+    },
+    {
+      "test_case_id": "TC-API-004-101",
+      "level": "Unit",
+      "suite": "unit",
+      "upstream_rule_ids": ["TST-API-004", "BR-ORD-013", "SPEC-030-11.2", "API-PUR-CART-001"],
+      "system_invariant_ids": [],
+      "api_operation_ids": ["API-PUR-CART-001", "API-PUR-ENTRY-001", "API-PUR-KRK-001"],
+      "db_constraint_names": [],
+      "preconditions": "Pure function deriveOrderPurpose (@off-r39x/domain) over Order Item kinds; no database",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "Entry only is ENTRY_TICKET_PURCHASE, Goods only is GOODS_PURCHASE, both is ENTRY_GOODS_PURCHASE, exactly one Karaoke item is KARAOKE_PURCHASE, independent of the item order",
+        "No item, two Karaoke items, or Karaoke with Entry and/or Goods is a RangeError (a composition BR-ORD-013 forbids)"
+      ],
+      "expected_db_postconditions": [],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": false
     },
     {
       "test_case_id": "TC-API-010-001",

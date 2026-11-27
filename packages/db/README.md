@@ -120,9 +120,17 @@ that deferred business services are production-ready.
 ## Initial data seeding
 
 `pnpm db:seed-initial-data` (`packages/db/src/seed-initial-data-cli.ts`, SPEC-180 §45.3) creates the
-first Event and its Entry Ticket Offerings in an empty database. There is no Business API or migration
-that creates them. Offerings are always created `SUSPENDED` with counters at 0, and the Event
-`business_timezone` is `Asia/Tokyo`. Run it after the migration and the schema readiness check and
+first rows of the initial data targets (SPEC-100 §13.5, UCR-180-001 and UCR-180-007): the Event, its Entry
+Ticket Offerings, Goods (each with its Inventory row), the Karaoke Sales Configuration, the Exclusive
+Scopes and their Karaoke Slots. There is no Business API or migration that creates them. Offerings,
+Goods and the Sales Configuration are always created `SUSPENDED`, the Offering counters and the Goods
+Inventory (`saleable_capacity` included) at 0, the Sales Configuration with the standard 15 + 5
+minutes, and the Event `business_timezone` is `Asia/Tokyo`. Slots are created only for the Scopes of
+the same run (SPEC-090 `KRK-GEN-001` exception), `AVAILABLE`, from the windows of the input by the
+SPEC-090 §8.2 standard algorithm: every 20 minutes from `window_start` (never rounded), 15 minutes of
+use and 5 of maintenance, no incomplete last cycle. `generation_cause_key` is the attempt's
+`operation_execution_id` and `generation_candidate_no` numbers the candidates of a Scope 0.. in
+`usage_start` order. `AVAILABLE` does not open the sale: the Sales Configuration is `SUSPENDED`. Run it after the migration and the schema readiness check and
 before the API deploy. The command takes the migration lock (`r39x:schema-migration`) itself; the
 library functions `acquireMigrationLock` and `seedInitialData({ lock, ... })` let a migration job run
 migrate, readiness and seed under one session lock. Running `db:migrate` and this command as two
@@ -188,12 +196,22 @@ Environment variables (an `app_migrator` direct URL on port 5432 over TLS, as fo
 | `APP_ENV` | `production`, `staging`, `development` or `test` |
 | `MIGRATION_DATABASE_URL` | Direct `app_migrator` URL with a database name: no query string, no `-pooler` host, port 5432 or none |
 | `INITIAL_DATA_SEED_ACTOR_REF` | Stable non-secret identity for the Audit Event, `[A-Za-z0-9_:-]{1,128}` |
-| `INITIAL_DATA_SEED_JSON` | The input JSON; read only when a row has to be created |
+| `INITIAL_DATA_SEED_JSON` | The input JSON; read only when a target has no row (a candidate) |
 
-The input has the two keys `event` and `entry_ticket_offerings` (one or more). See
-`packages/db/seed/initial-data.example.json` (synthetic values only). Unknown keys are rejected,
-including `id`, `public_ref`, `event_id`, `sale_control_state`, `held_quantity`,
-`committed_quantity`, `business_timezone`, `created_at` and `updated_at`. Timestamps need an offset.
+The input always has the four keys `event`, `entry_ticket_offerings` (one or more), `goods` (one or
+more) and `karaoke` (an object with `sales_configuration`, `exclusive_scopes` (one or more, each with a
+`name` and a required `sort_order`) and `slot_windows` (one or more `{ "window_start", "window_end" }`)).
+See `packages/db/seed/initial-data.example.json` (synthetic values only). `goods` and `karaoke` may be
+`null` to defer them: a deferred target with no row is not created and is reported `DEFERRED`, and a
+later run with values creates it (`null` never deletes a row). `karaoke: null` defers the Sales
+Configuration, the Scopes and the Slots together. A missing key is rejected, not read as deferred.
+Every window must make at least one candidate, the candidates of different windows must not overlap
+(touching is fine), and one run makes at most 1,000 Slots over all its Scopes; the exclusion constraint
+`ex_karaoke_slots_scope_occupancy` stays the last defence. Unknown keys are rejected, including `id`,
+`public_ref`, `event_id`, `sale_control_state`, `held_quantity`, `committed_quantity`,
+`saleable_capacity`, `standard_usage_minutes`, `standard_maintenance_minutes`, a Slot's `state`,
+`usage_start`, `usage_end`, `cycle_end`, `generation_cause_key` and `generation_candidate_no`,
+`business_timezone`, `created_at` and `updated_at`. Timestamps need an offset.
 Numbers are checked as written: only a plain integer literal is accepted (`1000`, not `1000.0`, `1e3`,
 `-0` or a fraction that JSON parsing would round). A key written twice in one object is rejected
 (JSON parsing would keep only its last value).
@@ -208,10 +226,16 @@ given the checked host, user, password and database with the port fixed to 5432,
 `PGHOST` and `PGPORT` cannot redirect it. A URL without a database name is rejected
 (`CONFIGURATION_INVALID`), so `PGDATABASE` cannot choose the database either.
 
-The command never updates or deletes a row: it creates only when there is no Event (or the only Event
-has no Offering), reports `NOOP` otherwise, and fails when two or more Events exist. stdout is exactly one
-JSON result line (`outcome` is `CREATED`, `NOOP`, `FAILED` or `UNKNOWN_RESULT`); stderr holds the common
-log lines. Exit codes: `0` CREATED or NOOP, `2` FAILED (fix the cause, run again), `3` UNKNOWN_RESULT
+The command never updates or deletes a row. Each target is decided on its own: it is created only when
+it has no row for the one Event, and never topped up. The command fails, whatever the input, when two
+or more Events exist, when the Event has two or more Karaoke Sales Configurations, or when one of its
+Scopes has no Slot (`CONSISTENCY_FAILURE`; none of these can arise from the command itself). With no
+target left to create the input is not read and the result is `NOOP`; with candidates that are all
+deferred it is `NOOP` too, after the input was read and validated. stdout is exactly one JSON result line
+(`outcome` is `CREATED`, `NOOP`, `FAILED` or `UNKNOWN_RESULT`, with the created Public References and
+counts per target and, for `CREATED` and `NOOP`, `targets`: `CREATED`, `EXISTING` or `DEFERRED` for
+`event`, `entry_ticket_offerings`, `goods`, `karaoke_sales_configuration`, `karaoke_exclusive_scopes`
+and `karaoke_slots`); stderr holds the common log lines. Exit codes: `0` CREATED or NOOP, `2` FAILED (fix the cause, run again), `3` UNKNOWN_RESULT
 (the COMMIT result could not be determined; restore the connection and run the same command again).
 Exit code `1` is an unexpected crash (no result line is guaranteed) and is handled like `3`: run again.
 The root script `db:seed-initial-data` (and the package script `seed:initial-data`) runs `node
