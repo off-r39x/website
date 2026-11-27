@@ -1,7 +1,12 @@
 // SPEC-110 §26.1 API-PUB-005 "販売状態" and §26.2 API-PUB-GDS-003 (SPEC-030 §7.6 / §10.4, BR-SAL-003,
 // BR-SAL-004, SPEC-100 §8.4): the public sales state of an Entry Ticket Offering and of a Goods. Both
 // Operations use the same judgement order and reason vocabulary. Pure: the two period comparisons are
-// inputs (made by the database).
+// inputs (made by the database). The sale conditions and the Sale Control State rule are those of the
+// purchase eligibility (API-PUR-ELG-001, ./purchase-eligibility): the public state is its first reason
+// without the per-user and quantity conditions, with the remaining stock read as a flag (no counter).
+
+import { assertNever } from "./assert-never";
+import type { PurchaseSaleConditions } from "./purchase-eligibility";
 
 export type PublicEntryUnavailableReason =
   | "SALES_NOT_STARTED"
@@ -12,22 +17,12 @@ export type PublicEntryAvailability =
   | { availability: "AVAILABLE"; reason: null }
   | { availability: "UNAVAILABLE"; reason: PublicEntryUnavailableReason };
 
-export type PublicEntryAvailabilityInput = {
-  /** `statement_timestamp() < sales_starts_at`, judged by the database on timestamptz (microseconds kept). */
-  salesNotStarted: boolean;
-  /** `statement_timestamp() >= sales_ends_at`, judged by the database on timestamptz (the end is not included). */
-  salesClosed: boolean;
-  saleControlState: "ENABLED" | "SUSPENDED";
+export type PublicEntryAvailabilityInput = PurchaseSaleConditions & {
   /**
    * Entry: `sales_capacity - held_quantity - committed_quantity > 0`. Goods: the same over the Goods
    * Inventory (`saleable_capacity - held_quantity - committed_quantity > 0`).
    */
   hasRemainingCapacity: boolean;
-  /**
-   * Whether a purchase Operation of the kind is in the route registry (Entry: API-PUR-ENTRY-001 /
-   * API-PUR-CART-001; Goods: API-PUR-GDS-001 / API-PUR-CART-001).
-   */
-  purchaseRouteMounted: boolean;
 };
 
 /** The same reasons and shape for Goods (SPEC-110 §26.2 API-PUB-GDS-003). */
@@ -48,10 +43,26 @@ export function evaluatePublicSaleAvailability(
 ): PublicSaleAvailability {
   if (input.salesNotStarted) return { availability: "UNAVAILABLE", reason: "SALES_NOT_STARTED" };
   if (input.salesClosed) return { availability: "UNAVAILABLE", reason: "SALES_CLOSED" };
-  if (input.saleControlState === "SUSPENDED" || !input.purchaseRouteMounted)
+  if (controlStopsSale(input.saleControlState) || !input.purchaseRouteMounted)
     return { availability: "UNAVAILABLE", reason: "SALES_STOPPED" };
   if (!input.hasRemainingCapacity) return { availability: "UNAVAILABLE", reason: "SOLD_OUT" };
   return { availability: "AVAILABLE", reason: null };
+}
+
+/**
+ * Whether the Sale Control State stops new sales (SPEC-030 §7.6, BR-SAL-004), stated for every state as in
+ * the purchase eligibility (DEV-TS-010): a state added later fails the compilation here instead of being
+ * shown like ENABLED. The database admits only ENABLED and SUSPENDED (CHECK constraint).
+ */
+function controlStopsSale(state: PublicSaleAvailabilityInput["saleControlState"]): boolean {
+  switch (state) {
+    case "ENABLED":
+      return false;
+    case "SUSPENDED":
+      return true;
+    default:
+      return assertNever(state);
+  }
 }
 
 /** API-PUB-005: the Entry Ticket Offering name of {@link evaluatePublicSaleAvailability}. */
