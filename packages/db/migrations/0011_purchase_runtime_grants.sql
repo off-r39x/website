@@ -1,7 +1,7 @@
 -- PR-L1-2c0: runtime privileges for purchase eligibility and purchase start. Grants only: no table, column,
--- constraint, index or sequence changes (expand-only, DB-MIG-005), so the required catalog (schema-contract.json,
+-- constraint, index or sequence changes (expand-only, SPEC-100 §60), so the required catalog (schema-contract.json,
 -- which records no ACL) is unchanged and a build that bundles an earlier migration set stays Ready (INF-HLT-006).
--- DB-MIG-002 / SPEC-100 §67 item 35: privileges are managed by versioned SQL migrations.
+-- SPEC-100 §57 / §67 item 35: privileges are managed by versioned SQL migrations.
 --
 -- 0006, 0007 and 0008 granted nothing ("the PR that mounts an Operation adds what it needs"). This migration adds
 -- that for API-PUR-ELG-001 (PR-L1-2b), the Entry purchase start (PR-L1-2c / 2d) and the Goods purchase start
@@ -28,18 +28,18 @@
 GRANT SELECT ON app.orders, app.order_items, app.entry_sales_allocations,
   app.karaoke_holds, app.karaoke_reservations,
   app.goods_order_items, app.goods_sales_allocations TO app_api_runtime;
--- SPEC-100 §16: a new Order is PREPARED; public_ref and the times come from defaults.
+-- SPEC-100 §16 / SPEC-110 API-PUR-ENTRY-001, API-PUR-CART-001: a new Order is PREPARED; public_ref and the times come from defaults.
 GRANT INSERT (purchase_cause_key, customer_profile_id, purpose, state, currency, total_amount)
   ON app.orders TO app_api_runtime;
--- SPEC-100 §17: entry_offering_id for an Entry item, goods_id for a Goods item (ck_order_items_source).
+-- SPEC-100 §17 / SPEC-110 API-PUR-CART-001: entry_offering_id for an Entry item, goods_id for a Goods item (ck_order_items_source).
 GRANT INSERT (order_id, purpose, line_no, quantity, unit_amount, currency, item_name_snapshot,
   entry_offering_id, goods_id) ON app.order_items TO app_api_runtime;
--- SPEC-100 §18: an Allocation starts HELD; held_at comes from the default.
+-- SPEC-100 §18 / SPEC-110 API-PUR-ENTRY-001: an Allocation starts HELD; held_at comes from the default.
 GRANT INSERT (order_item_id, order_id, purpose, offering_id, quantity, state)
   ON app.entry_sales_allocations TO app_api_runtime;
--- SPEC-100 §39: a Goods Order Item starts PENDING_PAYMENT; the columns the composite foreign keys need.
+-- SPEC-100 §39 / SPEC-110 API-PUR-GDS-001, API-PUR-CART-001: a Goods Order Item starts PENDING_PAYMENT; the columns the composite foreign keys need.
 GRANT INSERT (order_item_id, order_id, order_purpose, customer_profile_id, goods_id, state)
   ON app.goods_order_items TO app_api_runtime;
--- SPEC-100 §40: a Goods Allocation starts HELD; held_at comes from the 0008 default.
+-- SPEC-100 §40 / SPEC-110 API-PUR-GDS-001, API-PUR-CART-001: a Goods Allocation starts HELD; held_at comes from the 0008 default.
 GRANT INSERT (goods_order_item_id, goods_id, quantity, state)
   ON app.goods_sales_allocations TO app_api_runtime;
