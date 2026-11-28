@@ -15,6 +15,7 @@ import {
   PURCHASE_API_UNGRANTED_INSERT_COLUMNS,
   PURCHASE_API_UNGRANTED_TABLES,
   privilegeMismatches,
+  TABLE_PRIVILEGES,
   tableAcl,
   ungrantedInsertStatement,
 } from "../harness/db/purchase-runtime-grants.ts";
@@ -243,7 +244,7 @@ describe("TC-SEC-DB-001-008 migration 0011 grants app_api_runtime exactly the pu
     expect(untouched).toHaveLength(PURCHASE_API_UNGRANTED_TABLES.length + 2);
     for (const table of untouched)
       for (const role of [...ALL_RUNTIME_ROLES, "public"])
-        for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"])
+        for (const privilege of TABLE_PRIVILEGES)
           expect(
             (
               await admin.query("SELECT has_table_privilege($1, $2, $3) AS allowed", [
@@ -254,6 +255,7 @@ describe("TC-SEC-DB-001-008 migration 0011 grants app_api_runtime exactly the pu
             ).rows[0].allowed,
             `${role} ${privilege} ${table}`,
           ).toBe(false);
+    expect(await columnAclEntries(admin, untouched)).toEqual([]);
   });
 
   it("TC-SEC-DB-001-008 the live catalog equals schema-contract.json exactly (0011 holds no DDL)", async () => {

@@ -50,7 +50,6 @@ if (!sourceUrl || !caPath)
   throw new Error("Real PG17 requires TEST_DATABASE_URL and TEST_DATABASE_CA");
 
 const REPO_MIGRATIONS = resolve(process.cwd(), "../packages/db/migrations");
-const CURRENT_CONTRACT = resolve(process.cwd(), "../packages/db/src/schema-contract.json");
 const READINESS_OPTIONS = testSessionOptions(
   `-c timezone=UTC ${INTERVAL_STYLE_OPTION} -c lock_timeout=1000`,
 );
@@ -448,7 +447,7 @@ describe("the build before 0011 stays Ready after 0011 is applied, and the 0010 
   }, TIMEOUT);
 
   it(
-    `TC-INF-HLT-006-017 INF-HLT-006 the old build's required catalog (${OLD_FIXTURE}) is exactly a database of the migrations up to 0010, is also exactly the current schema-contract.json (0011 holds no DDL), and that build is Ready on it`,
+    `TC-INF-HLT-006-017 INF-HLT-006 the old build's required catalog (${OLD_FIXTURE}) is exactly a database of the migrations up to 0010, and that build is Ready on it`,
     async () => {
       expect(await journal()).toEqual(oldVersions);
       expect(oldVersions.at(-1)).toBe(PREVIOUS_VERSION);
@@ -456,10 +455,6 @@ describe("the build before 0011 stays Ready after 0011 is applied, and the 0010 
       const fixtureTuples = Object.values(requiredCatalog as Record<string, unknown[][]>).flat();
       expect(fixtureTuples.length).toBeGreaterThan(0);
       expect(catalogSatisfies(await liveCatalog(), requiredCatalog, "exact")).toBe(true);
-      // The fixture equals the contract the repository ships now, read straight from the file (not through the
-      // mock): a migration that changed the required catalog would make the two differ.
-      const current = JSON.parse(await readFile(CURRENT_CONTRACT, "utf8"));
-      expect(requiredCatalog).toEqual(current);
 
       const pool = new Pool({ connectionString: url, max: 1, options: READINESS_OPTIONS });
       const events: LogEvent[] = [];
