@@ -1,8 +1,13 @@
-// SPEC-110 §26 / §26.1 API-PUB-001..005 / API-PUB-012 application service. No hono, ApiFailure, routes or
+// SPEC-110 §26 / §26.1 API-PUB-001..005 / API-PUB-012 and §26.2 API-PUB-010..011 application service. No hono, ApiFailure, routes or
 // middleware here (DEV-DEP-001): the route maps these results to HTTP. The service owns the read use
 // cases (which store function, what the answer means) and the two pieces of server-made content: the
-// Announcement excerpt and the Entry sales state (the latter is a domain rule).
-import { evaluatePublicEntryAvailability, type PublicEntryAvailability } from "@off-r39x/domain";
+// Announcement excerpt and the Entry / Goods sales state (the latter is a domain rule).
+import {
+  evaluatePublicEntryAvailability,
+  evaluatePublicSaleAvailability,
+  type PublicEntryAvailability,
+  type PublicSaleAvailability,
+} from "@off-r39x/domain";
 
 export type PublicEventRecord = {
   publicRef: string;
@@ -39,6 +44,23 @@ export type PublicEntryOfferingRecord = {
   saleControlState: "ENABLED" | "SUSPENDED";
   purchaseLimit: number;
   hasRemainingCapacity: boolean;
+  /** `statement_timestamp() < sales_starts_at`, judged by the database. */
+  salesNotStarted: boolean;
+  /** `statement_timestamp() >= sales_ends_at`, judged by the database. */
+  salesClosed: boolean;
+};
+export type PublicGoodsRecord = {
+  publicRef: string;
+  name: string;
+  description: string | null;
+  unitAmount: string;
+  currency: string;
+  salesStartsAt: string;
+  salesEndsAt: string;
+  saleControlState: "ENABLED" | "SUSPENDED";
+  purchaseLimit: number;
+  /** Over the Goods Inventory row; `null` when the Goods has none (DB-GDS-001 broken, API-PUB-GDS-004). */
+  hasRemainingCapacity: boolean | null;
   /** `statement_timestamp() < sales_starts_at`, judged by the database. */
   salesNotStarted: boolean;
   /** `statement_timestamp() >= sales_ends_at`, judged by the database. */
@@ -88,6 +110,19 @@ export interface PublicContentStore {
     | { status: "multiple_events" }
     | { status: "unavailable" }
   >;
+  listGoods(): Promise<
+    | { status: "ok"; items: PublicGoodsRecord[] }
+    | { status: "multiple_events" }
+    | { status: "unavailable" }
+  >;
+  readGoods(
+    goodsRef: string,
+  ): Promise<
+    | { status: "found"; goods: PublicGoodsRecord }
+    | { status: "not_found" }
+    | { status: "multiple_events" }
+    | { status: "unavailable" }
+  >;
 }
 
 /**
@@ -112,6 +147,8 @@ export type AnnouncementSummaryRecord = {
   excerptTruncated: boolean;
 };
 export type EntryOfferingSaleRecord = PublicEntryOfferingRecord & PublicEntryAvailability;
+export type GoodsSaleRecord = Omit<PublicGoodsRecord, "hasRemainingCapacity"> &
+  PublicSaleAvailability;
 
 export const EXCERPT_MAX_CODE_POINTS = 100;
 
@@ -181,6 +218,12 @@ export async function readPublishedAnnouncement(
     : { kind: "database_unavailable" };
 }
 
+// An instant the response cannot carry ('infinity', for example) makes the row invalid
+// (API-PUB-READ-006, a 503), never a guessed state. The period itself was judged by the database.
+const readable = (value: string) => Number.isFinite(Date.parse(value));
+const readablePeriod = (item: { salesStartsAt: string; salesEndsAt: string }) =>
+  readable(item.salesStartsAt) && readable(item.salesEndsAt);
+
 /** `purchaseRouteMounted`: whether an Entry purchase Operation is registered in this release (UCR-110-004). */
 export async function listEntryOfferings(
   store: PublicContentStore,
@@ -189,11 +232,7 @@ export async function listEntryOfferings(
   const result = await store.listEntryOfferings();
   if (result.status === "multiple_events") return { kind: "inconsistent" };
   if (result.status === "unavailable") return { kind: "database_unavailable" };
-  // An instant the response cannot carry ('infinity', for example) makes the row invalid
-  // (API-PUB-READ-006, a 503), never a guessed state. The period itself was judged by the database.
-  const readable = (value: string) => Number.isFinite(Date.parse(value));
-  if (result.items.some((item) => !readable(item.salesStartsAt) || !readable(item.salesEndsAt)))
-    return { kind: "invalid_row" };
+  if (result.items.some((item) => !readablePeriod(item))) return { kind: "invalid_row" };
   return {
     kind: "ok",
     data: result.items.map((item) => ({
@@ -232,4 +271,57 @@ export async function listPublishedSponsorLogos(
   };
   if (result.items.some((item) => !allowed(item.imageUrl))) return { kind: "invalid_row" };
   return { kind: "ok", data: result.items };
+}
+
+// API-PUB-GDS-003 / 004: the sales state of each Goods, or `invalid_row` for the whole Operation when a
+// Goods has no Inventory row or an instant the response cannot carry (never a guessed state, never a
+// skipped row). The capacity flag does not leave the service.
+function goodsSales(
+  items: readonly PublicGoodsRecord[],
+  purchaseRouteMounted: boolean,
+): GoodsSaleRecord[] | undefined {
+  const sales: GoodsSaleRecord[] = [];
+  for (const { hasRemainingCapacity, ...item } of items) {
+    if (hasRemainingCapacity === null || !readablePeriod(item)) return undefined;
+    sales.push({
+      ...item,
+      ...evaluatePublicSaleAvailability({
+        salesNotStarted: item.salesNotStarted,
+        salesClosed: item.salesClosed,
+        saleControlState: item.saleControlState,
+        hasRemainingCapacity,
+        purchaseRouteMounted,
+      }),
+    });
+  }
+  return sales;
+}
+
+/**
+ * API-PUB-010. `purchaseRouteMounted`: whether a Goods purchase Operation (API-PUR-GDS-001 /
+ * API-PUR-CART-001) is registered in this release (UCR-110-004).
+ */
+export async function listGoods(
+  store: PublicContentStore,
+  options: { purchaseRouteMounted: boolean },
+): Promise<PublicReadResult<GoodsSaleRecord[]>> {
+  const result = await store.listGoods();
+  if (result.status === "multiple_events") return { kind: "inconsistent" };
+  if (result.status === "unavailable") return { kind: "database_unavailable" };
+  const data = goodsSales(result.items, options.purchaseRouteMounted);
+  return data ? { kind: "ok", data } : { kind: "invalid_row" };
+}
+
+/** API-PUB-011. `not_found`: no Goods of that ref in the current Event (or no Event). */
+export async function readGoods(
+  store: PublicContentStore,
+  goodsRef: string,
+  options: { purchaseRouteMounted: boolean },
+): Promise<PublicReadResult<GoodsSaleRecord>> {
+  const result = await store.readGoods(goodsRef);
+  if (result.status === "not_found") return { kind: "not_found" };
+  if (result.status === "multiple_events") return { kind: "inconsistent" };
+  if (result.status === "unavailable") return { kind: "database_unavailable" };
+  const [data] = goodsSales([result.goods], options.purchaseRouteMounted) ?? [];
+  return data ? { kind: "ok", data } : { kind: "invalid_row" };
 }

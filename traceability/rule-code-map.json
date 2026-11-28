@@ -6073,7 +6073,8 @@
         "TC-API-009-006",
         "TC-API-009-007",
         "TC-API-009-008",
-        "TC-API-009-003"
+        "TC-API-009-003",
+        "TC-API-010-003"
       ],
       "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
     },
@@ -6121,7 +6122,9 @@
         "TC-API-009-007",
         "TC-API-006-102",
         "TC-API-009-002",
-        "TC-API-006-103"
+        "TC-API-006-103",
+        "TC-API-010-001",
+        "TC-API-010-005"
       ],
       "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
     },
@@ -6139,7 +6142,10 @@
         "TC-API-009-005",
         "TC-API-009-006",
         "TC-API-006-001",
-        "TC-API-006-101"
+        "TC-API-006-101",
+        "TC-API-010-001",
+        "TC-API-010-004",
+        "TC-API-010-005"
       ],
       "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
     },
@@ -6180,7 +6186,8 @@
         "TC-API-006-001",
         "TC-API-006-101",
         "TC-API-009-002",
-        "TC-API-006-103"
+        "TC-API-006-103",
+        "TC-API-010-001"
       ],
       "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
     },
@@ -6219,7 +6226,9 @@
         "TC-API-006-001",
         "TC-API-006-101",
         "TC-API-009-007",
-        "TC-API-006-102"
+        "TC-API-006-102",
+        "TC-API-010-001",
+        "TC-API-010-005"
       ],
       "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
     },
@@ -6235,7 +6244,7 @@
         "packages/domain/src/sales-availability.ts",
         "packages/domain/src/purchase-eligibility.ts"
       ],
-      "test_case_ids": ["TC-API-009-003", "TC-API-005-103"],
+      "test_case_ids": ["TC-API-009-003", "TC-API-005-103", "TC-API-010-003"],
       "notes": "implementation mapping only: PR-L2-3 public read API (API-PUB-001..005, API-PUB-012); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed; PR-L1-2a pure domain judgement (G1 unit with synthetic inputs); the API / DB / concurrency evidence (G3/G4/G5/G10) comes with PR-L1-2b..2d, G8 not executed"
     },
     {
@@ -6853,6 +6862,80 @@
       ],
       "test_case_ids": ["TC-DB-TQR-001-001"],
       "notes": "implementation mapping only (no repository code yet): uq_entry_tickets_order_item_id_issuance_ordinal (0009) keeps one Entry Ticket per Order Item and issuance ordinal; the issuance transaction is not implemented"
+    },
+    {
+      "rule_id": "API-PUB-010",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": ["TC-API-010-001", "TC-API-010-003", "TC-API-010-004", "TC-API-010-005"],
+      "notes": "implementation mapping only: PR-GK-4 public Goods read (API-PUB-010..011, SPEC-110 section 26.2, UCR-110-015); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-011",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": [
+        "TC-API-010-001",
+        "TC-API-010-002",
+        "TC-API-010-003",
+        "TC-API-010-004",
+        "TC-API-010-005"
+      ],
+      "notes": "implementation mapping only: PR-GK-4 public Goods read (API-PUB-010..011, SPEC-110 section 26.2, UCR-110-015); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-GDS-001",
+      "code_paths": [
+        "packages/api-contract/src/public-rpc.ts",
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": ["TC-API-010-001", "TC-API-010-004", "TC-API-010-005"],
+      "notes": "implementation mapping only: PR-GK-4 public Goods read (API-PUB-010..011, SPEC-110 section 26.2, UCR-110-015); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-GDS-002",
+      "code_paths": [
+        "packages/api-contract/src/schemas/public.ts",
+        "apps/api/src/api/routes/public.ts"
+      ],
+      "test_case_ids": ["TC-API-010-001", "TC-API-010-002", "TC-API-010-004", "TC-API-010-005"],
+      "notes": "implementation mapping only: PR-GK-4 public Goods read (API-PUB-010..011, SPEC-110 section 26.2, UCR-110-015); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-GDS-003",
+      "code_paths": [
+        "packages/domain/src/sales-availability.ts",
+        "apps/api/src/api/services/public-content.ts",
+        "apps/api/src/api/routes/public.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": ["TC-API-010-001", "TC-API-010-003", "TC-API-010-004", "TC-API-010-005"],
+      "notes": "implementation mapping only: PR-GK-4 public Goods read (API-PUB-010..011, SPEC-110 section 26.2, UCR-110-015); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
+    },
+    {
+      "rule_id": "API-PUB-GDS-004",
+      "code_paths": [
+        "apps/api/src/api/services/public-content.ts",
+        "packages/db/src/transactions/public-content.ts"
+      ],
+      "test_case_ids": ["TC-API-010-001", "TC-API-010-003", "TC-API-010-004", "TC-API-010-005"],
+      "notes": "implementation mapping only: PR-GK-4 public Goods read (API-PUB-010..011, SPEC-110 section 26.2, UCR-110-015); synthetic evidence, G3 on a real PG17 runs in CI, G8 (production-like E2E) not executed"
     },
     {
       "rule_id": "DB-XFN-001",

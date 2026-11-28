@@ -175,7 +175,54 @@ export async function insertOffering(
   );
 }
 
-/** Every row of the five tables as JSON (updated_at included): proves a call wrote nothing. */
+export interface GoodsSeed {
+  ref: string;
+  name: string;
+  description?: string | null;
+  unitAmount?: string;
+  startsAt: string;
+  endsAt: string;
+  control?: "ENABLED" | "SUSPENDED";
+  purchaseLimit?: number;
+  createdAt?: string;
+  /** The Goods Inventory row (SPEC-100 §38); `null` inserts none (DB-GDS-001 broken on purpose). */
+  inventory: { capacity: number; held?: number; committed?: number } | null;
+}
+
+/** PR-GK-4 (API-PUB-010 / 011): a Goods row and, unless `inventory` is null, its Inventory row. */
+export async function insertGoods(admin: Client, eventId: string, seed: GoodsSeed): Promise<void> {
+  const inserted = await admin.query<{ id: string }>(
+    `INSERT INTO app.goods(public_ref, event_id, name, description, unit_amount, currency,
+        sales_starts_at, sales_ends_at, sale_control_state, purchase_limit, created_at)
+     VALUES ($1, $2, $3, $4, $5, 'JPY', $6, $7, $8, $9, COALESCE($10::timestamptz, transaction_timestamp()))
+     RETURNING id::text AS id`,
+    [
+      seed.ref,
+      eventId,
+      seed.name,
+      seed.description === undefined ? null : seed.description,
+      seed.unitAmount ?? "1000",
+      seed.startsAt,
+      seed.endsAt,
+      seed.control ?? "ENABLED",
+      seed.purchaseLimit ?? 4,
+      seed.createdAt ?? null,
+    ],
+  );
+  if (seed.inventory === null) return;
+  await admin.query(
+    `INSERT INTO app.goods_inventory(goods_id, saleable_capacity, held_quantity, committed_quantity)
+     VALUES ($1, $2, $3, $4)`,
+    [
+      inserted.rows[0]?.id,
+      seed.inventory.capacity,
+      seed.inventory.held ?? 0,
+      seed.inventory.committed ?? 0,
+    ],
+  );
+}
+
+/** Every row of the public tables as JSON (updated_at included): proves a call wrote nothing. */
 export async function snapshot(admin: Client): Promise<Record<string, unknown[]>> {
   const out: Record<string, unknown[]> = {};
   for (const table of [
@@ -184,9 +231,13 @@ export async function snapshot(admin: Client): Promise<Record<string, unknown[]>
     "announcements",
     "sponsor_logos",
     "entry_ticket_offerings",
+    "goods",
+    "goods_inventory",
   ])
     out[table] = (
-      await admin.query(`SELECT to_jsonb(t) AS j FROM app.${table} t ORDER BY id`)
+      await admin.query(
+        `SELECT to_jsonb(t) AS j FROM app.${table} t ORDER BY ${table === "goods_inventory" ? "goods_id" : "id"}`,
+      )
     ).rows.map((row) => row.j);
   return out;
 }

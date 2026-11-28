@@ -45,6 +45,9 @@ export type {
   PublicEventRead,
   PublicEventRow,
   PublicFaqRow,
+  PublicGoodsListRead,
+  PublicGoodsRead,
+  PublicGoodsRow,
   PublicListRead,
   PublicSponsorLogoRow,
 } from "./transactions/public-content.ts";

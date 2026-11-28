@@ -1,4 +1,5 @@
-// Test double and rig for API-PUB-001..005 and API-PUB-012 (PR-L2-3). Test only: a recording stand-in for
+// Test double and rig for API-PUB-001..005 and API-PUB-012 (PR-L2-3), extended with API-PUB-010..011
+// (PR-GK-4, SPEC-110 §26.2: listGoods / readGoods and the Goods fixtures). Test only: a recording stand-in for
 // the PublicContentStore port (AppDependencies.publicContent), its DI fault injection and a createApp rig
 // built the same way as tests/harness/api/self-profile.ts. Synthetic data only; nothing here is reachable
 // from production code.
@@ -36,6 +37,14 @@ export const OFFERING_REFS = [
   "00000000-0000-4000-8000-0000000000c4",
   "00000000-0000-4000-8000-0000000000c5",
 ] as const;
+export const GOODS_REFS = [
+  "00000000-0000-4000-8000-000000000061",
+  "00000000-0000-4000-8000-000000000062",
+  "00000000-0000-4000-8000-000000000063",
+  "00000000-0000-4000-8000-000000000064",
+  "00000000-0000-4000-8000-000000000065",
+] as const;
+export const UNKNOWN_GOODS_REF = "00000000-0000-4000-8000-000000000069";
 export const LOGO_REFS = [
   "00000000-0000-4000-8000-0000000000d1",
   "00000000-0000-4000-8000-0000000000d2",
@@ -55,6 +64,12 @@ export const PUBLIC_OPERATIONS = [
   { key: "sponsorLogos", operationId: "API-PUB-012", path: `${BASE}/sponsor-logos` },
 ] as const;
 export type PublicOperationKey = (typeof PUBLIC_OPERATIONS)[number]["key"];
+
+/** The two Goods Operations (SPEC-110 §26.2): key, Operation ID, path. */
+export const GOODS_OPERATIONS = [
+  { key: "goods", operationId: "API-PUB-010", path: `${BASE}/goods` },
+  { key: "goodsDetail", operationId: "API-PUB-011", path: `${BASE}/goods/${GOODS_REFS[0]}` },
+] as const;
 
 export type PublicEventRowFixture = {
   publicRef: string;
@@ -96,6 +111,21 @@ export type EntryOfferingRowFixture = {
   purchaseLimit: number;
   hasRemainingCapacity: boolean;
 };
+export type GoodsRowFixture = {
+  publicRef: string;
+  name: string;
+  description: string | null;
+  unitAmount: string;
+  currency: string;
+  salesStartsAt: string;
+  salesEndsAt: string;
+  salesNotStarted: boolean;
+  salesClosed: boolean;
+  saleControlState: "ENABLED" | "SUSPENDED";
+  purchaseLimit: number;
+  /** `null`: no Goods Inventory row (API-PUB-GDS-004). */
+  hasRemainingCapacity: boolean | null;
+};
 export type PublicLogoRowFixture = {
   publicRef: string;
   displayName: string;
@@ -123,6 +153,12 @@ export type AnnouncementResult =
   | { status: "multiple_events" }
   | { status: "unavailable" };
 
+export type GoodsResult =
+  | { status: "found"; goods: GoodsRowFixture }
+  | { status: "not_found" }
+  | { status: "multiple_events" }
+  | { status: "unavailable" };
+
 /** The port the harness stands in for (plan C3 / C4-2). */
 export interface PublicContentStoreFixture {
   readPublicEvent(): Promise<EventResult>;
@@ -131,6 +167,8 @@ export interface PublicContentStoreFixture {
   readPublishedAnnouncement(announcementRef: string): Promise<AnnouncementResult>;
   listEntryOfferings(): Promise<OfferingsResult>;
   listPublishedSponsorLogos(): Promise<ListResult<PublicLogoRowFixture>>;
+  listGoods(): Promise<ListResult<GoodsRowFixture>>;
+  readGoods(goodsRef: string): Promise<GoodsResult>;
 }
 
 /**
@@ -149,6 +187,8 @@ export interface RecordingPublicContentStore extends PublicContentStoreFixture {
   readonly calls: StoreMethod[];
   /** The announcement_ref values `readPublishedAnnouncement` received. */
   readonly refs: string[];
+  /** The goods_ref values `readGoods` received. */
+  readonly goodsRefs: string[];
   count(method: StoreMethod): number;
   /** Replace what a method answers (until replaced again). */
   set(data: Partial<StoreData>): void;
@@ -163,8 +203,12 @@ export interface StoreData {
   announcement: AnnouncementResult;
   offerings: OfferingsResult;
   logos: ListResult<PublicLogoRowFixture>;
+  goodsList: ListResult<GoodsRowFixture>;
+  goods: GoodsResult;
 }
 
+/** A description longer than 100 code points with a line break: returned whole, also in the list. */
+export const GOODS_LONG_DESCRIPTION = `Synthetic goods description\n${"x".repeat(120)}`;
 export const DEFAULT_SPONSOR_IMAGE_ORIGINS: readonly string[] = ["https://logos.example.test"];
 export const FIXED_NOW = "2030-06-15T00:00:00.000Z";
 
@@ -445,6 +489,113 @@ export const logoDtos = () => [
   },
 ];
 
+/**
+ * One Goods for each public sales state at FIXED_NOW with no purchase Operation mounted (this release):
+ * not yet on sale, closed, SUSPENDED, ENABLED in period (SALES_STOPPED only because no Goods purchase
+ * Operation is registered) and ENABLED in period without remaining stock.
+ */
+export const goodsRows = (): GoodsRowFixture[] => [
+  {
+    publicRef: GOODS_REFS[0],
+    name: "Synthetic goods not yet on sale",
+    description: null,
+    unitAmount: "1500",
+    currency: "JPY",
+    salesStartsAt: "2030-06-16T00:00:00.000Z",
+    salesEndsAt: "2030-06-20T00:00:00.000Z",
+    salesNotStarted: true,
+    salesClosed: false,
+    saleControlState: "ENABLED",
+    purchaseLimit: 3,
+    hasRemainingCapacity: true,
+  },
+  {
+    publicRef: GOODS_REFS[1],
+    name: "Synthetic goods closed",
+    description: GOODS_LONG_DESCRIPTION,
+    unitAmount: "9007199254740993",
+    currency: "JPY",
+    salesStartsAt: "2030-06-01T00:00:00.000Z",
+    salesEndsAt: "2030-06-15T00:00:00.000Z",
+    salesNotStarted: false,
+    salesClosed: true,
+    saleControlState: "SUSPENDED",
+    purchaseLimit: 1,
+    hasRemainingCapacity: false,
+  },
+  {
+    publicRef: GOODS_REFS[2],
+    name: "Synthetic goods suspended",
+    description: "Synthetic",
+    unitAmount: "0",
+    currency: "JPY",
+    salesStartsAt: "2030-06-01T00:00:00.000Z",
+    salesEndsAt: "2030-06-30T00:00:00.000Z",
+    salesNotStarted: false,
+    salesClosed: false,
+    saleControlState: "SUSPENDED",
+    purchaseLimit: 2147483647,
+    hasRemainingCapacity: true,
+  },
+  {
+    publicRef: GOODS_REFS[3],
+    name: "Synthetic goods enabled",
+    description: null,
+    unitAmount: "2000",
+    currency: "JPY",
+    salesStartsAt: "2030-06-01T00:00:00.000Z",
+    salesEndsAt: "2030-06-30T00:00:00.000Z",
+    salesNotStarted: false,
+    salesClosed: false,
+    saleControlState: "ENABLED",
+    purchaseLimit: 5,
+    hasRemainingCapacity: true,
+  },
+  {
+    publicRef: GOODS_REFS[4],
+    name: "Synthetic goods sold out",
+    description: null,
+    unitAmount: "2000",
+    currency: "JPY",
+    salesStartsAt: "2030-06-01T00:00:00.000Z",
+    salesEndsAt: "2030-06-30T00:00:00.000Z",
+    salesNotStarted: false,
+    salesClosed: false,
+    saleControlState: "ENABLED",
+    purchaseLimit: 5,
+    hasRemainingCapacity: false,
+  },
+];
+
+/** The reason of each goodsRows() entry in this release (no Goods purchase Operation is registered). */
+export const GOODS_REASONS = [
+  "SALES_NOT_STARTED",
+  "SALES_CLOSED",
+  "SALES_STOPPED",
+  "SALES_STOPPED",
+  "SALES_STOPPED",
+] as const;
+
+/** The API-PUB-GDS-002 DTO of a Goods row with the given reason (null: AVAILABLE). */
+export const goodsDtoOf = (
+  row: GoodsRowFixture,
+  reason: (typeof GOODS_REASONS)[number] | "SOLD_OUT" | null,
+) => ({
+  goods_ref: row.publicRef,
+  name: row.name,
+  description: row.description,
+  unit_price: { amount: row.unitAmount, currency: row.currency },
+  sales_starts_at: row.salesStartsAt,
+  sales_ends_at: row.salesEndsAt,
+  purchase_limit: row.purchaseLimit,
+  availability: (reason === null ? "AVAILABLE" : "UNAVAILABLE") as "AVAILABLE" | "UNAVAILABLE",
+  unavailable_reason: reason,
+});
+
+/** API-PUB-GDS-002 DTOs of goodsRows() in this release. */
+export const goodsDtos = () =>
+  goodsRows().map((row, index) => goodsDtoOf(row, GOODS_REASONS[index] ?? null));
+
 export const defaultStoreData = (): StoreData => ({
   event: { status: "found", event: eventRow() },
   faqs: { status: "ok", items: faqRows() },
@@ -455,6 +606,8 @@ export const defaultStoreData = (): StoreData => ({
   },
   offerings: { status: "ok", items: offeringRows() },
   logos: { status: "ok", items: logoRows() },
+  goodsList: { status: "ok", items: goodsRows() },
+  goods: { status: "found", goods: goodsRows()[0] as GoodsRowFixture },
 });
 
 const KEY_OF: Record<StoreMethod, keyof StoreData> = {
@@ -464,6 +617,8 @@ const KEY_OF: Record<StoreMethod, keyof StoreData> = {
   readPublishedAnnouncement: "announcement",
   listEntryOfferings: "offerings",
   listPublishedSponsorLogos: "logos",
+  listGoods: "goodsList",
+  readGoods: "goods",
 };
 const MULTIPLE: Record<keyof StoreData, unknown> = {
   event: { status: "multiple" },
@@ -472,6 +627,8 @@ const MULTIPLE: Record<keyof StoreData, unknown> = {
   announcement: { status: "multiple_events" },
   offerings: { status: "multiple_events" },
   logos: { status: "multiple_events" },
+  goodsList: { status: "multiple_events" },
+  goods: { status: "multiple_events" },
 };
 
 /** A stub that behaves like the repository contract: it answers what `set` last put in, nothing is written. */
@@ -481,6 +638,7 @@ export function createRecordingPublicContentStore(
   const data: StoreData = { ...defaultStoreData(), ...initial };
   const calls: StoreMethod[] = [];
   const refs: string[] = [];
+  const goodsRefs: string[] = [];
   let fault: { point: PublicFaultPoint; only: StoreMethod | undefined } | undefined;
   const answer = <T>(method: StoreMethod): T => {
     calls.push(method);
@@ -494,6 +652,7 @@ export function createRecordingPublicContentStore(
   return {
     calls,
     refs,
+    goodsRefs,
     count: (method) => calls.filter((c) => c === method).length,
     set: (next) => {
       Object.assign(data, next);
@@ -510,6 +669,11 @@ export function createRecordingPublicContentStore(
     },
     listEntryOfferings: async () => answer("listEntryOfferings"),
     listPublishedSponsorLogos: async () => answer("listPublishedSponsorLogos"),
+    listGoods: async () => answer("listGoods"),
+    readGoods: async (ref) => {
+      goodsRefs.push(ref);
+      return answer<GoodsResult>("readGoods");
+    },
   };
 }
 

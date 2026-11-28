@@ -18,6 +18,9 @@
 // registered route (20 http_route templates; its guard, body validator and handler entries). Those
 // expectations changed by the specification, not by the implementation. With both PR-L2-3 and
 // PR-L2-1b merged, http_route takes 26 templates.
+// Revised for PR-GK-4 (API-PUB-010 / 011, SPEC-110 section 26.2): the two Goods public read routes are
+// registered after API-PUB-012 (28 http_route templates, the mounted route list and the public path
+// allowlist gain them). Those expectations changed by the specification, not by the implementation.
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   type ApiEnvironment,
@@ -588,7 +591,7 @@ describe("TC-TST-OBS-001-001 completion log and http_route (TST-OBS-001, SPEC-16
     ["POST", "email-otp/send-verification-otp"],
     ["POST", "email-otp/verify-email"],
   ];
-  /** The 26 values http_route may take; anything else is logged as "/". */
+  /** The 28 values http_route may take; anything else is logged as "/". */
   const ALLOWED_ROUTES = [
     "/internal/health/live",
     "/internal/health/ready",
@@ -598,6 +601,8 @@ describe("TC-TST-OBS-001-001 completion log and http_route (TST-OBS-001, SPEC-16
     "/api/v1/public/announcements/:announcement_ref",
     "/api/v1/public/entry-offerings",
     "/api/v1/public/sponsor-logos",
+    "/api/v1/public/goods",
+    "/api/v1/public/goods/:goods_ref",
     "/api/v1/self/principal",
     "/api/v1/self/profile",
     "/api/v1/self/profile/provision",
@@ -678,6 +683,12 @@ describe("TC-TST-OBS-001-001 completion log and http_route (TST-OBS-001, SPEC-16
           ],
           ["API-PUB-005", "/api/v1/public/entry-offerings", "/api/v1/public/entry-offerings"],
           ["API-PUB-012", "/api/v1/public/sponsor-logos", "/api/v1/public/sponsor-logos"],
+          ["API-PUB-010", "/api/v1/public/goods", "/api/v1/public/goods"],
+          [
+            "API-PUB-011",
+            "/api/v1/public/goods/00000000-0000-4000-8000-000000000061",
+            "/api/v1/public/goods/:goods_ref",
+          ],
         ] as const
       ).map(([id, path, route]) => make(`public ${id} 200`, path, {}, "GET", route, 200)),
       make(
@@ -757,7 +768,7 @@ describe("TC-TST-OBS-001-001 completion log and http_route (TST-OBS-001, SPEC-16
       if (row.route !== "/") seenRoutes.add(row.route);
     }
     expect([...seenRoutes].sort()).toEqual([...ALLOWED_ROUTES].sort());
-    expect(ALLOWED_ROUTES).toHaveLength(26);
+    expect(ALLOWED_ROUTES).toHaveLength(28);
   });
 
   it("a route added after createApp is not in the registry and is logged as '/'", async () => {
@@ -1021,8 +1032,8 @@ describe("TC-DEV-API-002-002 route table and public surface of app.ts (DEV-API-0
     ["ALL", "/*"],
     ["ALL", "/api/v1/*"],
     ["ALL", "/api/v1/*"],
-    // PR-L2-3: the six public read routes are mounted first (mountRpcRoutes), each as a guard entry, a
-    // query validator entry and a handler entry, in the order API-PUB-001, 002, 003, 004, 005, 012.
+    // PR-L2-3 / PR-GK-4: the eight public read routes are mounted first (mountRpcRoutes), each as a guard entry, a
+    // query validator entry and a handler entry, in the order API-PUB-001, 002, 003, 004, 005, 012, 010, 011.
     ...[
       "/api/v1/public/event",
       "/api/v1/public/faqs",
@@ -1030,6 +1041,8 @@ describe("TC-DEV-API-002-002 route table and public surface of app.ts (DEV-API-0
       "/api/v1/public/announcements/:announcement_ref",
       "/api/v1/public/entry-offerings",
       "/api/v1/public/sponsor-logos",
+      "/api/v1/public/goods",
+      "/api/v1/public/goods/:goods_ref",
     ].flatMap((path) => [
       ["GET", path],
       ["GET", path],
@@ -1099,7 +1112,7 @@ describe("TC-DEV-API-002-002 route table and public surface of app.ts (DEV-API-0
     expect(routesOf(fullRig())).toEqual([...MIDDLEWARE_AND_RPC, ...authRoutes, ...HEALTH]);
   });
 
-  it("no staff, admin or webhook path, no public path but the six public read paths and no self path other than principal and profile is mounted", () => {
+  it("no staff, admin or webhook path, no public path but the eight public read paths and no self path other than principal and profile is mounted", () => {
     const publicReadPaths = [
       "/api/v1/public/event",
       "/api/v1/public/faqs",
@@ -1107,6 +1120,8 @@ describe("TC-DEV-API-002-002 route table and public surface of app.ts (DEV-API-0
       "/api/v1/public/announcements/:announcement_ref",
       "/api/v1/public/entry-offerings",
       "/api/v1/public/sponsor-logos",
+      "/api/v1/public/goods",
+      "/api/v1/public/goods/:goods_ref",
     ];
     for (const r of [minimalRig(), fullRig()]) {
       for (const [method, path] of routesOf(r) as [string, string][]) {

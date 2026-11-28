@@ -58,7 +58,8 @@ describe("TC-DEV-TS-010-002 canonical state constants", () => {
     // sales state (SPEC-110 section 26.1 API-PUB-005): evaluatePublicEntryAvailability at runtime, plus the
     // types PublicEntryUnavailableReason, PublicEntryAvailability and PublicEntryAvailabilityInput. PR-L1-2a
     // adds the purchase eligibility (SPEC-110 API-PUR-ELG-001: PURCHASE_REASONS, evaluatePurchaseEligibility)
-    // and the Order Purpose (BR-ORD-013: deriveOrderPurpose).
+    // and the Order Purpose (BR-ORD-013: deriveOrderPurpose). PR-GK-4 adds the public sales state under the
+    // name used for Goods too (SPEC-110 section 26.2 API-PUB-GDS-003): evaluatePublicSaleAvailability.
     expect(Object.keys(domain).sort()).toEqual(
       [
         ...Object.keys(canonical),
@@ -66,6 +67,7 @@ describe("TC-DEV-TS-010-002 canonical state constants", () => {
         "deriveOrderPurpose",
         "DISPLAY_NAME_MAX_CODE_POINTS",
         "evaluatePublicEntryAvailability",
+        "evaluatePublicSaleAvailability",
         "evaluatePurchaseEligibility",
         "normalizeDisplayName",
         "PURCHASE_REASONS",

@@ -460,6 +460,10 @@ describe("TC-API-009-004 route registry and Rate Limit class of the six public r
     "API-PUB-004": "/api/v1/public/announcements/:announcement_ref",
     "API-PUB-005": "/api/v1/public/entry-offerings",
     "API-PUB-012": "/api/v1/public/sponsor-logos",
+    // PR-GK-4 (SPEC-110 §26.2, UCR-110-015): the two Goods reads are registered after API-PUB-012. These
+    // expectations changed by the specification; the six Operations above are unchanged.
+    "API-PUB-010": "/api/v1/public/goods",
+    "API-PUB-011": "/api/v1/public/goods/:goods_ref",
   };
 
   it("registers the six routes as GET with their Operation ID and class public_read, once each, in ROUTES", () => {
@@ -476,7 +480,7 @@ describe("TC-API-009-004 route registry and Rate Limit class of the six public r
 
   it("none has resource references (no Stage 3 rule: API-RLC-005) and no other public path or method is registered", () => {
     const publicRoutes = ROUTES.filter((r) => r.path.startsWith("/api/v1/public"));
-    expect(publicRoutes).toHaveLength(6);
+    expect(publicRoutes).toHaveLength(8); // the six of PR-L2-3 and the two Goods reads of PR-GK-4
     for (const route of publicRoutes) expect(route).not.toHaveProperty("resourceReferences");
     expect(ROUTES.filter((r) => r.path.startsWith("/api/v1/public") && r.method !== "GET")).toEqual(
       [],
@@ -511,7 +515,7 @@ describe("TC-API-009-004 route registry and Rate Limit class of the six public r
       "/api/v1/public/",
       "/api/v1/public/events",
       "/api/v1/public/announcements/a/b",
-      "/api/v1/public/goods",
+      "/api/v1/public/goods/a/b",
       "/api/v1/public/karaoke/sales",
     ])
       expect(classifyRequest("GET", path), path).toBeUndefined();

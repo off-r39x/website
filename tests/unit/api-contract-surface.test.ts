@@ -9,6 +9,7 @@ import {
   emptyPublicQuerySchema,
   errorSchema,
   errorStatuses,
+  goodsRefParamSchema,
   type PrincipalNavigation,
   principalNavigationSchema,
   provisionCurrentProfileRequestSchema,
@@ -17,6 +18,8 @@ import {
   publicEntryOfferingListSchema,
   publicEventSchema,
   publicFaqListSchema,
+  publicGoodsListSchema,
+  publicGoodsSchema,
   publicSponsorLogoListSchema,
   successSchema,
   type UpdateCurrentProfileRequest,
@@ -31,6 +34,7 @@ import {
   announcementListDtos,
   eventDto,
   faqDtos,
+  goodsDtos,
   logoDtos,
   offeringDtos,
 } from "../harness/api/public-read.ts";
@@ -170,6 +174,10 @@ function buildPublicReadApp(requestId: () => string = () => REQUEST_ID) {
     announcement: { load: async (_c: Context<Env>) => announcementDetailDto() },
     entryOfferings: { load: async (_c: Context<Env>) => ({ items: offeringDtos() }) },
     sponsorLogos: { load: async (_c: Context<Env>) => ({ items: logoDtos() }) },
+    goods: { load: async (_c: Context<Env>) => ({ items: goodsDtos() }) },
+    goodsDetail: {
+      load: async (_c: Context<Env>) => goodsDtos()[0] as ReturnType<typeof goodsDtos>[number],
+    },
   });
 }
 const PUBLIC_READ_PATHS = [
@@ -182,6 +190,8 @@ const PUBLIC_READ_PATHS = [
   ],
   ["/api/v1/public/entry-offerings", () => ({ items: offeringDtos() })],
   ["/api/v1/public/sponsor-logos", () => ({ items: logoDtos() })],
+  ["/api/v1/public/goods", () => ({ items: goodsDtos() })],
+  ["/api/v1/public/goods/00000000-0000-4000-8000-000000000061", () => goodsDtos()[0]],
 ] as const;
 
 describe("TC-DEV-API-002-001 public surface of @off-r39x/api-contract", () => {
@@ -189,7 +199,10 @@ describe("TC-DEV-API-002-001 public surface of @off-r39x/api-contract", () => {
   // schemas. The five earlier values are unchanged. S0-3b: SPEC-110 section 12 / 48.3 list schemas
   // (listDataSchema, listQuerySchema, pageQuery) are added (a change by the specification).
   // L2-1b adds provisionCurrentProfileRequestSchema (API-AUTH-003, SPEC-110 §25).
-  it("exports exactly the twenty-one runtime values", async () => {
+  // PR-GK-4 C1: API-PUB-010 / 011 (SPEC-110 section 26.2, UCR-110-015) add goodsRefParamSchema,
+  // publicGoodsSchema and publicGoodsListSchema to the runtime surface and the two Goods routes to the
+  // public read builder (after API-PUB-012). These expectations changed by the specification.
+  it("exports exactly the twenty-four runtime values", async () => {
     const surface = await import("@off-r39x/api-contract");
     expect(Object.keys(surface).sort()).toEqual([
       "announcementRefParamSchema",
@@ -200,6 +213,7 @@ describe("TC-DEV-API-002-001 public surface of @off-r39x/api-contract", () => {
       "errorRetryable",
       "errorSchema",
       "errorStatuses",
+      "goodsRefParamSchema",
       "listDataSchema",
       "listQuerySchema",
       "pageQuery",
@@ -210,6 +224,8 @@ describe("TC-DEV-API-002-001 public surface of @off-r39x/api-contract", () => {
       "publicEntryOfferingListSchema",
       "publicEventSchema",
       "publicFaqListSchema",
+      "publicGoodsListSchema",
+      "publicGoodsSchema",
       "publicSponsorLogoListSchema",
       "successSchema",
       "updateCurrentProfileRequestSchema",
@@ -223,6 +239,9 @@ describe("TC-DEV-API-002-001 public surface of @off-r39x/api-contract", () => {
       publicEventSchema,
       publicFaqListSchema,
       publicSponsorLogoListSchema,
+      goodsRefParamSchema,
+      publicGoodsSchema,
+      publicGoodsListSchema,
     ])
       expect(typeof schema.safeParse).toBe("function");
     expect(currentProfileSchema.safeParse(PROFILE).success).toBe(true);
@@ -285,6 +304,8 @@ describe("TC-DEV-API-002-001 public surface of @off-r39x/api-contract", () => {
     expectTypeOf(client.api.v1.public.announcements[":announcement_ref"].$get).toBeFunction();
     expectTypeOf(client.api.v1.public["entry-offerings"].$get).toBeFunction();
     expectTypeOf(client.api.v1.public["sponsor-logos"].$get).toBeFunction();
+    expectTypeOf(client.api.v1.public.goods.$get).toBeFunction();
+    expectTypeOf(client.api.v1.public.goods[":goods_ref"].$get).toBeFunction();
     expectTypeOf(client.api.v1.self.profile.provision.$post).toBeFunction();
   });
 
@@ -303,7 +324,7 @@ describe("TC-DEV-API-002-001 public surface of @off-r39x/api-contract", () => {
     ]);
   });
 
-  it("createPublicReadRpc registers only GET on the six public read paths (guard, query validator and handler entries each), in the order of the Operation IDs", () => {
+  it("createPublicReadRpc registers only GET on the eight public read paths (guard, query validator and handler entries each), API-PUB-001..005 and 012, then the Goods 010 and 011", () => {
     const entries = buildPublicReadApp().routes.map(({ method, path }) => [method, path]);
     expect(entries).toEqual(
       [
@@ -313,6 +334,8 @@ describe("TC-DEV-API-002-001 public surface of @off-r39x/api-contract", () => {
         "/api/v1/public/announcements/:announcement_ref",
         "/api/v1/public/entry-offerings",
         "/api/v1/public/sponsor-logos",
+        "/api/v1/public/goods",
+        "/api/v1/public/goods/:goods_ref",
       ].flatMap((path) => [
         ["GET", path],
         ["GET", path],
