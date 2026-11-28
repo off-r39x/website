@@ -11,6 +11,7 @@ import { createServer } from "node:net";
 import { Client, Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, createPublicContentRepository } from "../../packages/db/src/index.ts";
+import { withFixedStatementClock } from "../harness/db/fixed-statement-clock.ts";
 import { prepareFoundationDatabase } from "../harness/db/foundation.ts";
 import {
   dbNow,
@@ -32,6 +33,8 @@ const DAY = 86_400_000;
 const iso = (ms: number) => new Date(ms).toISOString();
 
 let admin: Client;
+let runtimeHref: string;
+let ca: string;
 let runtime: ReturnType<typeof createDatabase>;
 let repo: ReturnType<typeof createPublicContentRepository>;
 
@@ -43,11 +46,13 @@ beforeAll(async () => {
   runtimeUrl.username = "app_api_runtime";
   runtimeUrl.password = "";
   runtimeUrl.search = "";
+  runtimeHref = runtimeUrl.href;
+  ca = await readFile(caPath as string, "utf8");
   runtime = createDatabase({
-    connectionString: runtimeUrl.href,
+    connectionString: runtimeHref,
     environment: "test",
     service: "api",
-    ca: await readFile(caPath as string, "utf8"),
+    ca,
   });
   repo = createPublicContentRepository(runtime.pool);
 });
@@ -204,6 +209,52 @@ describe("TC-API-010-004 listGoods (API-PUB-010, API-PUB-GDS-001, API-PUB-GDS-00
       [ref(0x67), true, false],
       [ref(0x68), false, true],
     ]);
+  });
+
+  it("the start is included and the end is not, judged against the statement's own statement_timestamp() to the microsecond (fixed statement clock; no millisecond rounding)", async () => {
+    // The statement judges at CLOCK (sub-millisecond digits, so that rounding or truncating to milliseconds
+    // moves CLOCK and CLOCK + 1 microsecond to the same value and changes an answer below).
+    const CLOCK = "2030-06-15T12:00:00.000500Z";
+    const AT = CLOCK;
+    const AFTER = "2030-06-15T12:00:00.000501Z";
+    const BEFORE = "2030-06-15T12:00:00.000499Z";
+    const eventId = await oneEvent();
+    const rows = [
+      // [ref, startsAt, endsAt, expected salesNotStarted, expected salesClosed]
+      [ref(0x6b), AT, AFTER, false, false], // starts exactly now: started (start included); ends 1 µs later
+      [ref(0x6c), AFTER, "2030-06-16T00:00:00.000000Z", true, false], // starts 1 µs later: not started
+      [ref(0x6d), BEFORE, "2030-06-16T00:00:00.000000Z", false, false], // started 1 µs ago
+      [ref(0x6e), "2030-06-14T00:00:00.000000Z", AT, false, true], // ends exactly now: closed (end excluded)
+      [ref(0x6f), "2030-06-14T00:00:00.000000Z", BEFORE, false, true], // ended 1 µs ago: closed
+    ] as const;
+    for (const [index, [goodsRef, startsAt, endsAt]] of rows.entries())
+      await insertGoods(admin, eventId, {
+        createdAt: `2030-01-0${index + 1}T00:00:00.000Z`,
+        ref: goodsRef,
+        name: `Synthetic goods boundary ${index}`,
+        startsAt,
+        endsAt,
+        inventory: { capacity: 10 },
+      });
+    await withFixedStatementClock(
+      { admin, runtimeUrl: runtimeHref, ca, instant: CLOCK },
+      async (pool) => {
+        const clocked = createPublicContentRepository(pool);
+        const list = await clocked.listGoods();
+        if (list.status !== "ok") throw new Error(`unexpected ${list.status}`);
+        expect(
+          list.items.map((row) => [row.publicRef, row.salesNotStarted, row.salesClosed]),
+        ).toEqual(rows.map(([goodsRef, , , notStarted, closed]) => [goodsRef, notStarted, closed]));
+        for (const [goodsRef, , , notStarted, closed] of rows) {
+          const detail = await clocked.readGoods(goodsRef);
+          if (detail.status !== "found") throw new Error(`unexpected ${detail.status}`);
+          expect([detail.goods.salesNotStarted, detail.goods.salesClosed], goodsRef).toEqual([
+            notStarted,
+            closed,
+          ]);
+        }
+      },
+    );
   });
 
   it("a Goods without an Inventory row is still read with hasRemainingCapacity null (never skipped, never guessed; API-PUB-GDS-004)", async () => {

@@ -35750,15 +35750,15 @@
       "system_invariant_ids": ["INV-010-08"],
       "api_operation_ids": ["API-PUB-010", "API-PUB-011"],
       "db_constraint_names": [],
-      "preconditions": "Real PostgreSQL 17 (TEST_DATABASE_URL, TEST_DATABASE_CA, own database per file); migrations applied; synthetic goods / goods_inventory rows inserted by the setup identity; reads run as app_api_runtime over verified TLS; fails, never skips, without the settings; the Goods rows are positioned relative to the database clock by a day",
+      "preconditions": "Real PostgreSQL 17 (TEST_DATABASE_URL, TEST_DATABASE_CA, own database per file); migrations applied; synthetic goods / goods_inventory rows inserted by the setup identity; reads run as app_api_runtime over verified TLS; fails, never skips, without the settings; the Goods rows are positioned relative to the database clock by a day; the period boundary case reads through a pool whose search_path resolves statement_timestamp() to a fixed instant (tests/harness/db/fixed-statement-clock.ts, checked before use)",
       "fixture_ids": [],
-      "clock_instant": null,
+      "clock_instant": "DB time: statement_timestamp() of the read statement; the period boundary case fixes it at 2030-06-15T12:00:00.000500Z through the pool's search_path, no JavaScript clock",
       "concurrency_seed": null,
       "fault_points": ["FP.DB.BEFORE_TRANSACTION"],
       "expected_http": null,
       "expected_domain_postconditions": [
         "listGoods returns every Goods of the single Event (SUSPENDED, out of period, zero and exhausted stock) in created_at ASC, public_ref ASC order with hasRemainingCapacity = saleable_capacity - held - committed > 0, unit_amount as a lossless string, description null kept and UTC ISO times with milliseconds; no counter value or key leaves the repository",
-        "salesNotStarted / salesClosed are statement_timestamp() < start / >= end, compared in timestamptz (a microsecond ahead is not started, a microsecond past is closed)",
+        "salesNotStarted / salesClosed are statement_timestamp() < start / >= end, compared in timestamptz (a microsecond ahead is not started, a microsecond past is closed); against the fixed statement clock, for the list and the detail, a start equal to it is started and one a microsecond after is not, an end equal to it or a microsecond before is closed and one a microsecond after is not (an inclusive start, an exclusive end and no millisecond rounding)",
         "A Goods without an Inventory row is read with hasRemainingCapacity null (not skipped); no Event and no Goods are ok with no items; two Events are multiple_events with no row",
         "readGoods finds each Goods of the list with the same row (SUSPENDED included), not_found for an unknown ref or no Event, multiple_events with two Events; the ref is a bound parameter",
         "An unreachable database is { status: 'unavailable' } for both reads"
