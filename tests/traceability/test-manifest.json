@@ -33237,7 +33237,7 @@
       ],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "Independent real PG17 database with every migration applied; runtime pools of app_api_runtime, app_email_runtime and app_reconciliation_runtime over verified TLS; plan U-4: no mounted Operation uses the seven tables yet, so no grant is expected",
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator (0011 included); the app_api_runtime, app_email_runtime and app_reconciliation_runtime pools connect over verified TLS with the test CA; the expected privileges are the hand-written constants of tests/harness/db/purchase-runtime-grants.ts (PR-L1-2c0), never read from the live database",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
@@ -33245,8 +33245,9 @@
       "expected_http": null,
       "expected_domain_postconditions": [],
       "expected_db_postconditions": [
-        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the seven tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the seven identity sequences",
-        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE by the three runtime pools are refused with 42501 on all seven tables"
+        "app_api_runtime has table-level SELECT only (INSERT included in the other seven privileges: false) on orders, order_items and entry_sales_allocations, and column-level INSERT on exactly the plan's columns of those three tables; checkout_attempts, payment_bindings, webhook_receipts and refund_records are false for every privilege; app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC hold nothing on any of the seven tables; has_column_privilege over every column of the seven tables, four roles and PUBLIC differs from the plan in no case",
+        "The column ACLs of the seven tables are exactly the app_api_runtime INSERT columns of the three tables; the table ACLs name app_migrator and app_api_runtime SELECT (three tables) or app_migrator only (four tables) with no grant option; no runtime role may use the seven identity sequences",
+        "app_api_runtime SELECT succeeds on the three tables; its UPDATE, DELETE, TRUNCATE and an INSERT naming an ungranted column are 42501, and its granted columns alone reach NOT NULL (23502); every statement of the other two runtime pools and every statement on the four other tables is 42501"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
@@ -33860,7 +33861,7 @@
       ],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "Independent real PG17 database with every migration applied; runtime pools of app_api_runtime, app_email_runtime and app_reconciliation_runtime over verified TLS; plan U-4: no mounted Operation uses the four tables yet, so no grant is expected",
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator (0011 included); the app_api_runtime, app_email_runtime and app_reconciliation_runtime pools connect over verified TLS with the test CA; the expected privileges are the hand-written constants of tests/harness/db/purchase-runtime-grants.ts (PR-L1-2c0), never read from the live database; a Karaoke purchase is not mounted, so no INSERT or UPDATE is granted on the Karaoke tables",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
@@ -33868,8 +33869,8 @@
       "expected_http": null,
       "expected_domain_postconditions": [],
       "expected_db_postconditions": [
-        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the four tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the four identity sequences",
-        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE by the three runtime pools are refused with 42501 on all four tables"
+        "app_api_runtime has table-level SELECT only on karaoke_holds and karaoke_reservations; karaoke_tickets and karaoke_checkins are false for every privilege; app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC hold nothing on the four tables; no column has an ACL; the table ACLs name app_migrator and app_api_runtime SELECT (two tables) or app_migrator only (two tables); no runtime role may use the four identity sequences",
+        "app_api_runtime SELECT succeeds on karaoke_holds and karaoke_reservations; its INSERT naming a column, UPDATE, DELETE and TRUNCATE are 42501; every statement of the other two runtime pools and every statement on karaoke_tickets and karaoke_checkins is 42501"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
@@ -34201,7 +34202,7 @@
       ],
       "api_operation_ids": [],
       "db_constraint_names": [],
-      "preconditions": "Independent real PG17 database with every migration applied by app_migrator; the app_api_runtime, app_email_runtime and app_reconciliation_runtime pools connect over verified TLS with the test CA",
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator (0011 included); the app_api_runtime, app_email_runtime and app_reconciliation_runtime pools connect over verified TLS with the test CA; the expected privileges are the hand-written constants of tests/harness/db/purchase-runtime-grants.ts (PR-L1-2c0), never read from the live database",
       "fixture_ids": [],
       "clock_instant": null,
       "concurrency_seed": null,
@@ -34209,8 +34210,9 @@
       "expected_http": null,
       "expected_domain_postconditions": [],
       "expected_db_postconditions": [
-        "has_table_privilege is false for every privilege of app_api_runtime, app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC on the three tables; the table ACLs name only app_migrator, no column has an ACL and no runtime role may use the two identity sequences",
-        "SELECT, INSERT, UPDATE, DELETE and TRUNCATE from the three runtime pools are 42501 on every table"
+        "app_api_runtime has table-level SELECT only on goods_order_items and goods_sales_allocations and column-level INSERT on exactly the plan's columns of those two tables; goods_handoffs is false for every privilege; app_email_runtime, app_reconciliation_runtime, app_runtime and PUBLIC hold nothing on the three tables; has_column_privilege over every column of the three tables, four roles and PUBLIC differs from the plan in no case",
+        "The column ACLs of the three tables are exactly the app_api_runtime INSERT columns of the two tables; the table ACLs name app_migrator and app_api_runtime SELECT (two tables) or app_migrator only (goods_handoffs) with no grant option; no runtime role may use the two identity sequences",
+        "app_api_runtime SELECT succeeds on the two tables; its UPDATE, DELETE, TRUNCATE and an INSERT naming an ungranted column are 42501, and its granted columns alone reach NOT NULL (23502); every statement of the other two runtime pools and every statement on goods_handoffs is 42501"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [],
@@ -35248,6 +35250,42 @@
       "critical": true
     },
     {
+      "test_case_id": "TC-SEC-DB-001-008",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "SEC-DB-001",
+        "SEC-DB-002",
+        "SEC-DB-003",
+        "DB-FK-004",
+        "DB-TIM-002",
+        "SPEC-100-53",
+        "SPEC-180-22.2"
+      ],
+      "system_invariant_ids": [
+        "INV-010-08"
+      ],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database with every migration applied by app_migrator (0011 included); the app_api_runtime, app_email_runtime and app_reconciliation_runtime pools connect over verified TLS with the test CA; synthetic Business Profile, Event, Entry Offering, Goods and Goods Inventory rows created by the administrator connection; the expected privileges are the hand-written constants of tests/harness/db/purchase-runtime-grants.ts",
+      "fixture_ids": [],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [],
+      "expected_db_postconditions": [
+        "0011 is exactly six GRANT statements to app_api_runtime (one table-level SELECT on seven tables, five column-level INSERTs) with no PUBLIC, other role, sequence, ALL, grant option, UPDATE, DELETE, DDL or REVOKE, and follows 0010_cross_functional in the journal",
+        "The live table, column and any-column privileges of the four runtime roles and PUBLIC on the seven tables equal the plan with no difference; the column ACLs are exactly the plan's INSERT columns; the table ACLs name app_migrator and app_api_runtime SELECT only; no sequence of the seven tables is usable by any role; the seven tables 0011 does not touch (and the two 0010 tables) stay false for every privilege; the live catalog still equals schema-contract.json exactly",
+        "An app_api_runtime transaction inserts an Entry order (orders, order_items, entry_sales_allocations), a Goods order (orders, order_items, goods_order_items, goods_sales_allocations) and an Entry + Goods order with the granted columns only; public_ref is a v4 UUID, created_at, updated_at and held_at equal transaction_timestamp(), line_total_amount is unit amount times quantity, confirmed_at, terminal_at, committed_at and released_at are NULL; all seven tables can be read in that transaction; after ROLLBACK the row counts of every app table are unchanged",
+        "An INSERT naming one ungranted column (each of the plan's columns on the five tables, and one column of karaoke_holds and karaoke_reservations) is 42501 and adds no row, while the granted columns alone reach NOT NULL (23502); app_api_runtime UPDATE, DELETE, TRUNCATE, FOR UPDATE, FOR NO KEY UPDATE, FOR SHARE and FOR KEY SHARE on the seven tables are 42501; every statement of app_email_runtime and app_reconciliation_runtime on the seven tables is 42501"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
       "test_case_id": "TC-INF-HLT-006-016",
       "level": "DB",
       "suite": "db",
@@ -35275,6 +35313,42 @@
       "expected_db_postconditions": [
         "SPEC-170 section 22 item 8: every table that existed before 0010 keeps exactly its rows, ids and values; the only new tables are the two of 0010 and they are empty",
         "Before 0010 the old build is Ready with an exact catalog; after 0010 the journal has one row beyond the old set, the exact comparison no longer holds but containment does, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
+      ],
+      "expected_provider_postconditions": [],
+      "expected_observability": [
+        "No readiness fail-closed event"
+      ],
+      "sensitivity_class": "synthetic",
+      "critical": true
+    },
+    {
+      "test_case_id": "TC-INF-HLT-006-017",
+      "level": "DB",
+      "suite": "db",
+      "upstream_rule_ids": [
+        "INF-HLT-006",
+        "SPEC-170-22-9",
+        "REL-DB-012",
+        "INF-RBK-002",
+        "DB-MIG-003"
+      ],
+      "system_invariant_ids": [],
+      "api_operation_ids": [],
+      "db_constraint_names": [],
+      "preconditions": "Independent real PG17 database in UTC and READ COMMITTED; only the repository migrations up to 0010_cross_functional applied (the build released before 0011); synthetic history committed under 0010 before 0011 runs (the 0009 history of TC-INF-HLT-006-016 plus a Notification Request and a Consistency Review Case); readiness evaluated from a temporary directory holding those migrations, with the fixed 0010 required catalog fixture (asserted equal to the old live catalog); then 0011, and no later migration, applied by runMigrations from a temporary directory holding the migrations up to 0011",
+      "fixture_ids": [
+        "tests/fixtures/db/required-catalog-0010.json"
+      ],
+      "clock_instant": null,
+      "concurrency_seed": null,
+      "fault_points": [],
+      "expected_http": null,
+      "expected_domain_postconditions": [
+        "No business mutation"
+      ],
+      "expected_db_postconditions": [
+        "SPEC-170 section 22 item 8: every table keeps exactly its rows, ids and values after 0011; no table is added; app_api_runtime can read orders only after 0011",
+        "Before and after 0011 the live catalog equals the 0010 fixture exactly (0011 holds no DDL and the required catalog records no ACL); after 0011 the journal has one row beyond the old set, and the old build is Ready with no failures for the setup, API and Reconciliation identities"
       ],
       "expected_provider_postconditions": [],
       "expected_observability": [

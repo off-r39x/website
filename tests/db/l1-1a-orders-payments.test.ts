@@ -32,6 +32,17 @@ import {
   WEBHOOK_PROCESSING_STATES,
   WEBHOOK_RECEIPTS,
 } from "../harness/db/orders-payments-golden.ts";
+import {
+  ALL_RUNTIME_ROLES,
+  columnAclEntries,
+  expectedColumnAclEntries,
+  expectedTableAclOthers,
+  expectRuntimePoolBehavior,
+  grantedInsertStatement,
+  PURCHASE_API_INSERT_COLUMNS,
+  privilegeMismatches,
+  tableAcl,
+} from "../harness/db/purchase-runtime-grants.ts";
 
 // PR-L1-1a C1: the seven Order / payment tables of migration 0006 (app.orders, app.order_items,
 // app.entry_sales_allocations, app.checkout_attempts, app.payment_bindings, app.webhook_receipts and
@@ -2184,65 +2195,30 @@ describe("TC-DB-FK-002-003 the Order / payment foreign keys restrict deletes and
 
 // ---- TC-SEC-DB-001-003 --------------------------------------------------------------------------
 
-describe("TC-SEC-DB-001-003 no runtime role has any privilege on the seven tables yet (plan U-4, real PostgreSQL 17)", () => {
-  const PRIVILEGES = [
-    "SELECT",
-    "INSERT",
-    "UPDATE",
-    "DELETE",
-    "TRUNCATE",
-    "REFERENCES",
-    "TRIGGER",
-    "MAINTAIN",
-  ] as const;
-  const ROLES = [
-    "app_api_runtime",
-    "app_email_runtime",
-    "app_reconciliation_runtime",
-    "app_runtime",
-  ] as const;
+// PR-L1-2c0 (0011) grants these privileges to app_api_runtime; the expectation changes with the grant, not with the
+// implementation. The expected sets are the hand-written ones of tests/harness/db/purchase-runtime-grants.ts, never
+// read from the live database. checkout_attempts, payment_bindings, webhook_receipts and refund_records stay closed to every runtime role.
+describe("TC-SEC-DB-001-003 app_api_runtime has the 0011 grants on orders, order_items and entry_sales_allocations and nothing else; the other runtime roles and PUBLIC have no privilege on the seven Order / payment tables (SEC-DB-001..003, real PostgreSQL 17)", () => {
+  const tables = GOLDEN_TABLES.map((g) => ({
+    table: g.table,
+    columns: g.columns.map((column) => column[0]),
+  }));
+  const names = tables.map((entry) => entry.table);
 
-  it("TC-SEC-DB-001-003 has_table_privilege is false for every privilege of the four runtime roles and PUBLIC on all seven tables", async () => {
-    for (const table of ORDER_PAYMENT_TABLES) {
-      for (const role of [...ROLES, "public"]) {
-        for (const privilege of PRIVILEGES) {
-          expect(
-            (
-              await admin.query("SELECT has_table_privilege($1, $2, $3) AS allowed", [
-                role,
-                `app.${table}`,
-                privilege,
-              ])
-            ).rows[0].allowed,
-            `${role} ${privilege} ${table}`,
-          ).toBe(false);
-        }
-      }
-    }
+  it("TC-SEC-DB-001-003 has_table_privilege, has_any_column_privilege and has_column_privilege of the four runtime roles and PUBLIC equal the plan on every table and column (no difference)", async () => {
+    expect(names.length).toBeGreaterThan(0);
+    expect(await privilegeMismatches(admin, tables)).toEqual([]);
   });
 
-  it("TC-SEC-DB-001-003 the table ACLs name only app_migrator, no column has an ACL, and no role may use the seven identity sequences", async () => {
-    const withAcl = (
-      await admin.query(
-        `SELECT c.relname || '.' || a.attname AS column_name
-           FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'app' AND c.relname = ANY($1) AND a.attnum > 0 AND NOT a.attisdropped AND a.attacl IS NOT NULL`,
-        [[...ORDER_PAYMENT_TABLES]],
-      )
-    ).rows;
-    expect(withAcl).toEqual([]);
-    for (const table of ORDER_PAYMENT_TABLES) {
-      const grantees = (
-        await admin.query(
-          `SELECT DISTINCT CASE WHEN e.grantee = 0 THEN 'PUBLIC' ELSE pg_get_userbyid(e.grantee) END AS grantee
-             FROM pg_class c, aclexplode(c.relacl) e WHERE c.oid = $1::regclass`,
-          [`app.${table}`],
-        )
-      ).rows.map((r) => r.grantee);
-      expect(grantees, table).toEqual(["app_migrator"]);
+  it("TC-SEC-DB-001-003 the column ACLs hold only the app_api_runtime INSERT columns of the plan, the table ACLs name app_migrator and the plan's SELECT grant only, and no role may use the seven identity sequences", async () => {
+    expect(await columnAclEntries(admin, names)).toEqual(expectedColumnAclEntries(names));
+    for (const table of names) {
+      const acl = await tableAcl(admin, table);
+      expect(acl.ownerPresent, `${table}: owner ACL`).toBe(true);
+      expect(acl.others, table).toEqual(expectedTableAclOthers(table));
     }
     for (const sequence of ORDER_PAYMENT_SEQUENCES)
-      for (const role of ROLES)
+      for (const role of ALL_RUNTIME_ROLES)
         expect(
           (
             await admin.query(
@@ -2254,23 +2230,18 @@ describe("TC-SEC-DB-001-003 no runtime role has any privilege on the seven table
         ).toBe(false);
   });
 
-  it("TC-SEC-DB-001-003 the three runtime pools are refused SELECT, INSERT, UPDATE, DELETE and TRUNCATE on all seven tables with 42501", async () => {
-    for (const [role] of RUNTIME_SERVICES) {
-      const pool = poolOf(role);
-      for (const golden of GOLDEN_TABLES) {
-        const column = golden.columns[1]?.[0] as string;
-        for (const statement of [
-          `SELECT 1 FROM app.${golden.table}`,
-          `INSERT INTO app.${golden.table} DEFAULT VALUES`,
-          `UPDATE app.${golden.table} SET ${column} = ${column} WHERE false`,
-          `DELETE FROM app.${golden.table} WHERE false`,
-          `TRUNCATE app.${golden.table}`,
-        ]) {
-          await expect(pool.query(statement), `${role}: ${statement}`).rejects.toMatchObject({
-            code: "42501",
-          });
-        }
-      }
-    }
+  it("TC-SEC-DB-001-003 the runtime pools: SELECT succeeds only where granted; every other SELECT, INSERT, UPDATE, DELETE and TRUNCATE (and an INSERT naming an ungranted column) is refused with 42501", async () => {
+    await expectRuntimePoolBehavior(
+      (role) => poolOf(role as RuntimeRole),
+      GOLDEN_TABLES.map((g) => ({ table: g.table, updateColumn: g.columns[1]?.[0] as string })),
+    );
+    // Positive control: the granted columns alone pass the privilege check and stop at the first NOT NULL (23502).
+    for (const table of names.filter((name) => name in PURCHASE_API_INSERT_COLUMNS))
+      await expect(
+        poolOf("app_api_runtime").query(grantedInsertStatement(table)),
+        table,
+      ).rejects.toMatchObject({
+        code: "23502",
+      });
   });
 });
