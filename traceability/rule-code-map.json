@@ -3171,7 +3171,8 @@
         "packages/db/migrations/0007_karaoke_reservations.sql",
         "packages/db/migrations/0008_goods_fulfillment.sql",
         "packages/db/migrations/0009_entry_ticket_qr_checkin.sql",
-        "packages/db/migrations/0010_cross_functional.sql"
+        "packages/db/migrations/0010_cross_functional.sql",
+        "packages/db/migrations/0011_purchase_runtime_grants.sql"
       ],
       "test_case_ids": [
         "TC-SEC-DB-001-001",
@@ -3181,9 +3182,10 @@
         "TC-SEC-DB-001-004",
         "TC-SEC-DB-001-005",
         "TC-SEC-DB-001-006",
-        "TC-SEC-DB-001-007"
+        "TC-SEC-DB-001-007",
+        "TC-SEC-DB-001-008"
       ],
-      "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role); 0006 revokes every runtime privilege on the seven Order / payment tables and grants none (plan U-4); 0007 revokes every runtime privilege on the four Karaoke reservation tables and grants none (plan U-4); 0008 revokes every runtime privilege on the three Goods fulfillment tables and grants none (plan U-5); 0009 revokes every runtime privilege on the three Entry Ticket / QR / Check-in tables and grants none (plan U-5)"
+      "notes": "implementation mapping only: runtime role grants on the 0003 and 0004 tables and on app.idempotency_records (app_api_runtime SELECT / INSERT / UPDATE as needed; no DELETE or TRUNCATE for any runtime role); 0006 revokes every runtime privilege on the seven Order / payment tables and grants none (plan U-4); 0007 revokes every runtime privilege on the four Karaoke reservation tables and grants none (plan U-4); 0008 revokes every runtime privilege on the three Goods fulfillment tables and grants none (plan U-5); 0009 revokes every runtime privilege on the three Entry Ticket / QR / Check-in tables and grants none (plan U-5); 0011 grants app_api_runtime table-level SELECT on seven Order / Entry / Goods / Karaoke tables and column-level INSERT on five (PR-L1-2c0); no UPDATE, DELETE or TRUNCATE"
     },
     {
       "rule_id": "DB-KRK-001",
@@ -3406,7 +3408,8 @@
         "TC-INF-HLT-006-013",
         "TC-INF-HLT-006-014",
         "TC-INF-HLT-006-015",
-        "TC-INF-HLT-006-016"
+        "TC-INF-HLT-006-016",
+        "TC-INF-HLT-006-017"
       ],
       "notes": "Backward-compatible readiness: journal, catalog, journal read outside a transaction within the SPEC-150 55P03 budget; bundled migration set (byte order) is a prefix of the journal; required catalog contained in the live catalog only when the journal is ahead, exact otherwise; a required constraint validated after NOT VALID is accepted (UCR-180-003); catalog-reading connections fix IntervalStyle=postgres (the notation of the required catalog) with a startup option that overrides database and role defaults"
     },
